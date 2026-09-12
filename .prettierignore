@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.next/
+.wrangler/
+.sites-runtime/
+drizzle/
+components/ui/
+vendor/
+build/
+.env*
+.secrets/
+package-lock.json

@@ -45,3 +45,8 @@ next-env.d.ts
 /.codex/
 /outputs/
 /work/
+
+# Local credentials and test artifacts
+/.secrets/
+/playwright-report/
+/test-results/

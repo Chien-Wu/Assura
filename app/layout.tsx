@@ -3,7 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "LegalMate — Shift notes",
-  description: "Complete your shift note, review the details, and keep your handover in one place.",
+  description:
+    "Complete your shift note, review the details, and keep your handover in one place.",
   other: {
     "codex-preview": "development",
   },
