@@ -2,10 +2,11 @@
 
 import { ConversationProvider, useConversation } from "@elevenlabs/react";
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, PhoneOff, LoaderCircle, Check } from "lucide-react";
+import { Mic, MicOff, PhoneOff, LoaderCircle, Check, MessageSquare, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { checkForm, definitions, incidentOptions, followUpOptions, type ShiftNote } from "@/lib/shift-form";
-import { hasConfirmationPrompt, isVoiceConfirmation, type VoiceEvent } from "@/lib/voice-state";
+import { hasConfirmationPrompt, isVoiceConfirmation, type VoiceEvent, type ConversationMode } from "@/lib/voice-state";
 
 type Props={signedIn:boolean;disabled:boolean;note:ShiftNote|null;prepareDraft:()=>Promise<ShiftNote>;onSaved:(note:ShiftNote)=>void;onActive:(active:boolean)=>void};
 type Session={id:string;conversationId:string;note:ShiftNote;sequence:number;generation:number};
@@ -20,14 +21,27 @@ async function request<T>(path:string,body?:unknown,method=body===undefined?"GET
 }
 
 export default function VoicePanel(props:Props){
-  const [attempt,setAttempt]=useState({key:0,error:""});
-  return <ConversationProvider key={attempt.key}><VoiceControls {...props} initialError={attempt.error} onReset={error=>setAttempt(old=>old.key===attempt.key?{key:old.key+1,error}:old)}/></ConversationProvider>;
+  const [attempt,setAttempt]=useState({key:0,error:"",messages:[] as VoiceEvent[]});
+  const [selectedMode,setSelectedMode]=useState<ConversationMode>("text");
+  const [running,setRunning]=useState(false);
+  return <><div className="conversation-mode" role="group" aria-label="Conversation mode">
+    <Button variant="ghost" disabled={running} aria-pressed={selectedMode==="text"} onClick={()=>setSelectedMode("text")}><MessageSquare size={16}/>Text · Test mode</Button>
+    <Button variant="ghost" disabled={running} aria-pressed={selectedMode==="voice"} onClick={()=>setSelectedMode("voice")}><Mic size={16}/>Voice</Button>
+  </div><ConversationProvider key={attempt.key}><VoiceControls {...props} selectedMode={selectedMode} initialError={attempt.error} initialMessages={attempt.messages} onActive={value=>{setRunning(value);props.onActive(value);}} onReset={(error,messages)=>setAttempt(old=>old.key===attempt.key?{key:old.key+1,error,messages}:old)}/></ConversationProvider></>;
 }
-function VoiceControls({signedIn,disabled,note,prepareDraft,onSaved,onActive,initialError,onReset}:Props&{initialError:string;onReset:(error:string)=>void}){
+function VoiceControls({signedIn,disabled,note,prepareDraft,onSaved,onActive,initialError,initialMessages,selectedMode,onReset}:Props&{initialError:string;initialMessages:VoiceEvent[];selectedMode:ConversationMode;onReset:(error:string,messages:VoiceEvent[])=>void}){
+  const textOnly=selectedMode==="text";
   const [available,setAvailable]=useState<boolean|null>(null);
   const [phase,setPhase]=useState<"idle"|"starting"|"active"|"stopping">("idle");
   const [error,setError]=useState(initialError);
-  const [messages,setMessages]=useState<VoiceEvent[]>([]);
+  const [messages,setMessages]=useState<VoiceEvent[]>(initialMessages);
+  const history=useRef<VoiceEvent[]>(initialMessages);
+  const [input,setInput]=useState("");
+  const [sending,setSending]=useState(false);
+  const [waiting,setWaiting]=useState(false);
+  const sendLock=useRef(false);
+  const transcript=useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(transcript.current)transcript.current.scrollTop=transcript.current.scrollHeight;},[messages]);
   const [confirmReady,setConfirmReady]=useState(false);
   const active=useRef<Session|null>(null);
   const pending=useRef<Pending|null>(null);
@@ -65,7 +79,7 @@ function VoiceControls({signedIn,disabled,note,prepareDraft,onSaved,onActive,ini
         await sessionRequest(session,{action:"close"}).catch(()=>{});
         try{const result=await request<{note:ShiftNote}>(`/api/notes/${session.note.id}`);saved(session,result.note);}catch{}
       }
-      active.current=null;latest.current.onActive(false);onReset(message);
+      active.current=null;latest.current.onActive(false);onReset(message,history.current);
     })();
   }
   function stop(){finish();}
@@ -77,7 +91,7 @@ function VoiceControls({signedIn,disabled,note,prepareDraft,onSaved,onActive,ini
   }
   function markReady(){
     const session=active.current;const review=pending.current;
-    if(closing.current||!session||!review||review.ready||!review.sawSpeaking||!review.promptSequence)return;
+    if(closing.current||!session||!review||review.ready||(!textOnly&&!review.sawSpeaking)||!review.promptSequence)return;
     review.ready=true;
     void enqueue(session,()=>sessionRequest(session,{action:"readback",confirmationId:review.confirmationId,sequence:review.promptSequence}))
       .then(()=>{if(active.current===session&&pending.current===review)setConfirmReady(true);})
@@ -86,6 +100,31 @@ function VoiceControls({signedIn,disabled,note,prepareDraft,onSaved,onActive,ini
   function scheduleReady(){
     if(readinessTimer.current)clearTimeout(readinessTimer.current);
     readinessTimer.current=setTimeout(()=>{if(mode.current==="listening")markReady();},650);
+  }
+  function recordMessage(role:"user"|"agent",message:string,eventId?:number){
+    const session=active.current;if(!session||closing.current)return Promise.reject(new Error("This conversation has ended."));
+    const event:VoiceEvent={sequence:++session.sequence,kind:role,text:message,eventId};
+    history.current=[...history.current,event];setMessages(history.current);
+    const review=pending.current;
+    if(role==="agent"&&review&&hasConfirmationPrompt(message))review.promptSequence=event.sequence;
+    if(role==="user"&&review){
+      if(review.ready&&isVoiceConfirmation(message))review.confirmedSequence=event.sequence;
+      else clearPending();
+    }
+    return enqueue(session,()=>sessionRequest(session,{action:"event",event}));
+  }
+  async function sendText(){
+    const session=active.current;const message=input.trim();
+    if(!textOnly||!session||closing.current||sendLock.current||waiting||phase!=="active"||!message||note?.status==="complete"||(pending.current?.promptSequence&&!confirmReady))return;
+    sendLock.current=true;setSending(true);setError("");
+    try{
+      // Typed turns are not echoed locally by the SDK. Persist once before the
+      // Agent can act on them, including an explicit confirmation or correction.
+      await recordMessage("user",message);
+      if(closing.current||active.current!==session)return;
+      conversation.sendUserMessage(message);setInput("");setWaiting(true);
+    }catch(e){fatal(e instanceof Error?e.message:"Your message could not be sent. Start again to continue.");}
+    finally{sendLock.current=false;setSending(false);}
   }
   async function tool(name:string,params:Record<string,unknown>):Promise<string>{
     const session=active.current;if(!session||closing.current)throw new Error("No active LegalMate session. This conversation cannot save a form.");
@@ -126,50 +165,58 @@ function VoiceControls({signedIn,disabled,note,prepareDraft,onSaved,onActive,ini
   }
   const conversation=useConversation({
     clientTools:{get_form_context:params=>tool("get_form_context",params),update_and_check_form:params=>tool("update_and_check_form",params),prepare_confirmation:params=>tool("prepare_confirmation",params),finalize_form:params=>tool("finalize_form",params)},
-    onConnect:({conversationId})=>{if(closing.current)return;const session=active.current;if(!session){conversation.endSession();return;}if(conversationId!==session.conversationId){fatal("The voice session could not be verified. Start again.");return;}clearTimer();setPhase("active");},
+    onConnect:({conversationId})=>{if(closing.current)return;const session=active.current;if(!session){conversation.endSession();return;}if(conversationId!==session.conversationId){fatal("The conversation could not be verified. Start again.");return;}clearTimer();setPhase("active");},
     onMessage:({role,message,event_id})=>{
-      const session=active.current;if(!session||closing.current)return;
-      const event:VoiceEvent={sequence:++session.sequence,kind:role,text:message,eventId:event_id};
-      setMessages(items=>[...items,event].slice(-12));
-      const review=pending.current;
-      if(role==="agent"&&review&&hasConfirmationPrompt(message))review.promptSequence=event.sequence;
-      if(role==="user"&&review){
-        if(review.ready&&isVoiceConfirmation(message))review.confirmedSequence=event.sequence;
-        else clearPending();
-      }
-      void enqueue(session,()=>sessionRequest(session,{action:"event",event})).catch(e=>{if(active.current===session)fatal(e.message);});
-      if(role==="agent"&&mode.current==="listening")scheduleReady();
+      const session=active.current;if(!session||closing.current||(textOnly&&role==="user"))return;
+      if(role==="agent")setWaiting(false);
+      const persisted=recordMessage(role,message,event_id);
+      void persisted.then(()=>{
+        if(active.current!==session||closing.current)return;
+        if(textOnly&&role==="agent")markReady();
+        else if(role==="agent"&&mode.current==="listening")scheduleReady();
+      }).catch(e=>{if(active.current===session)fatal(e.message);});
     },
-    onModeChange:({mode:value})=>{if(closing.current)return;mode.current=value;const review=pending.current;if(value==="speaking"){if(readinessTimer.current)clearTimeout(readinessTimer.current);if(review)review.sawSpeaking=true;}else scheduleReady();},
+    onModeChange:({mode:value})=>{if(closing.current||textOnly)return;mode.current=value;const review=pending.current;if(value==="speaking"){if(readinessTimer.current)clearTimeout(readinessTimer.current);if(review)review.sawSpeaking=true;}else scheduleReady();},
     onInterruption:()=>invalidate(),onAgentResponseCorrection:()=>invalidate(),
-    onError:()=>{if(!closing.current)fatal("The voice connection stopped. Your saved draft is safe; end or restart the call to continue.");},
+    onError:()=>{if(!closing.current)fatal("The conversation stopped. Your saved draft is safe; start again to continue.");},
     onDisconnect:()=>finish(),
   });
   useEffect(()=>()=>{closing.current=true;clearTimer();if(readinessTimer.current)clearTimeout(readinessTimer.current);const session=active.current;active.current=null;generation.current++;if(session)void queue.current.then(()=>sessionRequest(session,{action:"close"})).catch(()=>{});},[]);
   function start(){
-    if(locked.current||disabled||!signedIn)return;locked.current=true;closing.current=false;const run=++generation.current;setPhase("starting");setError("");setMessages([]);clearPending();latest.current.onActive(true);
+    if(locked.current||disabled||!signedIn)return;locked.current=true;closing.current=false;const run=++generation.current;setPhase("starting");setError("");setMessages([]);history.current=[];setWaiting(false);clearPending();latest.current.onActive(true);
     startup.current=Promise.resolve().then(async()=>{
     try{
       // Permission is requested only after the worker presses Start voice note.
-      const permission=await navigator.mediaDevices.getUserMedia({audio:true});permission.getTracks().forEach(track=>track.stop());
+      if(!textOnly){const permission=await navigator.mediaDevices.getUserMedia({audio:true});permission.getTracks().forEach(track=>track.stop());}
       if(run!==generation.current)return;
       const draft=await latest.current.prepareDraft();
       if(run!==generation.current)return;
-      const data=await request<{sessionId:string;conversationId:string;conversationToken:string}>("/api/voice/sessions",{noteId:draft.id});
+      const data=await request<{sessionId:string;conversationId:string;conversationToken?:string;signedUrl?:string}>("/api/voice/sessions",{noteId:draft.id,mode:selectedMode});
       if(run!==generation.current){await request(`/api/voice/sessions/${data.sessionId}`,{action:"close"}).catch(()=>{});return;}
       active.current={id:data.sessionId,conversationId:data.conversationId,note:draft,sequence:0,generation:run};queue.current=Promise.resolve();
-      startupTimer.current=setTimeout(()=>{if(generation.current===run)fatal("The voice connection took too long. Please try again.");},25000);
-      conversation.startSession({conversationToken:data.conversationToken,connectionType:"webrtc"});
+      startupTimer.current=setTimeout(()=>{if(generation.current===run)fatal("The conversation took too long. Please try again.");},25000);
+      if(textOnly){
+        if(!data.signedUrl)throw new Error("The text connection is unavailable. Please try again.");
+        conversation.startSession({signedUrl:data.signedUrl,connectionType:"websocket",textOnly:true});
+      }else{
+        if(!data.conversationToken)throw new Error("The voice connection is unavailable. Please try again.");
+        conversation.startSession({conversationToken:data.conversationToken,connectionType:"webrtc"});
+      }
     }catch(e){if(run===generation.current)fatal(e instanceof DOMException&&e.name==="NotAllowedError"?"Microphone access was denied. Allow microphone access for this site, then try again.":e instanceof Error?e.message:"Could not start voice. Please try again.");}
     });
   }
-  return <div className="voice-intro voice-live">
-    <div className={`mic-symbol ${note?.status==="complete"?"done":""}`}>{note?.status==="complete"?<Check size={35}/>:<Mic size={35}/>}</div>
-    <h2>{phase==="starting"?"Connecting…":phase==="active"?(conversation.isSpeaking?"Your assistant is speaking":"Tell me about your shift"):note?.status==="complete"?"Your note is saved.":"Let’s talk through your shift."}</h2>
-    <p>{phase==="active"?"Your answers are saved into the form as you speak.":note?.status==="complete"?"Your confirmed note is ready in Review notes.":"Use fictional participant details for this demo. Your audio is sent to ElevenLabs and a transcript is kept with this session."}</p>
-    {phase==="idle"?<Button className="voice-button" disabled={!available||!signedIn||disabled||note?.status==="complete"} onClick={start}><Mic size={18}/>Start voice note</Button>:<div className="call-buttons"><Button className="voice-button" disabled={phase==="stopping"} onClick={stop}><PhoneOff size={17}/>{phase==="stopping"?"Ending call…":"End call"}</Button>{phase==="active"&&<Button variant="outline" className="voice-button" onClick={()=>conversation.setMuted(!conversation.isMuted)} aria-label={conversation.isMuted?"Unmute microphone":"Mute microphone"}>{conversation.isMuted?<MicOff size={17}/>:<Mic size={17}/>}</Button>}</div>}
-    <p className="voice-caption" aria-live="polite">{phase==="starting"?<><LoaderCircle className="spin inline" size={14}/> Connecting securely</>:phase==="active"?conversation.isMuted?"Microphone muted":confirmReady?"After the review, say: I confirm this shift note.":"Call connected":available===null?"Checking voice connection…":!available?"Voice setup pending":!signedIn?"Sign in to start":"English · Up to 10 minutes per call"}</p>
+  return <div className={`voice-intro voice-live ${textOnly?"text-mode":""}`}>
+    <div className={`mic-symbol ${note?.status==="complete"?"done":""}`}>{note?.status==="complete"?<Check size={35}/>:textOnly?<MessageSquare size={32}/>:<Mic size={35}/>}</div>
+    <h2>{phase==="starting"?"Connecting…":note?.status==="complete"?"Your note is saved.":textOnly?"Type through your shift.":phase==="active"?(conversation.isSpeaking?"Your assistant is speaking":"Tell me about your shift"):"Let’s talk through your shift."}</h2>
+    <p>{note?.status==="complete"?"Your confirmed note is ready in Review notes.":textOnly?"Same assistant, questions and form. Type your answers to test the conversation.":phase==="active"?"Your answers are saved into the form as you speak.":"Use fictional participant details. Your audio is sent to ElevenLabs and a transcript is kept with this session."}</p>
+    {phase==="idle"?<Button className="voice-button" disabled={!available||!signedIn||disabled||note?.status==="complete"} onClick={start}>{textOnly?<MessageSquare size={18}/>:<Mic size={18}/>} {textOnly?"Start text note":"Start voice note"}</Button>:<div className="call-buttons"><Button className="voice-button" disabled={phase==="stopping"} onClick={stop}><PhoneOff size={17}/>{phase==="stopping"?"Ending…":textOnly?"End conversation":"End call"}</Button>{!textOnly&&phase==="active"&&<Button variant="outline" className="voice-button" onClick={()=>conversation.setMuted(!conversation.isMuted)} aria-label={conversation.isMuted?"Unmute microphone":"Mute microphone"}>{conversation.isMuted?<MicOff size={17}/>:<Mic size={17}/>}</Button>}</div>}
+    <p className="voice-caption" aria-live="polite">{phase==="starting"?<><LoaderCircle className="spin inline" size={14}/> Connecting securely</>:phase==="stopping"?"Finishing saved updates…":phase==="active"?confirmReady?`Review the note, then ${textOnly?"type":"say"}: I confirm this shift note.`:textOnly?(waiting?"Waiting for the assistant…":"Connected · Type below"):conversation.isMuted?"Microphone muted":"Call connected":available===null?"Checking connection…":!available?"Conversation setup pending":!signedIn?"Sign in to start":textOnly?"English · No microphone needed · Use fictional details":"English · Up to 10 minutes per call"}</p>
     {error&&<p className="voice-error" role="alert">{error}</p>}
-    {messages.length>0&&<div className="voice-transcript" aria-label="Conversation transcript">{messages.slice(-5).map(message=><p key={message.sequence}><strong>{message.kind==="user"?"You":"Assistant"}</strong>{message.text}</p>)}</div>}
+    {messages.length>0&&<div className="voice-transcript" ref={transcript} role="log" aria-label="Conversation transcript" aria-live="polite">{messages.map(message=><p key={message.sequence}><strong>{message.kind==="user"?"You":"Assistant"}</strong>{message.text}</p>)}</div>}
+    {textOnly&&phase==="active"&&note?.status!=="complete"&&<form className="text-composer" onSubmit={event=>{event.preventDefault();void sendText();}}>
+      <label htmlFor="conversation-message">Your message</label>
+      <Textarea id="conversation-message" value={input} onChange={event=>setInput(event.target.value)} maxLength={6000} rows={3} disabled={sending} placeholder="Tell me about your shift…" onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void sendText();}}}/>
+      <div><span>Enter to send · Shift + Enter for a new line</span><Button type="submit" className="voice-button" disabled={sending||waiting||!input.trim()||Boolean(pending.current?.promptSequence&&!confirmReady)}>{sending?<LoaderCircle className="spin" size={16}/>:<Send size={16}/>}Send</Button></div>
+    </form>}
   </div>;
 }

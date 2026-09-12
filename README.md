@@ -10,6 +10,7 @@ An English web workspace for support workers to create a shift note, save a draf
 - Review tokens tied to the current revision; changing a draft invalidates its previous confirmation.
 - Text export of saved completed notes.
 - Simple review list with status filters. Each signed-in user sees their own records; organisational manager roles are not implemented yet.
+- Temporary text mode (default) for testing the same Agent, questions, form tools, correction and confirmation flow without microphone access. Select Voice to switch back.
 - Live English voice interviews through ElevenLabs WebRTC, with authenticated client tools, live saved form updates, corrections, and revision-bound oral confirmation. See `docs/voice-integration.md` for setup and testing.
 
 Use fictional participants for the demo. Form checks verify configured completeness and consistency; they do not certify regulatory compliance.

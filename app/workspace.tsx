@@ -141,7 +141,7 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
         {notice&&<div className="success-banner" role="status"><Check size={18}/><p>{notice}</p></div>}
         <div className="editor-grid">
           <aside className="conversation-card">
-            <div className="panel-heading"><AudioLines size={20}/><span>Your conversation</span><span className="quiet-badge">{voiceActive?"Voice session":completed?"Note complete":"English"}</span></div>
+            <div className="panel-heading"><AudioLines size={20}/><span>Your conversation</span><span className="quiet-badge">{voiceActive?"Connected":completed?"Note complete":"English"}</span></div>
             <VoicePanel signedIn={Boolean(user)} disabled={Boolean(busy)} note={note} prepareDraft={prepareVoiceDraft} onSaved={acceptSaved} onActive={setVoiceActive}/>
             {completed&&!voiceActive&&<div className="voice-download"><Button className="voice-button" onClick={()=>download()}><Download size={18}/>Download note</Button></div>}
             <div className="coverage"><div><span>{completed?"Record complete":"Details covered"}</span><strong>{validation.answered}<span> / {validation.total}</span></strong></div><Progress value={Math.max(0,validation.answered/validation.total*100)} aria-label="Details covered" className="coverage-bar"/>{!completed&&validation.issues.length>0&&<p>{Array.from(new Set(validation.issues.map(issue=>labelFor(issue.field)))).slice(0,3).join(" · ")}{validation.issues.length>3?" …":""}</p>}{!completed&&validation.ready&&<p>All required details have an answer. Ready for your review.</p>}</div>

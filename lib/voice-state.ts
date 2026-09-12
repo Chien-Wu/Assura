@@ -1,8 +1,9 @@
 export type VoiceEvent = { sequence:number; kind:"user"|"agent"|"interrupt"; text:string; eventId?:number; receivedAt?:string };
 export type VoiceReview = { confirmationId:string; revision:number; afterSequence:number; readbackSequence:number|null };
-export type VoiceState = { events:VoiceEvent[]; review:VoiceReview|null; closed:boolean };
+export type ConversationMode = "voice"|"text";
+export type VoiceState = { events:VoiceEvent[]; review:VoiceReview|null; closed:boolean; mode?:ConversationMode };
 export class VoiceStateError extends Error {}
-export const emptyVoiceState = ():VoiceState=>({events:[],review:null,closed:false});
+export const emptyVoiceState = (mode:ConversationMode="voice"):VoiceState=>({events:[],review:null,closed:false,mode});
 export const normalizeConfirmation=(value:string)=>value.toLowerCase().replace(/[.!?,;:]/g,"").replace(/\s+/g," ").trim();
 export const isVoiceConfirmation=(value:string)=>normalizeConfirmation(value)==="i confirm this shift note";
 export const hasConfirmationPrompt=(value:string)=>/\bi confirm this shift note\b/i.test(value);
@@ -29,5 +30,5 @@ export function voiceEvidence(state:VoiceState,confirmationId:string,revision:nu
   const review=state.review;
   const user=state.events.findLast(event=>event.kind==="user");
   if(state.closed||!review||review.confirmationId!==confirmationId||review.revision!==revision||!review.readbackSequence||!user||user.sequence<=review.readbackSequence||!isVoiceConfirmation(user.text))throw new VoiceStateError("Please listen to the current review, then say: I confirm this shift note.");
-  return {source:"browser_sdk_transcript",method:"voice",confirmationId,revision,readbackSequence:review.readbackSequence,userTurn:user};
+  return {source:state.mode==="text"?"browser_text_input":"browser_sdk_transcript",method:state.mode==="text"?"text":"voice",confirmationId,revision,readbackSequence:review.readbackSequence,userTurn:user};
 }

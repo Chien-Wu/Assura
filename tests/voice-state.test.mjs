@@ -13,6 +13,13 @@ test("only a fresh full confirmation after the current review completes a note",
   assert.throws(()=>voiceEvidence({...confirmed,closed:true},"current",2));
   assert.equal(isVoiceConfirmation("I confirm this shift note, but change the time"),false);
 });
+test("typed confirmation retains the same revision checks and is labelled as text",()=>{
+  const confirmed=add({...read(),mode:"text"},"user","I confirm this shift note.");
+  const evidence=voiceEvidence(confirmed,"current",2);
+  assert.equal(evidence.method,"text");assert.equal(evidence.source,"browser_text_input");
+  assert.throws(()=>voiceEvidence(confirmed,"current",3));
+  assert.throws(()=>voiceEvidence(add(confirmed,"user","Actually change the time"),"current",2));
+});
 test("yes, silence, and an old confirmation cannot complete the draft",()=>{
   assert.throws(()=>voiceEvidence(add(read(),"user","yes"),"current",2));
   let state=add(emptyVoiceState(),"user","I confirm this shift note.");
