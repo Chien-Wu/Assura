@@ -111,7 +111,12 @@ function VoiceControls({signedIn,disabled,note,prepareDraft,onSaved,onActive,ini
       if(review.ready&&isVoiceConfirmation(message))review.confirmedSequence=event.sequence;
       else clearPending();
     }
-    return enqueue(session,()=>sessionRequest(session,{action:"event",event}));
+    return enqueue(session,async()=>{
+      const result=await sessionRequest<{note?:ShiftNote;remainingClarifications?:number;nextObservationalQuestions?:string[];riskFlags?:unknown;escalation?:unknown}>(session,{action:"event",event});
+      if(result.note)saved(session,result.note);
+      if(active.current===session&&!closing.current)conversation.sendContextualUpdate(JSON.stringify({captureSafety:{remainingClarifications:result.remainingClarifications,nextObservationalQuestions:result.nextObservationalQuestions,riskFlags:result.riskFlags,escalation:result.escalation}}));
+      return result;
+    });
   }
   async function sendText(){
     const session=active.current;const message=input.trim();
@@ -132,20 +137,21 @@ function VoiceControls({signedIn,disabled,note,prepareDraft,onSaved,onActive,ini
       try{
         if(name==="get_form_context"){
           const result=await request<{note:ShiftNote}>(`/api/notes/${session.note.id}`);saved(session,result.note);
-          return JSON.stringify({ok:true,note:result.note,definitions,incidentOptions,followUpOptions,validation:checkForm(result.note.fields),currentLocalTime:new Date().toLocaleString("en-AU",{timeZone:"Australia/Melbourne"})});
+          return JSON.stringify({ok:true,...result,definitions,incidentOptions,followUpOptions,validation:checkForm(result.note.fields),currentLocalTime:new Date().toLocaleString("en-AU",{timeZone:"Australia/Melbourne"})});
         }
         if(name==="update_and_check_form"){
           clearPending();await sessionRequest(session,{action:"invalidate"});
           if(typeof params.fields_json!=="string")throw new Error("fields_json must be a JSON object encoded as a string.");
-          let fields:unknown;try{fields=JSON.parse(params.fields_json);}catch{throw new Error("fields_json is not valid JSON. Correct it and retry.");}
-          const result=await request<{note:ShiftNote}>(`/api/notes/${session.note.id}`,{revision:session.note.revision,fields},"PATCH");saved(session,result.note);
-          return JSON.stringify({ok:true,note:result.note,validation:checkForm(result.note.fields)});
+          let payload:Record<string,unknown>;try{payload=JSON.parse(params.fields_json);if(!payload||typeof payload!=="object"||Array.isArray(payload))throw new Error();}catch{throw new Error("fields_json is not a JSON object. Correct it and retry.");}
+          const {field_states,restrictive_practice,fields:wrappedFields,...plainFields}=payload;
+          const result=await request<{note:ShiftNote}>(`/api/notes/${session.note.id}`,{revision:session.note.revision,fields:wrappedFields??plainFields,fieldStates:field_states,restrictivePractice:restrictive_practice,voiceSessionId:session.id},"PATCH");saved(session,result.note);
+          return JSON.stringify({ok:true,...result,validation:checkForm(result.note.fields)});
         }
         if(name==="prepare_confirmation"){
           clearPending();const result=await request<ApiReview>(`/api/notes/${session.note.id}/review`,{revision:session.note.revision});
           await sessionRequest(session,{action:"prepare",confirmationId:result.confirmationId,revision:result.note.revision});
           saved(session,result.note);pending.current={confirmationId:result.confirmationId,revision:result.note.revision,promptSequence:null,sawSpeaking:false,ready:false,confirmedSequence:null};
-          return JSON.stringify({ok:true,...result,instruction:"Read back every saved field, uncertainty and follow-up in the summary. Finish by saying: To save this note, say I confirm this shift note, or tell me what to change. Wait for a new answer before calling finalize_form."});
+          return JSON.stringify({ok:true,...result,instruction:"Read back every saved field, uncertainty, restrictive practice and supervisor flag in the summary. Not yet reviewed is not an absence. Do not ask the worker to classify events. Finish by saying: To save this note, say I confirm this shift note, or tell me what to change. Wait for a new answer before calling finalize_form."});
         }
         if(name==="finalize_form"){
           const review=pending.current;
@@ -208,7 +214,7 @@ function VoiceControls({signedIn,disabled,note,prepareDraft,onSaved,onActive,ini
   return <div className={`voice-intro voice-live ${textOnly?"text-mode":""}`}>
     <div className={`mic-symbol ${note?.status==="complete"?"done":""}`}>{note?.status==="complete"?<Check size={35}/>:textOnly?<MessageSquare size={32}/>:<Mic size={35}/>}</div>
     <h2>{phase==="starting"?"Connecting…":note?.status==="complete"?"Your note is saved.":textOnly?"Type through your shift.":phase==="active"?(conversation.isSpeaking?"Your assistant is speaking":"Tell me about your shift"):"Let’s talk through your shift."}</h2>
-    <p>{note?.status==="complete"?"Your confirmed note is ready in Review notes.":textOnly?"Same assistant, questions and form. Type your answers to test the conversation.":phase==="active"?"Your answers are saved into the form as you speak.":"Use fictional participant details. Your audio is sent to ElevenLabs and a transcript is kept with this session."}</p>
+    <p>{note?.status==="complete"?"Your confirmed note is ready in Review notes.":textOnly?"Your messages and the assistant’s questions are recorded and retained with your note. The original transcript protects what you disclosed, even if the note is edited.":phase==="active"?"Your answers are saved into the form as you speak.":"This conversation’s transcript is recorded and retained with your note, protecting what you disclosed if the note is edited. Audio is sent to ElevenLabs. Use fictional details."}</p>
     {phase==="idle"?<Button className="voice-button" disabled={!available||!signedIn||disabled||note?.status==="complete"} onClick={start}>{textOnly?<MessageSquare size={18}/>:<Mic size={18}/>} {textOnly?"Start text note":"Start voice note"}</Button>:<div className="call-buttons"><Button className="voice-button" disabled={phase==="stopping"} onClick={stop}><PhoneOff size={17}/>{phase==="stopping"?"Ending…":textOnly?"End conversation":"End call"}</Button>{!textOnly&&phase==="active"&&<Button variant="outline" className="voice-button" onClick={()=>conversation.setMuted(!conversation.isMuted)} aria-label={conversation.isMuted?"Unmute microphone":"Mute microphone"}>{conversation.isMuted?<MicOff size={17}/>:<Mic size={17}/>}</Button>}</div>}
     <p className="voice-caption" aria-live="polite">{phase==="starting"?<><LoaderCircle className="spin inline" size={14}/> Connecting securely</>:phase==="stopping"?"Finishing saved updates…":phase==="active"?confirmReady?`Review the note, then ${textOnly?"type":"say"}: I confirm this shift note.`:textOnly?(waiting?"Waiting for the assistant…":"Connected · Type below"):conversation.isMuted?"Microphone muted":"Call connected":available===null?"Checking connection…":!available?"Conversation setup pending":!signedIn?"Sign in to start":textOnly?"English · No microphone needed · Use fictional details":"English · Up to 10 minutes per call"}</p>
     {error&&<p className="voice-error" role="alert">{error}</p>}

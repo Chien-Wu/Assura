@@ -1,6 +1,7 @@
 import { database, failure, getRow, identity, json, readBody, RequestError } from "@/lib/notes-server";
 import { voiceConfig } from "@/lib/voice-server";
 import { emptyVoiceState } from "@/lib/voice-state";
+import { participantFor } from "@/lib/participants";
 export async function POST(request:Request){
   try{
     const user=await identity(request);const body=await readBody(request);
@@ -9,6 +10,7 @@ export async function POST(request:Request){
     if(typeof body.noteId!=="string")throw new RequestError("Choose a saved draft first.");
     const note=await getRow(body.noteId,user.userId);
     if(note.status!=="draft")throw new RequestError("Start a new draft to begin a conversation.",409);
+    if(!participantFor(JSON.parse(note.fields_json).participant))throw new RequestError("Select a participant profile before starting the conversation.");
     const {key,agentId}=voiceConfig();if(!key||!agentId)throw new RequestError("Voice setup is pending.",503);
     const endpoint=mode==="text"?"get-signed-url":"token";
     const response=await fetch(`https://api.elevenlabs.io/v1/convai/conversation/${endpoint}?agent_id=${encodeURIComponent(agentId)}${mode==="text"?"&include_conversation_id=true":""}`,{headers:{"xi-api-key":key},signal:AbortSignal.timeout(15000)});

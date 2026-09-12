@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getChatGPTUser } from "@/app/chatgpt-auth";
 import { FORM_VERSION, emptyFields, type ShiftNote, type ShiftFields } from "./shift-form";
+import { readSafety, retentionUntil } from "./safety";
 
 export class RequestError extends Error {
   status: number;
@@ -34,20 +35,21 @@ export function failure(error: unknown) {
   console.error("Note request failed",error);
   return json({error:"We couldn’t save or load your note. Your unsaved answers are still on this page. Please try again."},503);
 }
-type Row = { id:string; owner_id:string; worker_name:string; fields_json:string; revision:number; status:"draft"|"complete"; form_version:string; timezone:string; created_at:string; updated_at:string; confirmed_at:string|null; confirmation_id:string|null; review_version:number|null };
-export function toNote(row: Row): ShiftNote { return { id:row.id,fields:JSON.parse(row.fields_json) as ShiftFields,revision:row.revision,status:row.status,formVersion:row.form_version,timezone:row.timezone,workerName:row.worker_name,createdAt:row.created_at,updatedAt:row.updated_at,confirmedAt:row.confirmed_at }; }
+export type Row = { id:string; owner_id:string; worker_name:string; fields_json:string; revision:number; status:"draft"|"complete"; form_version:string; timezone:string; created_at:string; updated_at:string; confirmed_at:string|null; confirmation_id:string|null; review_version:number|null;safety_json:string;retention_until:string|null;risk_flags_json?:string;question_count?:number };
+export function toNote(row: Row): ShiftNote { const fields=JSON.parse(row.fields_json) as ShiftFields;const safety=readSafety(row.safety_json);for(const key of ["incidents","followUp"] as const){if((fields[key]==="no"||fields[key]==="none")&&safety.fieldStates[key]!=="stated_negative")fields[key]="unknown";} return { id:row.id,fields,revision:row.revision,status:row.status,formVersion:row.form_version,timezone:row.timezone,workerName:row.worker_name,createdAt:row.created_at,updatedAt:row.updated_at,confirmedAt:row.confirmed_at,safety,riskFlags:JSON.parse(row.risk_flags_json??"[]"),clarificationCount:row.question_count??0,retentionUntil:row.retention_until??retentionUntil(row.created_at) }; }
+const noteSelect="SELECT shift_notes.*, (SELECT COALESCE(json_group_array(json(data_json)),'[]') FROM risk_events WHERE note_id=shift_notes.id) AS risk_flags_json, (SELECT COALESCE(SUM(question_count),0) FROM transcript_events WHERE note_id=shift_notes.id) AS question_count FROM shift_notes";
 export async function getRow(id:string,ownerId:string) {
-  const row=await database().prepare("SELECT * FROM shift_notes WHERE id = ? AND owner_id = ?").bind(id,ownerId).first<Row>();
+  const row=await database().prepare(noteSelect+" WHERE id = ? AND owner_id = ?").bind(id,ownerId).first<Row>();
   if (!row) throw new RequestError("This note could not be found.",404);
   return row;
 }
 export async function listNotes(ownerId:string) {
-  const result=await database().prepare("SELECT * FROM shift_notes WHERE owner_id = ? ORDER BY updated_at DESC LIMIT 100").bind(ownerId).all<Row>();
+  const result=await database().prepare(noteSelect+" WHERE owner_id = ? ORDER BY updated_at DESC LIMIT 100").bind(ownerId).all<Row>();
   return result.results.map(toNote);
 }
 export async function createNote(id:unknown,ownerId:string,workerName:string) {
   if (typeof id!=="string"||!/^[0-9a-f-]{36}$/i.test(id)) throw new RequestError("Invalid note identifier.");
   const now=new Date().toISOString();
-  await database().prepare("INSERT OR IGNORE INTO shift_notes (id,owner_id,worker_name,fields_json,revision,status,form_version,timezone,created_at,updated_at) VALUES (?,?,?,?,0,'draft',?,?,?,?)").bind(id,ownerId,workerName,JSON.stringify(emptyFields()),FORM_VERSION,"Australia/Melbourne",now,now).run();
+  await database().prepare("INSERT OR IGNORE INTO shift_notes (id,owner_id,worker_name,fields_json,revision,status,form_version,timezone,created_at,updated_at,retention_until) VALUES (?,?,?,?,0,'draft',?,?,?,?,?)").bind(id,ownerId,workerName,JSON.stringify(emptyFields()),FORM_VERSION,"Australia/Melbourne",now,now,retentionUntil(now)).run();
   return toNote(await getRow(id,ownerId));
 }

@@ -7,12 +7,12 @@ test("silence is not treated as no incident or follow-up",()=>{
   const fields=emptyFields();
   assert.equal(fields.incidents,"unanswered");
   assert.equal(checkForm(fields).ready,false);
-  assert.ok(checkForm(fields).issues.some(issue=>issue.field==="incidents"));
+  assert.ok(checkForm(fields).reviewReasons.length>0);
 });
-test("correcting a conditional answer removes obsolete details",()=>{
+test("correcting a status preserves disclosed details",()=>{
   const previous={...complete(),incidents:"yes",incidentDetails:"Old statement",followUp:"needed",followUpDetails:"Old handover"};
   const corrected=applyFieldPatch(previous,{incidents:"no",followUp:"none"});
-  assert.equal(corrected.incidentDetails,"");assert.equal(corrected.followUpDetails,"");
+  assert.equal(corrected.incidentDetails,"Old statement");assert.equal(corrected.followUpDetails,"Old handover");
   assert.equal(corrected.activities,previous.activities);
 });
 test("yes requires detail, explicit unknown remains marked for review",()=>{

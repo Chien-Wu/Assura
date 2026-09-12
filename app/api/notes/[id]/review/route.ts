@@ -8,8 +8,11 @@ export async function POST(request:Request,context:{params:Promise<{id:string}>}
     const validation=checkForm(note.fields);
     if (!validation.ready) return json({error:"Some details still need an answer.",validation},422);
     const confirmationId=crypto.randomUUID();
-    const result=await database().prepare("UPDATE shift_notes SET confirmation_id=?,review_version=revision WHERE id=? AND owner_id=? AND revision=? AND status='draft'").bind(confirmationId,id,user.userId,note.revision).run();
-    if (!result.meta.changes) throw new RequestError("The note changed. Review the latest version.",409);
+    const result=await database().batch([
+      database().prepare("UPDATE shift_notes SET confirmation_id=?,review_version=revision WHERE id=? AND owner_id=? AND revision=? AND status='draft'").bind(confirmationId,id,user.userId,note.revision),
+      database().prepare("INSERT OR IGNORE INTO note_snapshots (note_id,owner_id,snapshot_json,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM shift_notes WHERE id=? AND confirmation_id=?)").bind(id,user.userId,JSON.stringify(note),new Date().toISOString(),id,confirmationId),
+    ]);
+    if (!result[0].meta.changes) throw new RequestError("The note changed. Review the latest version.",409);
     return json({note,confirmationId,summary:noteText(note),validation});
   } catch(error) { return failure(error); }
 }

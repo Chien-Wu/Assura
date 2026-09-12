@@ -1,4 +1,5 @@
-export const FORM_VERSION = "shift-note-demo-v1";
+import { emptySafety, type Safety, type RiskFlag } from "./safety.ts";
+export const FORM_VERSION = "shift-note-demo-v2";
 export const definitions = [
   { key: "participant", label: "Participant", type: "text", placeholder: "Participant’s name", section: 1 },
   { key: "shiftStart", label: "Shift start", type: "datetime-local", section: 1 },
@@ -18,14 +19,15 @@ export type ShiftNote = {
   id: string; fields: ShiftFields; revision: number; status: "draft" | "complete";
   createdAt: string; updatedAt: string; confirmedAt: string | null;
   workerName: string; formVersion: string; timezone: string;
+  safety?:Safety; riskFlags?:RiskFlag[]; clarificationCount?:number; retentionUntil?:string|null;
 };
 export type FormIssue = { field: FieldKey; message: string };
-export const incidentOptions = { unanswered: "Not answered", no: "No incidents or concerns", yes: "Yes — add details", unknown: "Not sure" };
-export const followUpOptions = { unanswered: "Not answered", none: "No follow-up needed", needed: "Yes — add details", unknown: "Not sure" };
+export const incidentOptions = { unanswered: "Not yet reviewed", no: "Explicitly stated: no incidents or concerns", yes: "Events or observations recorded", unknown: "Not yet reviewed — unresolved" };
+export const followUpOptions = { unanswered: "Not yet reviewed", none: "Explicitly stated: no follow-up needed", needed: "Follow-up recorded", unknown: "Not yet reviewed — unresolved" };
 export const emptyFields = (): ShiftFields => ({ participant:"", shiftStart:"", shiftEnd:"", activities:"", supportProvided:"", participantResponse:"", goalProgress:"", incidents:"unanswered", incidentDetails:"", followUp:"unanswered", followUpDetails:"" });
 export const labelFor = (key: FieldKey) => definitions.find(field => field.key === key)!.label;
 export function applicable(key: FieldKey, fields: ShiftFields) {
-  return !(key === "incidentDetails" && fields.incidents !== "yes") && !(key === "followUpDetails" && fields.followUp !== "needed");
+  return !(key === "incidentDetails" && fields.incidents !== "yes"&&!fields.incidentDetails) && !(key === "followUpDetails" && fields.followUp !== "needed"&&!fields.followUpDetails);
 }
 function validDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return false;
@@ -36,11 +38,14 @@ export function checkForm(fields: ShiftFields) {
   const issues: FormIssue[] = [];
   for (const {key,label} of definitions) {
     if (!applicable(key, fields)) continue;
+    if(key==="incidents"||key==="followUp")continue;
     if (!fields[key].trim() || fields[key] === "unanswered") issues.push({ field: key, message: `Add or confirm ${label.toLowerCase()}.` });
   }
   for (const field of ["shiftStart","shiftEnd"] as const) if (fields[field] && !validDate(fields[field])) issues.push({field,message:`Enter a valid ${labelFor(field).toLowerCase()}.`});
   if (validDate(fields.shiftStart) && validDate(fields.shiftEnd) && fields.shiftEnd <= fields.shiftStart) issues.push({field:"shiftEnd",message:"The end must be after the start. For overnight shifts, use the next date."});
   const reviewReasons: string[] = [];
+  if(fields.incidents==="unanswered")reviewReasons.push("Incidents or concerns: Not yet reviewed");
+  if(fields.followUp==="unanswered")reviewReasons.push("Follow-up: Not yet reviewed");
   if (fields.incidents === "yes") reviewReasons.push("Incident or concern recorded");
   if (fields.incidents === "unknown") reviewReasons.push("Incidents or concerns need confirmation");
   if (fields.followUp === "needed") reviewReasons.push("Follow-up needed");
@@ -60,15 +65,15 @@ export function applyFieldPatch(current: ShiftFields, patch: unknown): ShiftFiel
     if (key === "followUp" && !Object.hasOwn(followUpOptions,value)) throw new Error("Choose a valid follow-up status.");
     next[key as FieldKey]=value.trim();
   }
-  if (next.incidents !== "yes") next.incidentDetails="";
-  if (next.followUp !== "needed") next.followUpDetails="";
   return next;
 }
 export function answerText(key: FieldKey, value: string) {
   if (key === "incidents") return incidentOptions[value as keyof typeof incidentOptions] ?? value;
   if (key === "followUp") return followUpOptions[value as keyof typeof followUpOptions] ?? value;
-  return value || "Not answered";
+  return value || "Not yet reviewed";
 }
+export function noteAnswer(note:ShiftNote,key:FieldKey){const state=note.safety?.fieldStates[key]??"not_reviewed";return state==="not_reviewed"?"Not yet reviewed":answerText(key,note.fields[key]);}
 export function noteText(note: ShiftNote) {
-  return ["SHIFT NOTE", "Demo form — temporary fields", `Worker: ${note.workerName}`, `Status: ${note.status}`, `Times: ${note.timezone}`, "", ...definitions.filter(({key})=>applicable(key,note.fields)).flatMap(({key,label})=>[label,answerText(key,note.fields[key]),""]), ...checkForm(note.fields).reviewReasons.map(reason=>`Review: ${reason}`), note.confirmedAt ? `Confirmed: ${note.confirmedAt}` : "Not yet confirmed"].join("\n");
+  const safety=note.safety??emptySafety();
+  return ["SHIFT NOTE", "Demo form — temporary fields", `Worker: ${note.workerName}`, `Status: ${note.status}`, `Times: ${note.timezone}`, "", ...definitions.filter(({key})=>applicable(key,note.fields)).flatMap(({key,label})=>[label,noteAnswer(note,key),""]),"Restrictive practice",JSON.stringify(safety.restrictivePractice,null,2),...(note.riskFlags??[]).map(flag=>`SUPERVISOR REVIEW: ${flag.code} — ${flag.reason}`),...checkForm(note.fields).reviewReasons.map(reason=>`Review: ${reason}`), note.confirmedAt ? `Confirmed: ${note.confirmedAt}` : "Not yet confirmed"].join("\n");
 }

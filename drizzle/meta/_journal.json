@@ -15,6 +15,13 @@
       "when": 1789196850372,
       "tag": "0001_eminent_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789205881361,
+      "tag": "0002_amazing_spectrum",
+      "breakpoints": true
     }
   ]
 }

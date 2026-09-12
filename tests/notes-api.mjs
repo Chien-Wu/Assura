@@ -20,7 +20,7 @@ assert.equal(first.note.revision,0);assert.equal(first.note.fields.incidents,"un
 const retry=await request("/api/notes","POST",{id},201);assert.equal(retry.note.id,id);
 await request(`/api/notes/${id}/review`,"POST",{revision:0},422);
 await request(`/api/notes/${id}`,"PATCH",{revision:0,fields:{ownerId:"someone-else"}},400);
-const fields={participant:"API test — fictional",shiftStart:"2026-09-12T14:00",shiftEnd:"2026-09-12T18:00",activities:"Shopping",supportProvided:"Verbal prompts",participantResponse:"Selected items independently",goalProgress:"Practised shopping",incidents:"no",incidentDetails:"",followUp:"none",followUpDetails:""};
+const fields={participant:"Sarah Doyle",shiftStart:"2026-09-12T14:00",shiftEnd:"2026-09-12T18:00",activities:"Shopping",supportProvided:"Verbal prompts",participantResponse:"Selected items independently",goalProgress:"Practised shopping",incidents:"no",incidentDetails:"",followUp:"none",followUpDetails:""};
 const saved=await request(`/api/notes/${id}`,"PATCH",{revision:0,fields});assert.equal(saved.note.revision,1);
 await request(`/api/notes/${id}`,"PATCH",{revision:0,fields:{activities:"Stale answer"}},409);
 const review=await request(`/api/notes/${id}/review`,"POST",{revision:1});

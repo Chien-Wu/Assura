@@ -15,7 +15,7 @@ const signIn=await fetch(origin+"/signin-with-chatgpt?return_to=/",{redirect:"ma
 cookie=signIn.headers.getSetCookie().map(item=>item.split(";")[0]).join("; ");
 assert.equal((await api("/api/voice/status")).enabled,true);
 const id=randomUUID();await api("/api/notes",{id},201);
-await api(`/api/notes/${id}`,{revision:0,fields:{participant:"Voice API test — fictional",shiftStart:"2026-09-12T09:00",shiftEnd:"2026-09-12T15:00",activities:"Shopping",supportProvided:"Verbal prompts",participantResponse:"Chose items independently",goalProgress:"Practised shopping",incidents:"no",followUp:"none"}},200,"PATCH");
+await api(`/api/notes/${id}`,{revision:0,fields:{participant:"Sarah Doyle",shiftStart:"2026-09-12T09:00",shiftEnd:"2026-09-12T15:00",activities:"Shopping",supportProvided:"Verbal prompts",participantResponse:"Chose items independently",goalProgress:"Practised shopping",incidents:"no",followUp:"none"}},200,"PATCH");
 const session=await api("/api/voice/sessions",{noteId:id});
 assert.ok(session.conversationToken);assert.ok(session.conversationId);assert.ok(!("key" in session));
 const path=`/api/voice/sessions/${session.sessionId}`;
