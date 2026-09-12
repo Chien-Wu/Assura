@@ -1,5 +1,21 @@
 import type { Metadata } from "next";
+import { Lexend, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
+import Theme from "./theme-provider";
+
+const heading = Lexend({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-heading-src",
+});
+
+const body = Source_Sans_3({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-body-src",
+});
 
 export const metadata: Metadata = {
   title: "LegalMate — Shift notes",
@@ -20,8 +36,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">{children}</body>
+    <html
+      lang="en"
+      className={`${heading.variable} ${body.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="antialiased">
+        <Theme>{children}</Theme>
+      </body>
     </html>
   );
 }

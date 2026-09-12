@@ -60,6 +60,7 @@ import {
   type FieldKey,
 } from "@/lib/shift-form";
 
+import ThemeToggle from "./theme-toggle";
 import VoicePanel from "./voice-panel";
 import SafetyPanel from "./safety-panel";
 import { participants, participantFor } from "@/lib/participants";
@@ -111,6 +112,8 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
   const [filter, setFilter] = useState("all");
   const [showIssues, setShowIssues] = useState(false);
   const [notice, setNotice] = useState("");
+  const [submitAttempt, setSubmitAttempt] = useState(0);
+  const errorSummary = useRef<HTMLDivElement>(null);
   const newId = useRef<string | null>(null);
   const mutationLock = useRef(false);
   const dirty =
@@ -230,13 +233,14 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
       setNotice("Draft saved.");
     });
   }
+  useEffect(() => {
+    if (submitAttempt > 0) errorSummary.current?.focus();
+  }, [submitAttempt]);
   function prepareReview() {
     return action("review", async () => {
       setShowIssues(true);
       if (!validation.ready) {
-        setError(
-          "A few details still need an answer. Check the highlighted fields.",
-        );
+        setSubmitAttempt((count) => count + 1);
         return;
       }
       const saved = await persist();
@@ -343,6 +347,7 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
           </TabsTrigger>
         </TabsList>
         <div className="profile">
+          <ThemeToggle />
           {user ? (
             <>
               <span className="avatar">{user.name[0].toUpperCase()}</span>
@@ -523,6 +528,37 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
                   )}
                 </span>
               </div>
+              {!completed && showIssues && validation.issues.length > 0 && (
+                <div
+                  className="error-banner error-summary"
+                  role="alert"
+                  tabIndex={-1}
+                  ref={errorSummary}
+                  aria-labelledby="error-summary-title"
+                >
+                  <AlertCircle size={18} aria-hidden="true" />
+                  <div>
+                    <p id="error-summary-title">
+                      <strong>
+                        {validation.issues.length === 1
+                          ? "1 detail still needs an answer"
+                          : `${validation.issues.length} details still need an answer`}
+                      </strong>
+                    </p>
+                    <ul>
+                      {validation.issues.map((issue) => (
+                        <li key={issue.field}>
+                          <a href={`#${issue.field}`}>
+                            {labelFor(issue.field)}
+                          </a>
+                          {" — "}
+                          {issue.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
               {completed ? (
                 <div className="record-body">
                   {definitions

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AudioLines, ShieldCheck } from "lucide-react";
 import { getChatGPTUser } from "../chatgpt-auth";
 import ManagementBoard from "../management-board";
+import ThemeToggle from "../theme-toggle";
 export const dynamic = "force-dynamic";
 export default async function ManagerPage() {
   const user = await getChatGPTUser();
@@ -18,6 +19,7 @@ export default async function ManagerPage() {
           <ShieldCheck size={16} /> Supervisor workspace
         </span>
         <div className="profile">
+          <ThemeToggle />
           {user ? (
             <span>{user.fullName ?? user.email}</span>
           ) : (

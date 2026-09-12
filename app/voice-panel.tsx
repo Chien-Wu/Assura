@@ -716,6 +716,7 @@ function VoiceControls({
     <div className={`voice-intro voice-live ${textOnly ? "text-mode" : ""}`}>
       <div
         className={`mic-symbol ${note?.status === "complete" ? "done" : ""}`}
+        data-phase={note?.status === "complete" ? "done" : phase}
       >
         {note?.status === "complete" ? (
           <Check size={35} />
@@ -834,7 +835,7 @@ function VoiceControls({
           aria-live="polite"
         >
           {messages.map((message) => (
-            <p key={message.sequence}>
+            <p key={message.sequence} data-kind={message.kind}>
               <strong>{message.kind === "user" ? "You" : "Assistant"}</strong>
               {message.text}
             </p>
