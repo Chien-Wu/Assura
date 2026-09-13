@@ -11,5 +11,6 @@ declare namespace Cloudflare {
     GOOGLE_CLIENT_SECRET?: string;
     RESEND_API_KEY?: string;
     LEGALMATE_EMAIL_FROM?: string;
+    LEGALMATE_TEST_PASSWORD?: string;
   }
 }

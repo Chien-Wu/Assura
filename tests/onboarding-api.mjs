@@ -5,6 +5,8 @@ import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { Miniflare, Log, LogLevel } from "miniflare";
+import { testAccountStatements } from "../scripts/provision-test-accounts.mjs";
+import { TEST_ACCOUNTS, TEST_PROVIDER_ID } from "../lib/test-accounts.ts";
 import {
   createAuthFixture,
   signInFixture,
@@ -19,6 +21,7 @@ const modules = [
   ...files.filter((name) => name.endsWith(".js") && name !== "index.js"),
 ].map((name) => ({ type: "ESModule", path: `${root}${name}` }));
 let outboundRequests = 0;
+const testPassword = randomUUID() + randomUUID();
 const runtimeOptions = {
   modules,
   modulesRoot: root,
@@ -28,6 +31,7 @@ const runtimeOptions = {
     ...testAuthEnvironment,
     GOOGLE_CLIENT_ID: "test-only-google-client",
     GOOGLE_CLIENT_SECRET: "test-only-google-secret",
+    LEGALMATE_TEST_PASSWORD: testPassword,
   },
   d1Databases: { DB: randomUUID() },
   d1Persist: false,
@@ -87,6 +91,7 @@ try {
       method = body === undefined ? "GET" : "POST",
       expected = 200,
       headers = {},
+      withSession = false,
     } = {},
   ) {
     const response = await mf.dispatchFetch(`${origin}${path}`, {
@@ -108,10 +113,19 @@ try {
     );
     checks++;
     const text = await response.text();
-    return text ? JSON.parse(text) : null;
+    const data = text ? JSON.parse(text) : null;
+    return withSession
+      ? {
+          data,
+          cookie: response.headers
+            .getSetCookie()
+            .map((value) => value.split(";")[0])
+            .join("; "),
+        }
+      : data;
   }
-  // The released UI offers Google only. An email-only backend configuration
-  // must not pass readiness; the full schema remains required in every case.
+  // Personal Google sign-in remains required even when limited test accounts
+  // are enabled. Deferred email OTP alone cannot satisfy readiness.
   for (const [google, email] of [
     [false, false],
     [true, false],
@@ -134,7 +148,11 @@ try {
       expected: google ? 200 : 503,
     });
     assert.equal(health.database, true);
-    assert.deepEqual(health.authentication, { google, email });
+    assert.deepEqual(health.authentication, {
+      google,
+      email,
+      testAccounts: true,
+    });
     assert.equal(health.status, google ? "ready" : "unavailable");
   }
   // Runtime reconfiguration invalidates Miniflare proxy handles, not D1 data.
@@ -331,6 +349,246 @@ try {
   await request("/api/auth/sign-out", { session: workerA, body: {} });
   await request("/api/onboarding", { session: workerA, expected: 401 });
   await request("/api/notes", { session: workerA, expected: 401 });
+  // Fixed public test aliases use the normal login endpoint and session adapter.
+  let loginAttempt = 0;
+  async function testLogin(alias, password = testPassword, expected = 200) {
+    const result = await request("/api/auth/sign-in/test-account", {
+      body: { email: alias, password },
+      expected,
+      withSession: true,
+      headers: { "cf-connecting-ip": `203.0.113.${100 + ++loginAttempt}` },
+    });
+    if (expected !== 200)
+      assert.equal(
+        result.cookie,
+        "",
+        "Rejected logins must not issue a session",
+      );
+    return result;
+  }
+  await testLogin("managertest@gmail.com", testPassword, 503);
+  const personalGoogle = await account("managertest@gmail.com");
+  await insert("auth_account", {
+    id: randomUUID(),
+    account_id: "google-subject-for-test",
+    provider_id: "google",
+    user_id: personalGoogle.user.id,
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  });
+  await db.batch(
+    testAccountStatements().map(({ sql, params }) =>
+      db.prepare(sql).bind(...params),
+    ),
+  );
+  await testLogin("workertest@gmail.com", "incorrect-test-password", 401);
+  await testLogin("unknown-person@example.test", testPassword, 401);
+  await request("/api/auth/sign-in/test-account", {
+    body: { email: "workertest@gmail.com", password: testPassword },
+    expected: 403,
+    headers: {
+      Origin: "https://untrusted.test",
+      "cf-connecting-ip": "203.0.113.200",
+    },
+  });
+  const testSessions = {};
+  for (const accountDefinition of TEST_ACCOUNTS) {
+    const login = await testLogin(accountDefinition.alias);
+    assert.deepEqual(login.data, { redirectTo: accountDefinition.redirectTo });
+    assert.ok(
+      login.cookie,
+      "Successful test login must issue a signed session",
+    );
+    const session = { cookie: login.cookie };
+    const authenticated = await request("/api/auth/get-session", { session });
+    assert.equal(authenticated.user.id, accountDefinition.id);
+    assert.equal(authenticated.user.email, accountDefinition.email);
+    assert.equal(authenticated.session.userId, accountDefinition.id);
+    testSessions[accountDefinition.role] = session;
+    const onboarding = await request("/api/onboarding", { session });
+    assert.equal(onboarding.user.userId, accountDefinition.id);
+    assert.equal(onboarding.user.email, accountDefinition.email);
+    assert.equal(onboarding.user.displayEmail, accountDefinition.alias);
+    assert.deepEqual(
+      onboarding.providers.map((provider) => provider.id),
+      [TEST_PROVIDER_ID],
+    );
+    if (accountDefinition.role === "worker") {
+      assert.equal(onboarding.profile.providerId, TEST_PROVIDER_ID);
+      assert.deepEqual(onboarding.managedProviders, []);
+    } else {
+      assert.deepEqual(
+        onboarding.managedProviders.map((provider) => provider.id),
+        [TEST_PROVIDER_ID],
+      );
+    }
+  }
+  const testWorker = testSessions.worker,
+    testManager = testSessions.manager;
+  // Stray grants and memberships must not expand the reserved test roles.
+  for (const [providerId, accountDefinition] of [
+    ["provider_b", TEST_ACCOUNTS.find((account) => account.role === "manager")],
+    [
+      TEST_PROVIDER_ID,
+      TEST_ACCOUNTS.find((account) => account.role === "worker"),
+    ],
+  ])
+    await insert("provider_manager_grants", {
+      id: randomUUID(),
+      provider_id: providerId,
+      email: accountDefinition.email,
+      active: 1,
+      claimed_user_id: accountDefinition.id,
+      claimed_at: now,
+      created_at: now,
+    });
+  await insert("provider_memberships", {
+    provider_id: "provider_b",
+    user_id: "auth_test_worker",
+    active: 1,
+    joined_at: now,
+    updated_at: now,
+  });
+  const testNote = (
+    await request("/api/notes", {
+      session: testWorker,
+      body: { id: randomUUID() },
+      expected: 201,
+    })
+  ).note;
+  assert.equal(testNote.providerId, TEST_PROVIDER_ID);
+  const originalTestRow = await db
+    .prepare("SELECT * FROM shift_notes WHERE id=?")
+    .bind(testNote.id)
+    .first();
+  const strayNoteId = randomUUID();
+  await insert("shift_notes", {
+    ...originalTestRow,
+    id: strayNoteId,
+    provider_id: "provider_b",
+  });
+  assert.deepEqual(
+    (await request("/api/notes", { session: testWorker })).notes.map(
+      (note) => note.id,
+    ),
+    [testNote.id],
+  );
+  await request(`/api/notes/${strayNoteId}`, {
+    session: testWorker,
+    expected: 404,
+  });
+  await request(`/api/notes/${strayNoteId}`, {
+    session: testWorker,
+    method: "PATCH",
+    body: { revision: 0, fields: { activities: "Wrong provider" } },
+    expected: 404,
+  });
+  await request("/api/notes", {
+    session: testWorker,
+    body: { id: strayNoteId },
+    expected: 404,
+  });
+  await request("/api/management", { session: testWorker, expected: 403 });
+  await request("/api/notes", {
+    session: testManager,
+    body: { id: randomUUID() },
+    expected: 403,
+  });
+  await request("/api/onboarding", {
+    session: testWorker,
+    body: { fullName: "Test worker", providerId: "provider_a" },
+    expected: 403,
+  });
+  await request("/api/management?providerId=provider_b", {
+    session: testManager,
+    expected: 403,
+  });
+  await request(`/api/notes/${noteB.id}/audit`, {
+    session: testManager,
+    expected: 404,
+  });
+  const colleague = await account("testprovider-colleague@example.test");
+  await request("/api/onboarding", {
+    session: colleague,
+    body: { fullName: "Test colleague", providerId: TEST_PROVIDER_ID },
+  });
+  const colleagueNote = (
+    await request("/api/notes", {
+      session: colleague,
+      body: { id: randomUUID() },
+      expected: 201,
+    })
+  ).note;
+  await request(`/api/notes/${colleagueNote.id}`, {
+    session: testWorker,
+    expected: 404,
+  });
+  await request(`/api/notes/${colleagueNote.id}/audit`, {
+    session: testWorker,
+    expected: 404,
+  });
+  const testBoard = await request("/api/management", { session: testManager });
+  assert.deepEqual(
+    new Set(testBoard.notes.map((note) => note.id)),
+    new Set([testNote.id, colleagueNote.id]),
+  );
+  await request(`/api/notes/${testNote.id}/audit`, { session: testManager });
+  const testRiskId = randomUUID();
+  await insert("risk_events", {
+    id: testRiskId,
+    note_id: testNote.id,
+    owner_id: "auth_test_worker",
+    code: "TEST_REVIEW",
+    category: "other",
+    data_json: JSON.stringify({ code: "TEST_REVIEW", category: "other" }),
+    captured_at: now,
+    inbox_at: now,
+  });
+  await request(`/api/management/${testRiskId}`, {
+    session: testWorker,
+    body: { comment: "Not a manager" },
+    expected: 403,
+  });
+  await request(`/api/management/${riskB}`, {
+    session: testManager,
+    body: { comment: "Other provider" },
+    expected: 404,
+  });
+  await request(`/api/management/${testRiskId}`, {
+    session: testManager,
+    body: { comment: "Shared test manager review" },
+  });
+  const personalOnboarding = await request("/api/onboarding", {
+    session: personalGoogle,
+  });
+  assert.equal(personalOnboarding.user.userId, personalGoogle.user.id);
+  assert.equal(personalOnboarding.user.email, "managertest@gmail.com");
+  assert.notEqual(personalOnboarding.user.userId, "auth_test_manager");
+  assert.deepEqual(personalOnboarding.managedProviders, []);
+  assert.equal(personalOnboarding.profile, null);
+  await request("/api/management", { session: personalGoogle, expected: 403 });
+  await request(`/api/notes/${testNote.id}/audit`, {
+    session: personalGoogle,
+    expected: 404,
+  });
+  const personalPassword = await db
+    .prepare("SELECT password FROM auth_account WHERE user_id=?")
+    .bind(personalGoogle.user.id)
+    .all();
+  assert.deepEqual(
+    personalPassword.results.map((account) => account.password),
+    [null],
+  );
+  for (const session of [testWorker, testManager]) {
+    await request("/api/auth/sign-out", { session, body: {} });
+    await request("/api/onboarding", { session, expected: 401 });
+  }
+  await mf.setOptions({
+    ...runtimeOptions,
+    bindings: { ...runtimeOptions.bindings, LEGALMATE_TEST_PASSWORD: "" },
+  });
+  assert.equal((await request("/api/auth/status")).testAccounts, false);
+  await testLogin("workertest@gmail.com", testPassword, 503);
   assert.equal(outboundRequests, 0, "No external services should be called");
   console.log(
     `${checks} isolated built-Worker HTTP checks passed; auth sessions, provider scopes, audit access and logout verified.`,

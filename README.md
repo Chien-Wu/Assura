@@ -4,7 +4,7 @@ An English web app for disability support workers to capture a shift in one conv
 
 ## Workspaces
 
-- `/` — mobile-first Service provider / Support worker selection, expanding Google sign-in in place.
+- `/` — mobile-first Service provider / Support worker selection, expanding Google sign-in and the optional fixed Email/password test-account form in place.
 - `/onboarding` — workers confirm their name and select an existing service provider; no manager invitation or approval is required.
 - `/worker` — select a fictional participant, type or speak through the shift, edit a draft, review and confirm, and export the note.
 - `/manager` — review captured candidates, inspect transcripts and changes, record supervisor assessments and awareness times, and prepare restrictive-practice reporting follow-up.
@@ -41,7 +41,7 @@ Existing local databases should receive only unapplied migrations, after a backu
 npm run dev
 ```
 
-Open `http://localhost:5173/`. Google sign-in uses the same application authentication locally and on the standalone VM. Email-code sign-in is deferred and has no entry button in this release. Dummy ChatGPT and HTTP Basic sign-in are retired. Set `LEGALMATE_CONTACT_URL` to an HTTPS or mailto link for new provider enquiries; when unset, the entry page only directs visitors to contact the LegalMate team.
+Open `http://localhost:5173/`. Google sign-in uses the same application authentication locally and on the standalone VM. An optional Email/password form accepts only the two operator-provisioned shared TestProvider accounts; it does not enable general email registration. Configure its password through the private `LEGALMATE_TEST_PASSWORD` server setting. Email-code sign-in remains deferred. Dummy ChatGPT and HTTP Basic sign-in are retired. Set `LEGALMATE_CONTACT_URL` to an HTTPS or mailto link for new provider enquiries; when unset, the entry page only directs visitors to contact the LegalMate team.
 
 ## Checks
 
@@ -51,7 +51,7 @@ npm run build
 npm run test:onboarding
 ```
 
-`check` runs formatting checks, ESLint, TypeScript, and the unit/isolated SQLite tests, including authentication and organisation isolation. After building, `test:onboarding` exercises the built app against an isolated D1 database with signed test sessions; it makes no external service calls and does not change the development database. Use `npm run format` to format application source, tests and docs. Generated migrations, vendored UI components, and platform build support are kept intact.
+`check` runs formatting checks, ESLint, TypeScript, and the unit/isolated SQLite tests, including authentication and organisation isolation. After building, `test:onboarding` exercises the built app against an isolated D1 database with signed test sessions; it also exercises the actual fixed-account login endpoint, makes no external service calls and does not change the development database. Use `npm run format` to format application source, tests and docs. Generated migrations, vendored UI components, and platform build support are kept intact.
 
 With the local preview running, ElevenLabs configured, and the authenticated test-cookie fixture described in [authentication setup](docs/authentication.md):
 
@@ -65,20 +65,20 @@ The HTTP checks create fictional records in the local database and request conne
 
 ## Source layout
 
-| Directory                                                                  | Responsibility                                               |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `app/worker`, `app/workspace.tsx`, `app/voice-panel.tsx`                   | Worker workspace and text/voice lifecycle                    |
-| `app/manager`, `app/management-board.tsx`                                  | Manager review queue, timelines and evidence views           |
-| `app/api`                                                                  | Authenticated note, session, audit and manager operations    |
-| `lib/auth.ts`, `lib/auth-config.ts`, `app/entry.tsx`                       | Google sign-in, session verification and entry UI            |
-| `lib/organisations.ts`, `app/onboarding`, `scripts/provision-provider.mjs` | Worker affiliation, provider roles and staff provisioning    |
-| `lib/shift-form.ts`, `lib/voice-state.ts`                                  | Form validation and revision-bound confirmation              |
-| `lib/participants.ts`, `lib/safety.ts`                                     | Four fictional profiles, candidate detection and plan checks |
-| `lib/audit-server.ts`, `lib/notes-server.ts`, `lib/voice-server.ts`        | Persistence and append-only evidence                         |
-| `db`, `drizzle`                                                            | Schema and database migrations                               |
-| `tests`                                                                    | Unit, HTTP and optional live Agent tests                     |
-| `components/ui`, `vendor`, `build`                                         | Existing UI library and Sites build support                  |
-| `docs`                                                                     | Requirements, Agent configuration and testing guidance       |
+| Directory                                                                  | Responsibility                                                 |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `app/worker`, `app/workspace.tsx`, `app/voice-panel.tsx`                   | Worker workspace and text/voice lifecycle                      |
+| `app/manager`, `app/management-board.tsx`                                  | Manager review queue, timelines and evidence views             |
+| `app/api`                                                                  | Authenticated note, session, audit and manager operations      |
+| `lib/auth.ts`, `lib/auth-config.ts`, `app/entry.tsx`                       | Google/test-account sign-in, session verification and entry UI |
+| `lib/organisations.ts`, `app/onboarding`, `scripts/provision-provider.mjs` | Worker affiliation, provider roles and staff provisioning      |
+| `lib/shift-form.ts`, `lib/voice-state.ts`                                  | Form validation and revision-bound confirmation                |
+| `lib/participants.ts`, `lib/safety.ts`                                     | Four fictional profiles, candidate detection and plan checks   |
+| `lib/audit-server.ts`, `lib/notes-server.ts`, `lib/voice-server.ts`        | Persistence and append-only evidence                           |
+| `db`, `drizzle`                                                            | Schema and database migrations                                 |
+| `tests`                                                                    | Unit, HTTP and optional live Agent tests                       |
+| `components/ui`, `vendor`, `build`                                         | Existing UI library and Sites build support                    |
+| `docs`                                                                     | Requirements, Agent configuration and testing guidance         |
 
 ## Evidence model
 

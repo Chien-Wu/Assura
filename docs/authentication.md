@@ -1,6 +1,6 @@
-# Google sign-in
+# Google and limited test-account sign-in
 
-LegalMate uses Better Auth 1.7.4 with the Drizzle D1 adapter. This release offers Google sign-in only. Email-code sign-in is deferred; passwords and other social providers are disabled. Managers and workers use the same Google sign-in flow. Manager access is assigned through provisioned provider grants, not through a public sign-up field. See [Provider setup](provider-setup.md).
+LegalMate uses Better Auth 1.7.4 with the Drizzle D1 adapter. Personal accounts use Google sign-in. A separate Email/password form accepts only two provisioned shared test accounts for TestProvider; it is not general email/password registration. Email-code sign-in and other social providers remain unavailable in the entry UI. Manager access is assigned through provisioned provider grants, not through a public sign-up field. See [Provider setup](provider-setup.md).
 
 ## Required server configuration
 
@@ -13,11 +13,13 @@ Set these values in the ignored `web/.env.local` for development and in the host
 | `GOOGLE_CLIENT_ID`        | Google OAuth client ID for a Web application.                                                                                         |
 | `GOOGLE_CLIENT_SECRET`    | Secret belonging to that Google client.                                                                                               |
 
+The optional test-account form additionally requires `LEGALMATE_TEST_PASSWORD` in the private server environment and the operator-provisioned test identities described below. Never put the actual password in source, documentation, browser code or logs.
+
 Authentication also requires the D1 `DB` binding and migrations `0003_auth.sql` and `0004_organisations.sql`, following the existing migrations. These create new tables and preserve existing shift-note evidence. Do not reset the database to add sign-in.
 
-The origin must use HTTPS except for localhost, `127.0.0.1`, and `::1` development addresses. `GET /api/auth/status` reports configured authentication capabilities without revealing secrets. Missing Google credentials, a missing origin, a short/missing authentication secret, or a missing DB binding disables the Google button. There is no development identity bypass. This release needs Google configured; no Resend configuration is required.
+The origin must use HTTPS except for localhost, `127.0.0.1`, and `::1` development addresses. `GET /api/auth/status` reports configured authentication capabilities without revealing secrets. Missing Google credentials, a missing origin, a short/missing authentication secret, or a missing DB binding disables the Google button. There is no development identity bypass. Google remains required for deployment readiness; the limited test-account form is enabled separately. No Resend configuration is required.
 
-Deployment readiness requires the complete application schema and Google sign-in configuration. An email-only backend configuration does not make this release ready because the UI offers Google only. No Resend configuration is required. A ready response does not verify external credential validity; complete a real Google sign-in before making the app available.
+Deployment readiness requires the complete application schema and Google sign-in configuration. Test-account credentials or an email-only backend configuration cannot satisfy readiness on their own. A ready response does not verify external credential validity; complete a real Google sign-in and, when enabled, both test-account sign-ins before making the app available.
 
 ## Google setup
 
@@ -32,9 +34,24 @@ Only Google's fresh verified-email identity is accepted, including on returning 
 
 References: [Better Auth Google configuration](https://better-auth.com/docs/authentication/google), [Google web-server OAuth setup](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred).
 
+## Limited Email/password test accounts
+
+When the server has a test password configured, **Continue with email** opens a test-account form for these fixed aliases:
+
+| Public login alias      | Internal identity                                      | Access                                         |
+| ----------------------- | ------------------------------------------------------ | ---------------------------------------------- |
+| `managertest@gmail.com` | `auth_test_manager` / `manager@test.legalmate.invalid` | TestProvider manager; redirects to `/manager`. |
+| `workertest@gmail.com`  | `auth_test_worker` / `worker@test.legalmate.invalid`   | TestProvider worker; redirects to `/worker`.   |
+
+The aliases are labels for shared test accounts, not proof of ownership of those Gmail addresses. The server checks the fixed alias and `LEGALMATE_TEST_PASSWORD`, then issues a signed, database-backed session for the distinct internal identity. A personal Google account using the same Gmail address remains a separate account and does not acquire a password or roles through test login. Any separately provisioned manager grant for that Google identity remains independent.
+
+An operator provisions TestProvider and its two internal identities before enabling access. `node --experimental-strip-types scripts/provision-test-accounts.mjs --sql` prints the idempotent provisioning statements for review; apply them to the intended database after migrations. The script neither reads nor stores the password and does not execute SQL itself. The login form cannot create arbitrary accounts, providers, or manager grants. The test worker and manager share TestProvider records for testing, while the normal worker and provider access checks still apply. Use fictional records only: people using the same shared test account share its identity and saved records.
+
+The password is stored only in the server's private environment. Obtain it through the agreed private channel; it is neither prefilled in the form nor shown in this documentation. Failed passwords and unrecognised aliases are rejected. The endpoint is `POST /api/auth/sign-in/test-account` with `{ email, password }`; successful responses return a server-selected `redirectTo`, and sign-out revokes the resulting session normally.
+
 ## Deferred email sign-in
 
-Email sign-in was implemented during the initial onboarding work and removed from the entry UI by product decision on 2026-09-13. The dormant OTP backend and captured-email test fixtures remain for future use; this release does not configure Resend or offer email-code sign-in. Restoring the feature would require both a UI change and the `RESEND_API_KEY` / `LEGALMATE_EMAIL_FROM` server configuration.
+Email-code sign-in remains deferred. The retained OTP backend and captured-email test fixtures are separate from the fixed Email/password test accounts; this release does not configure Resend or offer email-code sign-in. Restoring OTP would require both a UI change and the `RESEND_API_KEY` / `LEGALMATE_EMAIL_FROM` server configuration.
 
 The retained backend hashes codes and verification identifiers, expires codes after five minutes, limits incorrect attempts, rejects replay, and rate-limits requests. Isolated tests capture messages in memory and never send real email. See [Better Auth email OTP](https://better-auth.com/docs/plugins/email-otp) for the underlying implementation.
 

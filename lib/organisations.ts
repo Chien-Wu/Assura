@@ -5,6 +5,11 @@ import {
   cleanWorkerProfile,
   managedProvidersQuery,
 } from "./organisation-access";
+import { getTestAccountByIdentity, TEST_PROVIDER_ID } from "./test-accounts";
+
+function testAccountFor(user: OrganisationUser) {
+  return getTestAccountByIdentity({ id: user.userId, email: user.email });
+}
 
 // getAppUser only returns identities with a server-verified email address.
 export type OrganisationUser = {
@@ -24,6 +29,8 @@ export async function listProviders(): Promise<Provider[]> {
 }
 
 export async function claimManagerGrants(user: OrganisationUser) {
+  // Shared test credentials never claim email grants or gain extra roles.
+  if (testAccountFor(user)) return;
   // This can only claim an administrator-provisioned grant; request bodies and
   // the selected landing-page role never determine management permissions.
   await database()
@@ -45,10 +52,17 @@ export async function managedProviders(
     .prepare(managedProvidersQuery)
     .bind(user.userId)
     .all<Provider>();
-  return result.results;
+  const testAccount = testAccountFor(user);
+  return testAccount
+    ? result.results.filter(
+        (provider) =>
+          testAccount.role === "manager" && provider.id === TEST_PROVIDER_ID,
+      )
+    : result.results;
 }
 
 export async function getOnboarding(user: OrganisationUser) {
+  const testAccount = testAccountFor(user);
   const [profile, providers, managed] = await Promise.all([
     database().prepare(activeWorkerQuery).bind(user.userId).first<{
       full_name: string;
@@ -58,16 +72,28 @@ export async function getOnboarding(user: OrganisationUser) {
     managedProviders(user),
   ]);
   return {
-    profile: profile
-      ? { fullName: profile.full_name, providerId: profile.provider_id }
-      : null,
-    providers,
+    profile:
+      profile &&
+      (!testAccount ||
+        (testAccount.role === "worker" &&
+          profile.provider_id === TEST_PROVIDER_ID))
+        ? { fullName: profile.full_name, providerId: profile.provider_id }
+        : null,
+    providers: testAccount
+      ? providers.filter((provider) => provider.id === TEST_PROVIDER_ID)
+      : providers,
     managedProviders: managed,
   };
 }
 
 export async function requireWorker(user: OrganisationUser | null) {
   if (!user) throw new RequestError("Sign in to continue.", 401);
+  const testAccount = testAccountFor(user);
+  if (testAccount && testAccount.role !== "worker")
+    throw new RequestError(
+      "Use the manager workspace for this test account.",
+      403,
+    );
   const profile = await database()
     .prepare(activeWorkerQuery)
     .bind(user.userId)
@@ -78,6 +104,11 @@ export async function requireWorker(user: OrganisationUser | null) {
   if (!profile)
     throw new RequestError(
       "Complete your worker profile and choose a service provider.",
+      403,
+    );
+  if (testAccount && profile.provider_id !== TEST_PROVIDER_ID)
+    throw new RequestError(
+      "This test account is limited to TestProvider.",
       403,
     );
   return {
@@ -113,6 +144,15 @@ export async function saveWorkerProfile(
   fullName: unknown,
   providerId: unknown,
 ) {
+  const testAccount = testAccountFor(user);
+  if (
+    testAccount &&
+    (testAccount.role !== "worker" || providerId !== TEST_PROVIDER_ID)
+  )
+    throw new RequestError(
+      "This test account is limited to its TestProvider role.",
+      403,
+    );
   let profile: WorkerProfile;
   try {
     profile = cleanWorkerProfile(fullName, providerId);

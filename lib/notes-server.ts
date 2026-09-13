@@ -13,6 +13,7 @@ import {
   readableNoteAccess,
 } from "./organisation-access";
 import { claimManagerGrants, type OrganisationUser } from "./organisations";
+import { TEST_ACCOUNTS, TEST_PROVIDER_ID } from "./test-accounts";
 
 export class RequestError extends Error {
   status: number;
@@ -142,7 +143,13 @@ export async function getRow(id: string, ownerId: string) {
     .prepare(noteSelect + " WHERE id = ? AND owner_id = ?")
     .bind(id, ownerId)
     .first<Row>();
-  if (!row) throw new RequestError("This note could not be found.", 404);
+  const testAccount = TEST_ACCOUNTS.find((account) => account.id === ownerId);
+  if (
+    !row ||
+    (testAccount &&
+      (testAccount.role !== "worker" || row.provider_id !== TEST_PROVIDER_ID))
+  )
+    throw new RequestError("This note could not be found.", 404);
   return row;
 }
 export async function getReadableRow(id: string, user: OrganisationUser) {
@@ -151,15 +158,29 @@ export async function getReadableRow(id: string, user: OrganisationUser) {
     .prepare(noteSelect + " WHERE shift_notes.id=? AND " + readableNoteAccess)
     .bind(id, user.userId, user.userId)
     .first<Row>();
-  if (!row) throw new RequestError("This note could not be found.", 404);
+  const testAccount = TEST_ACCOUNTS.find(
+    (account) => account.id === user.userId,
+  );
+  if (
+    !row ||
+    (testAccount &&
+      (row.provider_id !== TEST_PROVIDER_ID ||
+        (testAccount.role === "worker" && row.owner_id !== user.userId)))
+  )
+    throw new RequestError("This note could not be found.", 404);
   return row;
 }
 export async function listNotes(ownerId: string) {
+  const testAccount = TEST_ACCOUNTS.find((account) => account.id === ownerId);
+  if (testAccount?.role === "manager") return [];
   const result = await database()
     .prepare(
-      noteSelect + " WHERE owner_id = ? ORDER BY updated_at DESC LIMIT 100",
+      noteSelect +
+        " WHERE owner_id = ?" +
+        (testAccount ? " AND provider_id = ?" : "") +
+        " ORDER BY updated_at DESC LIMIT 100",
     )
-    .bind(ownerId)
+    .bind(...(testAccount ? [ownerId, TEST_PROVIDER_ID] : [ownerId]))
     .all<Row>();
   return result.results.map(toNote);
 }
@@ -180,6 +201,12 @@ export async function createNote(
 ) {
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id))
     throw new RequestError("Invalid note identifier.");
+  const testAccount = TEST_ACCOUNTS.find((account) => account.id === ownerId);
+  if (
+    testAccount &&
+    (testAccount.role !== "worker" || providerId !== TEST_PROVIDER_ID)
+  )
+    throw new RequestError("Test accounts belong to TestProvider.", 403);
   const now = new Date().toISOString();
   await database()
     .prepare(createWorkerNoteQuery)

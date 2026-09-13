@@ -1,14 +1,16 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   AudioLines,
   Building2,
   ChevronDown,
   ArrowRight,
+  Mail,
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 import SignOutButton from "./sign-out-button";
 
@@ -23,7 +25,7 @@ export default function Entry({
   contact,
 }: {
   user: { name: string; email: string } | null;
-  methods: { google: boolean };
+  methods: { google: boolean; testAccounts: boolean };
   initialRole: Role | null;
   initialError: string;
   contact: string | null;
@@ -180,7 +182,7 @@ export default function Entry({
                       </a>
                     </div>
                   ) : (
-                    <GoogleSignIn
+                    <SignInForm
                       role={item}
                       methods={methods}
                       providerId={providerId}
@@ -217,7 +219,7 @@ export default function Entry({
   );
 }
 
-function GoogleSignIn({
+function SignInForm({
   role,
   providerId,
   methods,
@@ -226,17 +228,21 @@ function GoogleSignIn({
 }: {
   role: Role;
   providerId: string;
-  methods: { google: boolean };
+  methods: { google: boolean; testAccounts: boolean };
   disabled: boolean;
   initialError: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(initialError);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const destination =
     role === "manager"
       ? "/manager"
       : `/onboarding?providerId=${encodeURIComponent(providerId)}`;
   async function google() {
+    if (busy || disabled || !methods.google) return;
     setBusy(true);
     setError("");
     try {
@@ -247,6 +253,40 @@ function GoogleSignIn({
       });
       if (result.error)
         throw new Error("Google sign-in is unavailable. Please try again.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Please try again.");
+      setBusy(false);
+    }
+  }
+  async function testAccount(event: FormEvent) {
+    event.preventDefault();
+    if (busy || !methods.testAccounts) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/auth/sign-in/test-account", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      const result: { redirectTo?: unknown; message?: unknown } =
+        payload && typeof payload === "object" ? payload : {};
+      if (!response.ok)
+        throw new Error(
+          typeof result.message === "string"
+            ? result.message
+            : "Check your test account email and password, then try again.",
+        );
+      // The authenticated account controls its role and provider. The selected
+      // entry card and provider selector never grant a test account permissions.
+      if (result.redirectTo !== "/manager" && result.redirectTo !== "/worker")
+        throw new Error(
+          "We couldn’t open your test account. Please try again.",
+        );
+      setPassword("");
+      window.location.assign(result.redirectTo);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Please try again.");
       setBusy(false);
@@ -266,9 +306,77 @@ function GoogleSignIn({
         </span>
         Continue with Google
       </Button>
+      {methods.testAccounts &&
+        (emailOpen ? (
+          <form className="entry-form entry-test-form" onSubmit={testAccount}>
+            <div className="entry-test-heading">
+              <p className="entry-test-label">Test account</p>
+              <p className="entry-caption" id={`${role}-test-help`}>
+                Use managertest@gmail.com or workertest@gmail.com. Test accounts
+                use the test provider.
+              </p>
+            </div>
+            <div className="entry-field">
+              <label htmlFor={`${role}-test-email`}>Email address</label>
+              <Input
+                id={`${role}-test-email`}
+                name="email"
+                type="email"
+                autoComplete="username"
+                inputMode="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                maxLength={254}
+                aria-describedby={`${role}-test-help`}
+                required
+                disabled={busy}
+                autoFocus
+              />
+            </div>
+            <div className="entry-field">
+              <label htmlFor={`${role}-test-password`}>Password</label>
+              <Input
+                id={`${role}-test-password`}
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                disabled={busy}
+              />
+            </div>
+            <Button
+              type="submit"
+              className="entry-auth-button"
+              disabled={busy || !email.trim() || !password}
+            >
+              {busy ? "Signing in…" : "Sign in"}
+              {!busy && <ArrowRight size={17} aria-hidden="true" />}
+            </Button>
+          </form>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            className="entry-auth-button"
+            disabled={busy}
+            onClick={() => {
+              setEmailOpen(true);
+              setError("");
+            }}
+          >
+            <Mail size={19} aria-hidden="true" />
+            Continue with email
+          </Button>
+        ))}
       {!methods.google && (
         <p className="entry-caption">
-          Google sign-in is being set up. Please check back shortly.
+          {methods.testAccounts
+            ? "Google sign-in is being set up. You can use a test account."
+            : "Google sign-in is being set up. Please check back shortly."}
         </p>
       )}
       {error && (

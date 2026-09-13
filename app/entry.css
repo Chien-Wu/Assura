@@ -105,6 +105,19 @@
   display: grid;
   gap: 0.8rem;
 }
+.entry-test-form {
+  padding-top: 0.4rem;
+}
+.entry-test-heading {
+  display: grid;
+  gap: 0.3rem;
+}
+.entry-test-label {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
 .entry-field {
   display: grid;
   gap: 0.45rem;

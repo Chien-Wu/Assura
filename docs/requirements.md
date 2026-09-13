@@ -202,7 +202,7 @@ sequenceDiagram
 
 ## 9. Provider／Manager／Worker 與登入改版（2026-09-13）
 
-本節記錄最新產品決定，優先於前述初始入口及帳號方案；第 8 節仍是歷史實作紀錄。初次分支實作紀錄見 9.4；目前發行設定以 9.5 的最新決定為準，外部服務設定與部署狀態另行核對。
+本節記錄最新產品決定，優先於前述初始入口及帳號方案；第 8 節仍是歷史實作紀錄。初次分支實作紀錄見 9.4；目前發行設定以 9.6 的最新決定為準，外部服務設定與部署狀態另行核對。
 
 ### 9.1 已確認的產品方向與入口
 
@@ -211,7 +211,7 @@ sequenceDiagram
 - 保持英文 Web app，優先手機使用。首頁只保留品牌、slogan 與清楚的身分入口，移除額外功能清單及冗長展示說明。
 - Slogan 精確使用 **better note, less burden**。
 - 入口使用清晰的社福用語 **Service provider**、**Support worker**；點擊後在原頁展開相應登入／開始使用內容，worker 與管理端保留各自工作介面。
-- 目前發行版只提供 **Continue with Google**，不提供其他登入選項。原先的 Email 一次性驗證碼登入已依最新決定延後，首頁不顯示 Email 登入按鈕、驗證碼表單或寄信設定提示。
+- 目前發行版提供 **Continue with Google**，以及啟用固定測試帳號後的 **Continue with email**。後者只供兩個 TestProvider 共用測試帳號以 Email／密碼登入，不是一般 Email 註冊；原先的 Email 一次性驗證碼登入仍延後，不顯示驗證碼或寄信設定流程。
 
 ### 9.2 已確認的開通方式
 
@@ -232,7 +232,7 @@ sequenceDiagram
 
 ### 9.4 初次分支實作紀錄（Email 移除前）
 
-- 此節記錄首次完成時的 `feat/provider-worker-onboarding` 分支；當時尚未合併 `main` 或部署至 VM，最新發行決定見 9.5。
+- 此節記錄首次完成時的 `feat/provider-worker-onboarding` 分支；當時尚未合併 `main` 或部署至 VM，最新發行決定見 9.6。
 - 已加入手機優先的展開式首頁、Google／Email 驗證码登入、worker 基本資料頁，以及依機構授權的 manager 看板。Worker 可以直接加入已開通的 provider；manager grant 由管理員預先配置。
 - 每份新紀錄保存不可變更的 provider 歸屬。Worker 換機構後，歷史紀錄仍由原機構 managers 查看；worker 仍可讀取自己的歷史紀錄。Manager 不能修改、代為確認 worker 的觀察或啟動其對話。
 - Provider managers 可查看所屬機構的草稿及已確認紀錄；既有候選事件仍於捕捉時進入機構 inbox，不等紀錄確認。Worker 選擇機構時會看到紀錄分享說明。
@@ -242,7 +242,7 @@ sequenceDiagram
 - 本機已加入安全產生的 session secret，保留原有 ElevenLabs 設定。Google OAuth、寄信 API／驗證寄件者、實際 provider 與第一位 manager 尚未配置，因此目前不宣稱可完成真實登入。
 - 43 項單元／隔離資料庫測試、38 項建置後 API 檢查、格式／Lint／型別檢查與正式建置通過；涵蓋登入驗證、OTP 過期與重播、登出、角色隔離、跨機構讀取限制，以及更換機構後歷史紀錄的歸屬。手機首頁已檢查 320px／390px 寬度，沒有水平溢出。
 
-### 9.5 最新發行決定：暫時移除 Email 登入（2026-09-13）
+### 9.5 前次發行決定：暫時移除 Email 登入（2026-09-13）
 
 - 使用者最新指示：「等等，email 先移除就好」。目前入口只保留 **Continue with Google**，manager 與 worker 使用同一個 Google 登入方式。
 - 移除 Email 登入按鈕、Email／驗證碼表單、重新寄送功能及 Email 設定中的提示；保留 worker 的 provider 選擇、Google 登入錯誤與重試說明。
@@ -251,3 +251,12 @@ sequenceDiagram
 
 - 使用者已授權將 Google credentials 寫入本機及 VM 的私密設定、合併推送 `main` 並更新 VM；指定第一個機構名稱為 **TestProvider**。登入憑證不寫入 Git。
 - TestProvider 公開測試角色：`managertest@gmail.com` 為 manager，`workertest@gmail.com` 為 worker；仍須使用對應 Google 帳號完成驗證，worker 首次登入自行完成基本資料與機構選擇。
+
+### 9.6 最新發行決定：Google 與限定 Email／密碼測試帳號（2026-09-13）
+
+- 保留個人的 Google 登入；重新加入 **Continue with email**，但只接受固定的 TestProvider 共用測試帳號，不開放任意 Email／密碼註冊，也不恢復 Email OTP。
+- 公開登入別名為 `managertest@gmail.com`（manager）與 `workertest@gmail.com`（worker）；共用測試密碼只存在私密伺服器環境變數 `LEGALMATE_TEST_PASSWORD`，不寫入程式碼、Git、文件、前端或 log。
+- 兩個別名對應獨立的內部測試身分 `auth_test_manager`／`manager@test.legalmate.invalid` 與 `auth_test_worker`／`worker@test.legalmate.invalid`，不能視為 Gmail 所有權驗證，也不得讓同名的個人 Google 帳號自動取得測試密碼或權限。
+- 由我們預先建立 TestProvider 及上述固定測試身分；登入成功使用一般簽署、可撤銷的資料庫 session，manager 直接前往 `/manager`，worker 直接前往 `/worker`。公開表單不能建立其他機構、任意帳號或提升 manager 權限。
+- 測試 worker 可建立自己的 TestProvider 紀錄；測試 manager 可讀取及覆核 TestProvider 紀錄；仍禁止 worker 取得其他 worker 紀錄或 manager 權限，以及 manager 跨機構存取。測試帳號供共用展示，只使用虛構資料。
+- Google 設定及完整資料庫 schema 仍為部署 readiness 必要條件；測試密碼或 Email OTP 設定不能單獨使部署通過。本次不需 Resend。

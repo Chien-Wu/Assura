@@ -66,7 +66,9 @@ async function ManagerContent({
           <Link href="/?role=worker" className="entry-text-button">
             Continue as a support worker
           </Link>
-          <p className="entry-caption">Signed in as {user.email}</p>
+          <p className="entry-caption">
+            Signed in as {user.displayEmail ?? user.email}
+          </p>
           <SignOutButton />
         </div>
       </main>

@@ -250,3 +250,249 @@ test("Google requires a fresh verified email and never trusts an unverified link
     f.sqlite.close();
   }
 });
+
+async function provisionedTestFixture() {
+  const { randomUUID } = await import("node:crypto");
+  const { readFileSync } = await import("node:fs");
+  const { testAccountStatements } = await import(
+    "../scripts/provision-test-accounts.mjs"
+  );
+  const password = randomUUID();
+  const f = fixture({ testPassword: password });
+  for (const name of [
+    "0000_confused_green_goblin",
+    "0001_eminent_lilandra",
+    "0002_amazing_spectrum",
+    "0004_organisations",
+  ]) {
+    f.sqlite.exec(
+      readFileSync(new URL(`../drizzle/${name}.sql`, import.meta.url), "utf8"),
+    );
+  }
+  const apply = () => {
+    for (const statement of testAccountStatements())
+      f.sqlite.prepare(statement.sql).run(...statement.params);
+  };
+  apply();
+  return { ...f, password, provision: apply };
+}
+
+test("test account sign-in requires explicit configuration and only accepts the two login aliases", async () => {
+  const off = fixture();
+  try {
+    assert.equal(
+      (
+        await off.request("/sign-in/test-account", {
+          email: "workertest@gmail.com",
+          password: "not-configured",
+        })
+      ).status,
+      503,
+    );
+    assert.equal(readAuthConfiguration(input).testAccounts, false);
+  } finally {
+    off.sqlite.close();
+  }
+  const f = await provisionedTestFixture();
+  try {
+    assert.equal(
+      (
+        await f.request("/sign-in/test-account", {
+          email: "workertest@gmail.com",
+          password: "incorrect-password",
+        })
+      ).status,
+      401,
+    );
+    assert.equal(
+      (
+        await f.request("/sign-in/test-account", {
+          email: "someone@gmail.com",
+          password: f.password,
+        })
+      ).status,
+      401,
+    );
+    assert.equal(
+      (
+        await f.request("/sign-in/test-account", {
+          email: "worker@test.legalmate.invalid",
+          password: f.password,
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      f.sqlite.prepare("SELECT count(*) AS total FROM auth_session").get()
+        .total,
+      0,
+    );
+  } finally {
+    f.sqlite.close();
+  }
+});
+
+test("test aliases create normal signed sessions with internal identities and fixed role redirects", async () => {
+  const f = await provisionedTestFixture();
+  try {
+    for (const [email, id, internalEmail, destination] of [
+      [
+        "  MANAGERTEST@gmail.com ",
+        "auth_test_manager",
+        "manager@test.legalmate.invalid",
+        "/manager",
+      ],
+      [
+        "workertest@gmail.com",
+        "auth_test_worker",
+        "worker@test.legalmate.invalid",
+        "/worker",
+      ],
+    ]) {
+      const response = await f.request("/sign-in/test-account", {
+        email,
+        password: f.password,
+      });
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { redirectTo: destination });
+      assert.match(response.headers.get("set-cookie"), /HttpOnly/i);
+      assert.match(response.headers.get("set-cookie"), /Secure/i);
+      const cookie = sessionCookie(response);
+      const session = await f.auth.api.getSession({
+        headers: new Headers({ Cookie: cookie }),
+      });
+      assert.equal(session.user.id, id);
+      assert.equal(session.user.email, internalEmail);
+      assert.equal((await f.request("/sign-out", {}, { cookie })).status, 200);
+      assert.equal(
+        await f.auth.api.getSession({
+          headers: new Headers({ Cookie: cookie }),
+        }),
+        null,
+      );
+    }
+    assert.equal(f.mail.length, 0);
+  } finally {
+    f.sqlite.close();
+  }
+});
+
+test("test sign-in keeps genuine Google accounts with the public alias separate", async () => {
+  const f = await provisionedTestFixture();
+  try {
+    f.sqlite
+      .prepare(
+        "INSERT INTO auth_user (id,name,email,email_verified,created_at,updated_at) VALUES (?,?,?,1,?,?)",
+      )
+      .run(
+        "auth_google_alias_owner",
+        "Genuine Google user",
+        "managertest@gmail.com",
+        Date.now(),
+        Date.now(),
+      );
+    const before = f.sqlite
+      .prepare("SELECT * FROM auth_user WHERE id='auth_google_alias_owner'")
+      .get();
+    f.provision();
+    assert.deepEqual(
+      f.sqlite
+        .prepare("SELECT * FROM auth_user WHERE id='auth_google_alias_owner'")
+        .get(),
+      before,
+    );
+    assert.equal(
+      f.sqlite
+        .prepare(
+          "SELECT count(*) AS total FROM provider_manager_grants WHERE claimed_user_id='auth_google_alias_owner' OR email='managertest@gmail.com'",
+        )
+        .get().total,
+      0,
+    );
+    const response = await f.request("/sign-in/test-account", {
+      email: "managertest@gmail.com",
+      password: f.password,
+    });
+    assert.equal(response.status, 200);
+    const session = await f.auth.api.getSession({
+      headers: new Headers({ Cookie: sessionCookie(response) }),
+    });
+    assert.equal(session.user.id, "auth_test_manager");
+    assert.notEqual(session.user.id, before.id);
+    const validate = f.auth.options.user.validateUserInfo;
+    assert.equal(
+      validate({
+        user: { email: "manager@test.legalmate.invalid", emailVerified: true },
+        source: {
+          method: "oauth",
+          action: "create-user",
+          oauth: { providerId: "google", profile: { email_verified: true } },
+        },
+      }).error,
+      "email_not_verified",
+    );
+  } finally {
+    f.sqlite.close();
+  }
+});
+
+test("test sign-in requires an active TestProvider scope and enforces rate limits and origin checks", async () => {
+  const f = await provisionedTestFixture();
+  try {
+    f.sqlite.exec("UPDATE providers SET active=0 WHERE id='testprovider'");
+    assert.equal(
+      (
+        await f.request("/sign-in/test-account", {
+          email: "workertest@gmail.com",
+          password: f.password,
+        })
+      ).status,
+      503,
+    );
+    f.sqlite.exec("UPDATE providers SET active=1 WHERE id='testprovider'");
+    f.sqlite.exec("UPDATE provider_manager_grants SET active=0");
+    assert.equal(
+      (
+        await f.request("/sign-in/test-account", {
+          email: "managertest@gmail.com",
+          password: f.password,
+        })
+      ).status,
+      503,
+    );
+    for (let i = 0; i < 3; i++)
+      await f.request("/sign-in/test-account", {
+        email: "workertest@gmail.com",
+        password: "incorrect-password",
+      });
+    assert.equal(
+      (
+        await f.request("/sign-in/test-account", {
+          email: "workertest@gmail.com",
+          password: f.password,
+        })
+      ).status,
+      429,
+    );
+    const crossOrigin = await f.auth.handler(
+      new Request(
+        `${input.LEGALMATE_PUBLIC_ORIGIN}/api/auth/sign-in/test-account`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Origin: "https://attacker.test",
+            "cf-connecting-ip": "203.0.113.22",
+          },
+          body: JSON.stringify({
+            email: "workertest@gmail.com",
+            password: f.password,
+          }),
+        },
+      ),
+    );
+    assert.equal(crossOrigin.status, 403);
+  } finally {
+    f.sqlite.close();
+  }
+});

@@ -48,7 +48,10 @@ async function OnboardingContent({
         </p>
       </div>
       <OnboardingForm
-        user={{ name: user.fullName ?? "", email: user.email }}
+        user={{
+          name: user.fullName ?? "",
+          email: user.displayEmail ?? user.email,
+        }}
         profile={data.profile}
         providers={data.providers}
         initialProviderId={query.providerId ?? ""}

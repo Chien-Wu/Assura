@@ -5,6 +5,10 @@ import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { authSchema } from "../db/auth-schema.ts";
 import { createAppAuth } from "../lib/auth-config.ts";
+import {
+  testAccountScopeQuery,
+  testAccountScopeParams,
+} from "../lib/test-accounts.ts";
 
 // This isolated test helper has no network sender and is never imported by the app.
 export const testAuthEnvironment = {
@@ -17,11 +21,13 @@ export function createAuthFixture({
   senderFails = false,
   origin,
   secret,
+  testPassword,
 } = {}) {
   const input = {
     ...testAuthEnvironment,
     ...(origin ? { LEGALMATE_PUBLIC_ORIGIN: origin } : {}),
     ...(secret ? { BETTER_AUTH_SECRET: secret } : {}),
+    ...(testPassword ? { LEGALMATE_TEST_PASSWORD: testPassword } : {}),
   };
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(
@@ -48,6 +54,12 @@ export function createAuthFixture({
       if (senderFails) throw new Error("test sender failed");
       mail.push({ email, otp });
     },
+    async (account) =>
+      Boolean(
+        sqlite
+          .prepare(testAccountScopeQuery)
+          .get(...testAccountScopeParams(account)),
+      ),
   );
   async function request(path, body, { cookie, ip = "203.0.113.1" } = {}) {
     return auth.handler(

@@ -13,7 +13,11 @@ export default async function Home({
   const user = await getAppUser();
   return (
     <Entry
-      user={user ? { name: user.displayName, email: user.email } : null}
+      user={
+        user
+          ? { name: user.displayName, email: user.displayEmail ?? user.email }
+          : null
+      }
       methods={getAuthStatus()}
       initialRole={
         query.role === "worker" || query.role === "manager" ? query.role : null

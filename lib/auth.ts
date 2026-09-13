@@ -9,12 +9,19 @@ import {
   readAuthConfiguration,
   type AuthEnvironment,
 } from "./auth-config";
+import {
+  getTestAccountByIdentity,
+  isReservedTestEmail,
+  testAccountScopeParams,
+  testAccountScopeQuery,
+} from "./test-accounts";
 
 export type AppUser = {
   userId: string;
   email: string;
   fullName: string | null;
   displayName: string;
+  displayEmail?: string;
 };
 
 function authEnvironment(): AuthEnvironment {
@@ -26,17 +33,23 @@ function authEnvironment(): AuthEnvironment {
     "GOOGLE_CLIENT_SECRET",
     "RESEND_API_KEY",
     "LEGALMATE_EMAIL_FROM",
+    "LEGALMATE_TEST_PASSWORD",
   ] as const;
   return Object.fromEntries(
     names.map((name) => [name, bindings[name] || process.env[name]]),
   );
 }
 
-export function getAuthStatus(): { google: boolean; email: boolean } {
+export function getAuthStatus(): {
+  google: boolean;
+  email: boolean;
+  testAccounts: boolean;
+} {
   const config = readAuthConfiguration(authEnvironment());
   return {
     google: Boolean(env.DB && config.google),
     email: Boolean(env.DB && config.email),
+    testAccounts: Boolean(env.DB && config.testAccounts),
   };
 }
 
@@ -67,6 +80,13 @@ function getAuth() {
       });
       if (!response.ok) throw new Error("Sign-in email delivery failed.");
     },
+    async (account) =>
+      Boolean(
+        await env
+          .DB!.prepare(testAccountScopeQuery)
+          .bind(...testAccountScopeParams(account))
+          .first(),
+      ),
   );
 }
 
@@ -82,11 +102,23 @@ export async function getAppUser(
   });
   if (!session?.user.emailVerified) return null;
   const fullName = session.user.name.trim() || null;
+  const testAccount = getTestAccountByIdentity(session.user);
+  if (isReservedTestEmail(session.user.email) && !testAccount) return null;
+  if (
+    testAccount &&
+    (!authEnvironment().LEGALMATE_TEST_PASSWORD ||
+      !(await env
+        .DB!.prepare(testAccountScopeQuery)
+        .bind(...testAccountScopeParams(testAccount))
+        .first()))
+  )
+    return null;
   return {
     userId: session.user.id,
     email: session.user.email,
     fullName,
     displayName: fullName ?? session.user.email,
+    ...(testAccount ? { displayEmail: testAccount.alias } : {}),
   };
 }
 
