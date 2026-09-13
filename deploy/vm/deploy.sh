@@ -14,6 +14,7 @@ flock -n 9 || exit 0
 
 as_app() {
   runuser -u legalmate -- env PATH="$PATH" CI=1 npm_config_cache="$ROOT/cache/npm" \
+    XDG_CONFIG_HOME=/var/lib/legalmate/config \
     CLOUDFLARE_CF_FETCH_ENABLED=false WRANGLER_SEND_METRICS=false \
     GIT_SSH_COMMAND="ssh -i $ROOT/ssh/github_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$ROOT/ssh/known_hosts -o BatchMode=yes" "$@"
 }
@@ -32,7 +33,11 @@ else
   REVISION=$(as_app git -C "$REPO" rev-parse refs/remotes/origin/main)
 fi
 
-PREVIOUS=$(readlink -f "$ROOT/current" || true)
+PREVIOUS=
+if [[ -L "$ROOT/current" ]]; then
+  PREVIOUS=$(readlink -f "$ROOT/current")
+  [[ "$PREVIOUS" == "$ROOT/releases/"* && -d "$PREVIOUS" ]] || { echo 'Invalid active release symlink.' >&2; exit 1; }
+fi
 RELEASE=$ROOT/releases/$REVISION
 if [[ "$PREVIOUS" == "$RELEASE" ]] && systemctl is-active --quiet legalmate.service; then
   echo "Already serving main at $REVISION"
@@ -56,6 +61,11 @@ BACKUP=$BACKUPS/$(date -u +%Y%m%dT%H%M%SZ)-${REVISION:0:12}
 install -d -m 0750 "$BACKUP"
 STOPPED=0
 BACKED_UP=0
+
+activate() {
+  ln -sfn -- "$1" "$ROOT/current.next"
+  mv -Tf -- "$ROOT/current.next" "$ROOT/current"
+}
 
 health() {
   local attempt
@@ -83,9 +93,11 @@ rollback() {
       cp -a "$BACKUP/state" "$STATE"
     fi
     if [[ -n "$PREVIOUS" && -d "$PREVIOUS" ]]; then
-      ln -sfn "$PREVIOUS" "$ROOT/current"
+      activate "$PREVIOUS"
       systemctl start legalmate.service
       if health; then rm -f "$MAINTENANCE"; fi
+    elif [[ -L "$ROOT/current" ]]; then
+      rm "$ROOT/current"
     fi
   fi
   echo "Deployment failed for $REVISION; previous release retained. See journalctl -u legalmate-deploy." >&2
@@ -107,7 +119,7 @@ BACKED_UP=1
 printf '%s\n' "$PREVIOUS" > "$BACKUP/previous-release"
 as_app node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js \
   d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to "$STATE"
-ln -sfn "$RELEASE" "$ROOT/current"
+activate "$RELEASE"
 systemctl start legalmate.service
 health
 rm -f "$MAINTENANCE"
