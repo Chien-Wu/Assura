@@ -2,6 +2,8 @@
 
 Support workers record a shift, review the saved account and AI risk check, then explicitly confirm it. Managers schedule shifts and review their provider's notes and findings.
 
+The product is an English-language web app designed for mobile and desktop use.
+
 ## Repository
 
 ```text

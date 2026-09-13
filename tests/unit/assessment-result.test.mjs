@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import {
   riskTypes,
   riskLevelLabels,
@@ -521,12 +520,7 @@ test("the short adapter timeout aborts provider work with a retryable failure", 
   await assert.rejects(pending, modelError("timeout"));
 });
 
-test("the reviewable prompt matches the silent runtime prompt and ascending user priorities", async () => {
-  const document = await readFile(
-    new URL("../../config/agents/ai2/system-prompt.txt", import.meta.url),
-    "utf8",
-  );
-  assert.equal(document, riskAssessmentSystemPrompt);
+test("the runtime prompt preserves silent review and ascending user priorities", () => {
   for (const expression of [
     /NEVER INTERVIEW/,
     /Never ask a question/,
@@ -536,5 +530,5 @@ test("the reviewable prompt matches the silent runtime prompt and ascending user
     /1–3 short declarative sentences/,
     /at most one entry per type/,
   ])
-    assert.match(document, expression);
+    assert.match(riskAssessmentSystemPrompt, expression);
 });

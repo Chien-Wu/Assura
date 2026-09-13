@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Factual intake fields adapted from docs/extra-notes-forms.txt. These drafts
+// Factual intake fields adapted from docs/sources/extra-notes-forms.txt. These drafts
 // do not decide reportability, authorisation, clinical care or case closure.
 export const workflowRiskTypes = [
   "incident_safeguarding",

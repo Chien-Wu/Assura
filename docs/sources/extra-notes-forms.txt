@@ -1,3 +1,9 @@
+使用者提供的表單提問參考（2026-09-13）
+
+以下原文是規劃參考，並非目前已驗證的法律、臨床指引或功能清單。
+原始決定：General Note 完成後，有需要時再寫 Extra Notes；由平台提供標準表單，Provider 勾選需要的表單（尚未實作）；Complaint／Feedback 不列入 Worker Extra Notes。
+原文保留五組表單，其中 Behaviour 與 Restrictive Practice 合併；目前 native Workflow 拆為六種草稿，欄位以 src/lib/workflow/case.ts 為準。此決定不影響 silent AI2 的 complaint 偵測。
+
 只要發生以下任一情形就觸發：
 -  已造成 participant 傷害；
 -  有可能造成 participant 傷害；

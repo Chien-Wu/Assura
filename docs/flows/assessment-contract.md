@@ -30,10 +30,3 @@ Findings have independent manager state: review_status open|reviewing|closed, ma
 Manager GET `/api/management` adds `findings` with id, assessmentId, noteId, participant, workerName, sourceRevision, isCurrent, noteStatus, type, aiLevel, evidence, summary, createdAt, reviewStatus, managerLevel, reviewRevision, history[{id,actorName,createdAt,status,managerLevel,comment}]. Tenant permission rechecked at SQL mutation. Keep existing legacy incident queue compatible. Open findings from superseded note versions stay visible and labelled as older versions until a manager closes them; no silent removal on recheck. Current routine results available in notes, without queue clutter.
 
 Manager POST `/api/management/findings/:id` body `{requestId,revision,status,managerLevel,comment}` returns `{ok:true,finding}`. Actor/provider derived from auth. Same requestId+payload idempotent, conflicting replay 409. Workers/other-provider managers denied. Risk queue sorted P4→P1, review status filter, details+supporting quotes and source note/audit. Do not send external notifications.
-
-## Ownership
-
-Core agent: pure risk types/normalization/model/prompt/unit tests.
-Backend agent: schema/migration/server assessment API+review/confirm guards+manager read/write API+HTTP tests.
-UI agent: workspace worker review flow/new compact component/styles/bookmark redirect; remove old interview page/client controls.
-Root: manager UI, note export/audit/history adaptations, documentation, integration and browser verification.

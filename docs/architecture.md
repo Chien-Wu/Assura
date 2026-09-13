@@ -29,7 +29,7 @@ The application has one codebase and one durable database per deployment. It use
 
 D1 is the source of truth. Acknowledgements follow admitted durable writes; model context is a working copy. `database/schema/` owns tables by domain, and `database/schema.ts` exports the schema for Drizzle. All applied SQL and generator snapshots remain in `database/migrations/` unchanged. Synthetic imports use `tests/fixtures/`; local databases and credentials are never source files.
 
-`config/agents/main/` is the recorder prompt/tool source. Silent AI2's runtime prompt is `src/lib/assessment/prompt.ts`, checked against `config/agents/ai2/system-prompt.txt`. Native nodes and tools are in `config/agents/workflow.mjs`. Operator scripts publish provider settings separately from application deployment.
+`config/agents/main/` is the recorder prompt/tool source; its first message is maintained in ElevenLabs and preserved by the sync script. Silent AI2's sole prompt source is `src/lib/assessment/prompt.ts`. Native nodes and tools are in `config/agents/workflow.mjs`. Operator scripts publish provider settings separately from application deployment.
 
 `src/app/globals.css` is the stylesheet entrypoint. Its ordered imports preserve the existing cascade: theme → workspace → note form → responsive rules → recorder → review → interaction. Component-specific CSS remains beside its screen. Splitting styles must preserve selector order and media-query precedence.
 
