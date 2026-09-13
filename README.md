@@ -1,99 +1,80 @@
 # LegalMate
 
-An English web app for disability support workers to capture a shift in one conversation, review the saved facts, and explicitly confirm their note. Managers have a separate workspace for reviewing alerts and evidence.
+Support workers record a shift, review the saved account and AI risk check, then explicitly confirm it. Managers schedule shifts and review their provider's notes and findings.
 
-## Workspaces
+## Current flows
 
-- `/` — mobile-first Service provider / Support worker selection, expanding Google sign-in and the optional fixed Email/password test-account form in place.
-- `/onboarding` — workers confirm their name and select an existing service provider; no manager invitation or approval is required.
-- `/worker` — choose an assigned shift, type or speak through the shift, edit a draft, review and confirm, and export the note.
-- `/manager` — set up participants, schedule a participant and worker with expected start/end times, and review notes, alerts and evidence.
+| Entry                         | Behaviour                                                                                                                                                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/worker`                     | Assigned shifts, manual entry or ElevenLabs text/voice recording. The recorder saves facts through two client tools. **Review & confirm** runs a silent AI2 check against the saved note and transcript. |
+| `/worker/notes/[id]/workflow` | Separate, optional native Workflow test: Main routes to six risk specialists sharing one case and six draft forms. It is not yet part of ordinary note confirmation or manager AI2 review.               |
+| `/manager`                    | Participants, shift scheduling, notes, risk findings and append-only manager decisions within the provider.                                                                                              |
+| `/onboarding`                 | Workers select an existing provider and confirm their profile. Managers are provisioned by the operator.                                                                                                 |
 
-Text test mode is the default. Voice remains available through the same ElevenLabs Agent and form tools. Workers access their own notes; provisioned managers can review their provider's notes and evidence. Providers and their first manager accounts are provisioned by the LegalMate team, with no public organisation sign-up. Each note retains the provider it was created for when a worker changes affiliation.
+The normal recorder's two tools are `get_form_context` and `update_and_check_form`. The separate Workflow uses `get_case_context` and `save_risk_form`. Workflow forms and the silent AI2 classification schema are distinct contracts. See the [documentation index](docs/README.md) before changing either flow.
 
-Use fictional participant details. The form is provisional and the question bank needs clinical review. This app does not certify regulatory compliance or submit reports to the NDIS Commission. Alerts appear in the app only; no external notification is sent.
+## Local setup
 
-## Development
-
-Requires Node.js 22.13 or later and npm. Run commands from this repository's root.
+Requires Node.js 22.13+ and npm. Run from this repository root:
 
 ```sh
 npm run install:ci
-cp .env.example .env.local
+cp .env.example .env.local # First setup only; preserve an existing environment.
 npm run build
 ```
 
-Configure Google sign-in using [authentication setup](docs/authentication.md), then create the provider and first manager using [provider setup](docs/provider-setup.md). A missing auth configuration shows a clear setup state and cannot sign users in. Existing `.env.local` files should be extended with the new variables from `.env.example`, not overwritten.
+Configure [application authentication](docs/authentication.md) and [provider access](docs/provider-setup.md). Manual drafting works without ElevenLabs. Text/voice recording requires server-only `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID`. Silent AI2 requires `OPENAI_API_KEY`; when it is missing, review shows a setup error and retains the draft. The optional Workflow has its own agent, version and enable flag; follow [Workflow setup](docs/workflow-app-test.md).
 
-Set `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` in `.env.local` to enable text/voice interviews. Authenticated workers can draft manually without ElevenLabs credentials. All keys stay on the server. See [Agent configuration](docs/elevenlabs-agent.md).
-
-For a **fresh local database only**, apply all six SQL migrations in order:
+For a **fresh, empty local database only**, apply every SQL migration in filename order:
 
 ```sh
-for migration in drizzle/0000_confused_green_goblin.sql drizzle/0001_eminent_lilandra.sql drizzle/0002_amazing_spectrum.sql drizzle/0003_auth.sql drizzle/0004_organisations.sql drizzle/0005_scheduled_shifts.sql; do
+for migration in drizzle/*.sql; do
   node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file "$migration" || break
 done
-```
-
-Existing local databases should receive only unapplied migrations, after a backup. Do not edit or rerun an applied migration. `npm run db:generate` creates new migrations after schema changes. Existing legacy notes stay with their historical owner IDs and remain unassigned to any provider; a matching email address does not automatically claim them.
-
-Migration `0005_scheduled_shifts.sql` adds provider-owned participants, scheduled shifts and immutable note links without changing existing notes. Managers first add a participant under **Participants**, then use **Schedule shift** to choose that participant, an active worker and expected Melbourne start/end times. Workers become available after completing onboarding for that provider. Workers open their assigned shifts under **My shifts**; each shift has one note, and retries resume it. Actual note times are entered separately from the expected schedule. Participant details are snapshotted when a note starts so later profile edits do not rewrite its context.
-
-```sh
 npm run dev
 ```
 
-Open `http://localhost:5173/`. Google sign-in uses the same application authentication locally and on the standalone VM. An optional Email/password form accepts only the two operator-provisioned shared TestProvider accounts; it does not enable general email registration. Configure its password through the private `LEGALMATE_TEST_PASSWORD` server setting. When enabled, the role's email and shared password are intentionally prefilled for all signed-out visitors to test the app. Email-code sign-in remains deferred. Dummy ChatGPT and HTTP Basic sign-in are retired. Set `LEGALMATE_CONTACT_URL` to an HTTPS or mailto link for new provider enquiries; when unset, the entry page only directs visitors to contact the LegalMate team.
+Open `http://localhost:5173`. For an existing database, back up first and apply only unapplied migrations. Never edit or rerun applied SQL. The history currently runs from `0000` through `0010`; `npm run db:generate` adds a new migration after a schema change.
 
-## Checks
+The optional fixed test-account form intentionally prefills the two TestProvider aliases and configured shared test password. It does not enable general email registration. Do not use real participant data in demo testing.
+
+## Validation
 
 ```sh
 npm run check
 npm run build
-npm run test:onboarding
-```
-
-`check` runs formatting checks, ESLint, TypeScript, and the unit/isolated SQLite tests, including authentication and organisation isolation. After building, `test:onboarding` exercises the built app against an isolated D1 database with signed test sessions; it also exercises the actual fixed-account login endpoint, makes no external service calls and does not change the development database. Use `npm run format` to format application source, tests and docs. Generated migrations, vendored UI components, and platform build support are kept intact.
-
-With the local preview running, ElevenLabs configured, and the authenticated test-cookie fixture described in [authentication setup](docs/authentication.md):
-
-```sh
 npm run test:api
 ```
 
-The HTTP checks create fictional records in the local database and request connection credentials, but do not open an audio call. They cover note revisions, confirmation, early risk capture, evidence preservation and manager review. Append-only evidence remains in that local test database.
+`check` runs formatting, ESLint, TypeScript and unit/isolated SQLite tests. After building, `test:api` runs onboarding, knowledge, assessment and Workflow HTTP suites against isolated D1 databases with synthetic signed sessions and mocked providers. It does not use the development database or paid AI calls. The suites can also run separately with `test:onboarding`, `test:knowledge`, `test:assessment` and `test:workflow`.
 
-`npm run test:live` is an **optional** real Agent text conversation. It consumes Agent credits and tests extraction, correction and confirmation. It is separate from `check`; live speech quality and full conversation performance require acceptance testing. See [conversation integration](docs/voice-integration.md).
+`npm run test:workflow:live` is an optional **paid** synthetic client-tool smoke against the configured Workflow agent and isolated D1. It requires the private manifest created by `scripts/configure-workflow-test.mjs`. It does not cover browser microphone timing or end-to-end speech quality.
+
+Historical protocol tests live in [tests/legacy](tests/legacy/README.md); they do not validate the current recorder. Earlier webhook and transfer experiments live in [scripts/experiments](scripts/experiments/README.md). Neither runs during normal checks. `npm run format` formats maintained code and documentation; generated migrations, platform support and retained vendor source stay intact.
 
 ## Source layout
 
-| Directory                                                                  | Responsibility                                                 |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `app/worker`, `app/workspace.tsx`, `app/voice-panel.tsx`                   | Worker workspace and text/voice lifecycle                      |
-| `app/manager`, `app/management-board.tsx`                                  | Manager review queue, timelines and evidence views             |
-| `app/api`                                                                  | Authenticated note, session, audit and manager operations      |
-| `lib/auth.ts`, `lib/auth-config.ts`, `app/entry.tsx`                       | Google/test-account sign-in, session verification and entry UI |
-| `lib/organisations.ts`, `app/onboarding`, `scripts/provision-provider.mjs` | Worker affiliation, provider roles and staff provisioning      |
-| `lib/shift-form.ts`, `lib/voice-state.ts`                                  | Form validation and revision-bound confirmation                |
-| `lib/participants.ts`, `lib/safety.ts`                                     | Four fictional profiles, candidate detection and plan checks   |
-| `lib/audit-server.ts`, `lib/notes-server.ts`, `lib/voice-server.ts`        | Persistence and append-only evidence                           |
-| `db`, `drizzle`                                                            | Schema and database migrations                                 |
-| `tests`                                                                    | Unit, HTTP and optional live Agent tests                       |
-| `components/ui`, `vendor`, `build`                                         | Existing UI library and Sites build support                    |
-| `docs`                                                                     | Requirements, Agent configuration and testing guidance         |
+| Path                                     | Responsibility                                                                                                  |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `app/`                                   | Route entrypoints, authenticated API handlers and global styles.                                                |
+| `components/worker/`                     | Recorder, note workspace, risk review and separate Workflow UI.                                                 |
+| `components/manager/`                    | Scheduling, provider roster and finding review.                                                                 |
+| `components/auth/`, `components/layout/` | Entry, account controls and theme provider.                                                                     |
+| `components/ui/`                         | The ten UI primitives actually used by the app.                                                                 |
+| `lib/`                                   | Domain rules and server services, grouped by filename prefix; [architecture guide](docs/architecture.md).       |
+| `config/agents/`                         | Reviewable recorder prompt/tools and silent AI2 prompt artifact.                                                |
+| `scripts/workflow/`                      | Native Workflow configuration and current client-tool smoke.                                                    |
+| `scripts/`                               | Account provisioning, fixture import, agent sync and local runtime tooling.                                     |
+| `tests/`                                 | Unit tests; `api/` for built-Worker suites, `support/` for fixtures/harnesses, `legacy/` for retired protocols. |
+| `db/`, `drizzle/`                        | Schemas and immutable migration history.                                                                        |
+| `deploy/vm/`, `build/`, `vendor/`        | VM operations, Sites build integration and licensed CSS support.                                                |
+| `docs/`                                  | Current guides; `archive/` for historical decisions/results, `sources/` for supplied originals.                 |
+| `.claude/`                               | Existing local design/development skills; not part of the runtime.                                              |
 
-## Evidence model
+## Evidence and deployment
 
-Fields distinguish stated facts, explicit negatives and topics not yet reviewed. Missing information does not mean an incident did not happen. Candidate flags are retained for supervisor assessment, including when the worker disagrees or later edits the note.
+Source transcripts and audit actions are append-only. Facts, explicit negatives, unknowns and undiscussed fields remain distinct. Note confirmation is bound to a current revision and successful AI2 check. Existing assessment history and compatibility endpoints remain readable even where new writes have been retired. The app does not submit external reports or send external risk notifications.
 
-The app keeps an append-only transcript, the original generated review draft, and saved changes. Final confirmation is tied to the current note revision and a fresh worker response. Inbox capture time, provider awareness and external Commission notification are distinct facts. Birth dates are unavailable in the fictional profiles; extended retention decisions remain unresolved.
+GitHub `main` is the source for the standalone VM's configured updater. [VM deployment](docs/vm-deployment.md) documents backups, migration and release handling. `.openai/hosting.json` identifies the separate private Sites deployment and D1 binding; Sites publication requires its own build/version/deployment flow. Pushing GitHub alone does not publish Sites or change an ElevenLabs agent.
 
-The implementation and current limitations are recorded in [requirements](docs/requirements.md). Earlier ideas in that document are historical context; its implementation sections describe the current demo.
-
-## Credentials and hosting
-
-Never commit `.env.local`, `.secrets/`, tokens, local database files or conversation exports. `.env.example` contains variable names and a non-secret Agent identifier only. GitHub credentials are local development credentials and must not be added to the app's runtime environment or deployed assets.
-
-`.openai/hosting.json` retains the previous private Sites project and storage bindings. This branch implements standalone application authentication; activating it on the VM requires the auth configuration and proxy changes documented below. The older Sites deployment has its own access gate and is not changed by this branch. No GitHub Actions workflow is configured in this repository.
-
-For the standalone VM runtime, protected HTTPS access, persistent data and hourly updates from `main`, see [VM deployment](docs/vm-deployment.md).
+Keep `.env.local`, `.secrets/`, local databases and test exports out of Git. `.env.example` documents server settings. Never put source repository credentials into deployed assets or runtime environment variables.

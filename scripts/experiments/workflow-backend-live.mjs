@@ -5,8 +5,11 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { once } from "node:events";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
-import { startHarness, startGateway } from "./workflow-backend-harness.mjs";
-import { configureWorkflowBackend } from "./workflow-backend-setup.mjs";
+import {
+  startHarness,
+  startGateway,
+} from "../../tests/support/workflow-harness.mjs";
+import { configureWorkflowBackend } from "../workflow/workflow-backend-setup.mjs";
 
 const args = process.argv.slice(2),
   requested = args[0] ?? "medication",

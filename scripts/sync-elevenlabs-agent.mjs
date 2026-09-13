@@ -24,12 +24,12 @@ if (!config.ELEVENLABS_API_KEY)
 if (config.ELEVENLABS_AGENT_ID && config.ELEVENLABS_AGENT_ID !== agentId)
   throw new Error("The local Agent ID does not match the intended deployment.");
 const desiredPrompt = await readFile(
-  new URL("../docs/elevenlabs-system-prompt.txt", import.meta.url),
+  new URL("../config/agents/main/system-prompt.txt", import.meta.url),
   "utf8",
 );
 const desiredTools = JSON.parse(
   await readFile(
-    new URL("../docs/elevenlabs-client-tools.json", import.meta.url),
+    new URL("../config/agents/main/client-tools.json", import.meta.url),
     "utf8",
   ),
 );

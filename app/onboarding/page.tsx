@@ -4,7 +4,7 @@ import { AudioLines } from "lucide-react";
 import { getAppUser } from "@/lib/auth";
 import { getOnboarding } from "@/lib/organisations";
 import OnboardingForm from "./profile-form";
-import SignOutButton from "../sign-out-button";
+import SignOutButton from "../../components/auth/sign-out-button";
 
 export const dynamic = "force-dynamic";
 

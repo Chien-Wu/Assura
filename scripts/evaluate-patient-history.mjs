@@ -263,7 +263,7 @@ A retrospective query of **sandwich tired** with an actual shift start of **8 Se
 This is a small retrieval diagnostic using one synthetic participant and labels selected with knowledge of the fixture. It does not independently validate clinical facts, permission handling, session races, generated questions, answer attribution, or whether an LLM respects uncertainty. Those concerns require their separate API tests and interview evaluations.
 `;
   writeFileSync(
-    new URL("../docs/participant-rag-evaluation.md", import.meta.url),
+    new URL("../docs/archive/participant-rag-evaluation.md", import.meta.url),
     await format(doc, { parser: "markdown" }),
   );
 }

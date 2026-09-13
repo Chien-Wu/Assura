@@ -523,7 +523,7 @@ test("the short adapter timeout aborts provider work with a retryable failure", 
 
 test("the reviewable prompt matches the silent runtime prompt and ascending user priorities", async () => {
   const document = await readFile(
-    new URL("../docs/ai2-system-prompt.txt", import.meta.url),
+    new URL("../config/agents/ai2/system-prompt.txt", import.meta.url),
     "utf8",
   );
   assert.equal(document, riskAssessmentSystemPrompt);

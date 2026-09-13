@@ -51,3 +51,7 @@ next-env.d.ts
 /.secrets/
 /playwright-report/
 /test-results/
+
+# Generated Python bytecode from local developer tools
+__pycache__/
+*.py[cod]

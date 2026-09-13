@@ -63,29 +63,15 @@ New authentication user IDs have an `auth_` prefix. Neither ChatGPT identity hea
 
 Run `node --experimental-strip-types --test tests/auth.test.mjs` for isolated authentication checks. These cover real OTP sign-in, signed sessions, replay/expiry/attempt rejection, logout, persistent rate limiting, cross-origin denial, failed email delivery, and verified Google identity rules. Live Google sign-in still requires the configured OAuth client. OTP tests validate the retained backend, not a currently offered sign-in option.
 
-## HTTP test sessions
+## HTTP tests
 
-The existing notes, voice, safety and live text tests use a real test account. Sign in normally and complete the worker's name and provider selection. In browser developer tools, copy the Cookie request-header value from a request to the app into a private, ignored local file such as `.secrets/http-test-cookie.txt`; keep that file readable only by you (mode `600`). It contains session access, so do not paste it into chat, Git or logs. Refresh the file after signing in again if the session expires.
-
-```sh
-export LEGALMATE_TEST_COOKIE_FILE="$PWD/.secrets/http-test-cookie.txt"
-export LEGALMATE_TEST_NOTES_SHIFT_ID="unused-sarah-notes-shift-id"
-export LEGALMATE_TEST_VOICE_SHIFT_ID="unused-sarah-voice-shift-id"
-export LEGALMATE_TEST_SAFETY_SHIFT_ID="unused-minh-safety-shift-id"
-npm run test:api
-
-LEGALMATE_TEST_TEXT_SHIFT_ID="unused-sarah-text-shift-id" npm run test:live
-```
-
-An existing test provider manager must first prepare the fictional participant profiles and assign a separate unused shift to the signed-in worker for each script. Notes, voice and live text tests use **Sarah Doyle**; safety tests use **Minh Pham** with the matching clinical details and kitchen-door behaviour-plan item from `lib/participants.ts`. Replace the example shift IDs above with those assignments. Each script verifies its assignment before creating a note and refuses a shift that already has a note. Prepare fresh assignments before rerunning. For one script, `LEGALMATE_TEST_SHIFT_ID` can replace its specific variable. The scripts only read prepared assignments; they do not create profiles, shifts or access grants.
-
-`LEGALMATE_TEST_ORIGIN` optionally selects a test deployment; the default is `http://localhost:5173`. Use a cookie from that same origin. The safety script expects an already configured test worker with management access to the same provider. The fixed TestProvider aliases intentionally have separate roles; use the isolated harness below to test that pair without changing their access. These tests create fictional records in the selected test account. Voice tests need configured ElevenLabs access; the live text test uses Agent credits.
-
-For a fully isolated run without external credentials, first build the app and then run:
+Build the app, then run the current isolated suites:
 
 ```sh
 npm run build
-node --experimental-strip-types tests/onboarding-api.mjs
+npm run test:api
 ```
 
-This harness starts a temporary local Worker with isolated D1, copies signed session rows from the real captured-email authentication fixture, and tests the deployed route handlers. It never reads `.env.local`, the live cookie file, or existing app state, and blocks external service calls. The temporary runtime is disposed after the test.
+These start temporary Workers with isolated D1 databases and signed synthetic sessions from `tests/support/auth-fixture.mjs`. They test the built route handlers, block external provider calls and dispose each runtime afterwards. They do not read `.env.local`, a live cookie file or the development database. Run `npm run test:onboarding` for the authentication and provider HTTP suite alone.
+
+The old notes, voice, safety and paid text tests used real test-server cookies and assigned synthetic shifts. They are retained under [tests/legacy](../tests/legacy/README.md), require an explicit legacy-protocol opt-in and do not test the current recorder. Do not copy their old setup steps into the current acceptance flow.

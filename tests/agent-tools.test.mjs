@@ -160,7 +160,7 @@ test("failed or obsolete retrieval cannot be treated as an absence or a current 
 test("Agent tool artifact uses vendor response waiting and excludes model-selected patient identities", async () => {
   const tools = JSON.parse(
     await readFile(
-      new URL("../docs/elevenlabs-client-tools.json", import.meta.url),
+      new URL("../config/agents/main/client-tools.json", import.meta.url),
       "utf8",
     ),
   );

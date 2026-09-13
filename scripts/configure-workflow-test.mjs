@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { configureWorkflowBackend } from "./experiments/workflow-backend-setup.mjs";
+import { configureWorkflowBackend } from "./workflow/workflow-backend-setup.mjs";
 
 const origin = process.argv[2];
 if (!origin) throw Error("Supply the HTTPS application origin");

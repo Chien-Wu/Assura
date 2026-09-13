@@ -34,6 +34,8 @@
 
 ## 本機匯入
 
+線上狀態：2026-09-13 已匯入既有 VM，驗證 10 筆紀錄均屬同一測試個案、已標示 synthetic，且全部進入 FTS 索引。另建立當日 10:00–12:00 的空白測試班次，ID 為 `2dfe74b8-8f5e-4b62-af4b-18e46a5cb5d4`；未建立假登入、語音 session 或已完成的新 note。VM 使用獨立的 `scripts/seed-vm-patient-history.mjs` 與 `scripts/prepare-vm-rag-demo.mjs`，要求停機、正確 DB 綁定及既有測試帳號。以下指令仍僅操作 Mac 本機資料庫。
+
 在 `web` 目錄執行：
 
 ```sh

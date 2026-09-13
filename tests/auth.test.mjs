@@ -8,7 +8,7 @@ import {
   createAuthFixture as fixture,
   testAuthEnvironment as input,
   sessionCookie,
-} from "./auth-fixture.mjs";
+} from "./support/auth-fixture.mjs";
 
 test("auth configuration fails closed without a strong secret and an explicit safe origin", () => {
   assert.equal(readAuthConfiguration({}).google, false);

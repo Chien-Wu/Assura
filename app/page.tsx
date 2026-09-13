@@ -3,7 +3,7 @@ import {
   getAuthStatus,
   getTestAccountPrefillPassword,
 } from "@/lib/auth";
-import Entry from "./entry";
+import Entry from "../components/auth/entry";
 import { contactUrl } from "@/lib/contact";
 
 export const dynamic = "force-dynamic";

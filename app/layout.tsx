@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Lexend, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
-import "./entry.css";
-import Theme from "./theme-provider";
+import "../components/auth/entry.css";
+import Theme from "../components/layout/theme-provider";
 
 const heading = Lexend({
   subsets: ["latin"],

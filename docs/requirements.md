@@ -6,7 +6,7 @@ GitHub 版本包含可執行的 Web app 與需求文件。文中的原始 `web/`
 
 本文件記錄本次對話已確認的需求，以及為落實需求提出的技術方案。產品範圍與 `IDEA.txt` 不一致時，以本文件記錄的最新使用者決定為準。第 1–7 節記錄需求與初始方案；第 8 節記錄實作進度。
 
-未來 General Note／Extra Notes 的最新方向見第 10 節及 [標準補充表單規劃](extra-notes-plan.md)；該部分是規劃紀錄，尚未實作。
+未來 General Note／Extra Notes 的最新方向見第 10 節及 [表單存檔](extra-notes-plan.md)；該部分是規劃紀錄，尚未實作。
 
 ## 1. 已確認的產品範圍
 
@@ -126,7 +126,7 @@ sequenceDiagram
 - 實作時以表單 schema 驅動畫面、工具欄位驗證和缺項檢查，避免三處各自維護不同規則。
 - 在模板交付前可做示範 schema，但須標為暫定，不把示範欄位當成正式需求或官方要求。
 - 照護計畫、BSP 等既有文件可作為受授權的背景資料；本次 worker 交班流程不以先上傳文件為必要步驟。
-- 匯出 PDF／DOCX、是否需填回原檔，仍待正式模板及工作範圍確認。額外表單方向已於第 10 節確認，具體模板與實作範圍另見該節。
+- 匯出 PDF／DOCX、是否需填回原檔，仍待正式模板及工作範圍確認。額外表單方向已於第 10 節確認，表單存檔另見該節。
 
 ## 6. 第一版驗收重點
 
@@ -158,7 +158,7 @@ sequenceDiagram
 - 使用者已明確同意 ElevenAgents 條款；已建立並發布 `LegalMate Shift Notes — Demo` Agent 的英文訪談設定。
 - 已建立四個等待回應的 client tools：`get_form_context`、`update_and_check_form`、`prepare_confirmation`、`finalize_form`。
 - Agent 要求驗證，採後端取得短效 token 的接入方式；使用者之後已填入 API key，接線進度見 8.2。
-- Web 保留手動填表及確認流程。Agent 設定詳見 `docs/elevenlabs-agent.md`。
+- Web 保留手動填表及確認流程。Agent 設定詳見 `docs/archive/elevenlabs-agent.md`。
 
 ### 8.2 語音接線（2026-09-12）
 
@@ -168,7 +168,7 @@ sequenceDiagram
 - 口頭完成要求新一輪明確說出 **I confirm this shift note.** 後端核對最新 note revision、confirmation ID、voice session revision 及 SDK 使用者轉錄；不是只接收模型產生的 confirmed 布林值。
 - 轉錄證據存於 D1，並非獨立音訊驗證；SDK 的 speaking/listening 不能嚴格證明每字均已播放。實際追問、朗讀與辨識品質仍須由使用者用麥克風跑一輪驗收。
 - 前述 webhook／SSE 是初始建議；本次 MVP 採 client tools 與 API 回應同步，未加入 webhook 或 SSE。
-- 正式表單、跨 worker 主管權限、資料保留與正式個資使用仍待後續確認。測試步驟在 `web/docs/voice-integration.md`。
+- 正式表單、跨 worker 主管權限、資料保留與正式個資使用仍待後續確認。測試步驟在 `web/docs/archive/voice-integration.md`。
 
 ### 8.3 暫時文字測試模式（2026-09-12）
 
@@ -200,7 +200,7 @@ sequenceDiagram
 
 - 未授權限制性措施一般為 provider 知悉後五個工作天；造成 harm 或屬其他 24 小時通報類別時，可能適用 24 小時。未知 harm 或授權狀態應保留不確定性，交負責人評估，不能由模型作最終法律判斷。[NDIS Commission guidance](https://www.ndiscommission.gov.au/rules-and-standards/reportable-incidents-and-incident-management/reportable-incidents)
 - 月報與 incident reporting 可同時適用；當月沒有 app 記錄不等於實際零使用，因此只能提醒核對 nil return。使用超出計畫的限制仍需事件覆核。[Implementing providers](https://www.ndiscommission.gov.au/rules-and-standards/behaviour-support-and-restrictive-practices/rules-implementing-providers)
-- 新 Agent prompt 的可複用原文放在 `docs/elevenlabs-system-prompt.txt`；開場放在 `docs/elevenlabs-first-message.txt`。正式表單、真實個資使用、clinical sign-off 及正式組織權限不由此次 demo 自動完成。
+- 新 Agent prompt 的可複用原文放在 `config/agents/main/system-prompt.txt`；開場放在 `config/agents/main/first-message.txt`。正式表單、真實個資使用、clinical sign-off 及正式組織權限不由此次 demo 自動完成。
 
 ## 9. Provider／Manager／Worker 與登入改版（2026-09-13）
 
@@ -271,10 +271,9 @@ The worker workspace starts with assigned shifts and their note status. Selectin
 
 New schema is introduced by `0005_scheduled_shifts.sql`. No sample participants or schedules are automatically added. Schedule editing, cancellation, recurrence and multiple workers on one shift remain outside this first version.
 
-## 10. 未來方向：General Note 與標準 Extra Notes（2026-09-13）
+## 10. Extra Notes 表單存檔（2026-09-13）
 
-- **已確認：先完成 General Note，有需要時再接續 Extra Notes。**
-- **已確認：由 LegalMate 團隊提供一套標準表單，Provider 勾選該機構需要使用的 Extra Notes。** Provider 啟用表單與本次班次是否觸發該表單分開判斷。
-- 使用者提供六類表單草案：Incident、Health & Wellbeing Concern、Medication Variance、Behaviour／ABC（含 Restrictive Practice 分支）、Complaint／Feedback、Service Delivery Exception。
-- 觸發條件、提問、主管欄位、跨表關係、討論中的建議與待決定事項整理在 [標準補充表單規劃](extra-notes-plan.md)；[完整使用者原文](sources/extra-notes-user-input-2026-09-13.txt) 另存供後續設計參考。
-- 本節是未來規劃，尚未新增表單庫、Provider 勾選或 Extra Note 流程。原文中的法規／臨床及時限敘述屬待查核素材，不代表已核實規則或現有功能。
+- General Note 寫完，有需要時繼續寫 Extra Notes。
+- 由我們提供標準表單，Provider 勾選需要的表單。
+- 移除原第五類 Complaint／Feedback，因為不是 Worker 該填的表單。
+- [表單存檔](extra-notes-plan.md)：僅保存使用者提供的內容，不新增流程設計或實作。

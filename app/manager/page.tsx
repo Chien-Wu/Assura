@@ -4,8 +4,8 @@ import { AudioLines } from "lucide-react";
 import { getAppUser } from "@/lib/auth";
 import { managedProviders } from "@/lib/organisations";
 import { contactUrl } from "@/lib/contact";
-import ProviderRoster from "../provider-roster";
-import SignOutButton from "../sign-out-button";
+import ProviderRoster from "../../components/manager/provider-roster";
+import SignOutButton from "../../components/auth/sign-out-button";
 
 export const dynamic = "force-dynamic";
 

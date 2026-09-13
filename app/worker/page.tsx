@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAppUser } from "@/lib/auth";
 import { getOnboarding } from "@/lib/organisations";
-import Workspace from "../workspace";
+import Workspace from "../../components/worker/workspace";
 import { workflowEnabled } from "@/lib/workflow-server";
 export const dynamic = "force-dynamic";
 export default function WorkerPage() {

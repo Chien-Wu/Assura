@@ -1860,35 +1860,6 @@ h1 {
 /* ============================================================
    Controls, motion and consistency polish
    ============================================================ */
-.theme-toggle {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
-  transition:
-    background-color var(--dur) var(--ease),
-    color var(--dur) var(--ease),
-    border-color var(--dur) var(--ease);
-}
-.theme-toggle:hover {
-  background: var(--surface-sunken);
-  color: var(--foreground);
-  border-color: var(--border-strong);
-}
-.launch-bar .theme-toggle {
-  background: #ffffff0f;
-  border-color: var(--hairline-deep);
-  color: var(--on-deep-2);
-}
-.launch-bar .theme-toggle:hover {
-  background: #ffffff1f;
-  color: var(--on-deep);
-}
 
 @keyframes banner-in {
   from {
@@ -1973,14 +1944,4 @@ button:not(:disabled):active:not(
 }
 .error-summary a:hover {
   text-decoration-thickness: 2px;
-}
-
-.theme-toggle .icon-dark {
-  display: none;
-}
-.dark .theme-toggle .icon-light {
-  display: none;
-}
-.dark .theme-toggle .icon-dark {
-  display: block;
 }
