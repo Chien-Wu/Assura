@@ -116,8 +116,10 @@ const reviewCount = (item: ShiftNote) => {
 
 export default function Workspace({
   user,
+  workflowEnabled = false,
 }: {
   user: { name: string; providerName?: string } | null;
+  workflowEnabled?: boolean;
 }) {
   const router = useRouter();
   const [view, setView] = useState("worker");
@@ -466,6 +468,19 @@ export default function Workspace({
                 </p>
               </div>
               <div className="heading-actions">
+                {workflowEnabled && !completed && (
+                  <Button
+                    disabled={Boolean(busy) || voiceActive}
+                    onClick={() =>
+                      action("Opening risk conversation", async () => {
+                        const saved = await persist();
+                        router.push(`/worker/notes/${saved.id}/workflow`);
+                      })
+                    }
+                  >
+                    <AudioLines size={16} /> Try risk conversation
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   disabled={Boolean(busy) || voiceActive}

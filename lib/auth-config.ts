@@ -60,6 +60,7 @@ export function createAppAuth(
   database: BetterAuthOptions["database"],
   sendSignInCode: SendSignInCode,
   checkTestAccountScope: CheckTestAccountScope = async () => false,
+  initializeDemo?: () => Promise<void>,
 ) {
   const config = readAuthConfiguration(input);
   if (!config.origin || !config.secret) return null;
@@ -170,7 +171,11 @@ export function createAppAuth(
     // Authentication failures must never print codes, provider responses or tokens.
     logger: { disabled: true },
     plugins: [
-      testAccountPlugin(input.LEGALMATE_TEST_PASSWORD, checkTestAccountScope),
+      testAccountPlugin(
+        input.LEGALMATE_TEST_PASSWORD,
+        checkTestAccountScope,
+        initializeDemo,
+      ),
       ...(config.email
         ? [
             emailOTP({

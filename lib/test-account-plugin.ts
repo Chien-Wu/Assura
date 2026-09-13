@@ -18,6 +18,7 @@ export type CheckTestAccountScope = (account: TestAccount) => Promise<boolean>;
 export function testAccountPlugin(
   password: string | undefined,
   hasScope: CheckTestAccountScope,
+  initializeDemo?: () => Promise<void>,
 ): BetterAuthPlugin {
   return {
     id: "legalmate-test-accounts",
@@ -43,9 +44,11 @@ export function testAccountPlugin(
             throw new APIError("UNAUTHORIZED", {
               message: "Check the test email and password.",
             });
-          const user = await ctx.context.internalAdapter.findUserById(
-            account.id,
-          );
+          let user = await ctx.context.internalAdapter.findUserById(account.id);
+          if (!user && initializeDemo) {
+            await initializeDemo();
+            user = await ctx.context.internalAdapter.findUserById(account.id);
+          }
           if (
             !user ||
             !user.emailVerified ||

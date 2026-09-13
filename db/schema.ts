@@ -14,6 +14,7 @@ export * from "./shift-schema";
 export * from "./knowledge-schema";
 export * from "./interview-schema";
 export * from "./assessment-schema";
+export * from "./workflow-schema";
 export {
   authUser,
   authSession,

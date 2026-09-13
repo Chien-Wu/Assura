@@ -4,6 +4,9 @@ declare namespace Cloudflare {
     BUCKET?: R2Bucket;
     ELEVENLABS_API_KEY?: string;
     ELEVENLABS_AGENT_ID?: string;
+    ELEVENLABS_WORKFLOW_AGENT_ID?: string;
+    ELEVENLABS_WORKFLOW_VERSION_ID?: string;
+    LEGALMATE_WORKFLOW_ENABLED?: string;
     OPENAI_API_KEY?: string;
     LEGALMATE_AI2_MODEL?: string;
     LEGALMATE_PUBLIC_ORIGIN?: string;

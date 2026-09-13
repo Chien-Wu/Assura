@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { drizzle } from "drizzle-orm/d1";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { authSchema } from "../db/auth-schema";
+import { initializeWorkflowDemoAccounts } from "./test-account-seed";
 import {
   allowedAuthRoutes,
   createAppAuth,
@@ -95,6 +96,10 @@ function getAuth() {
           .bind(...testAccountScopeParams(account))
           .first(),
       ),
+    (env.LEGALMATE_WORKFLOW_ENABLED ??
+      process.env.LEGALMATE_WORKFLOW_ENABLED) === "true"
+      ? () => initializeWorkflowDemoAccounts(env.DB!)
+      : undefined,
   );
 }
 
