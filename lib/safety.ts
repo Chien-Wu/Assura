@@ -1,5 +1,14 @@
 import type { Participant } from "./participants";
 export type FieldState = "stated_positive" | "stated_negative" | "not_reviewed";
+// Callers store minute-precision datetime-local values, but a conversational
+// agent often adds seconds or a trailing Z. Keep the canonical form rather than
+// rejecting an otherwise complete answer.
+export function normalizeDateTime(value: string) {
+  const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?Z?$/.exec(
+    value.trim(),
+  );
+  return match ? match[1] : value.trim();
+}
 export type RestrictivePractice = {
   used: "not_reviewed" | "yes" | "no" | "unsure";
   what_happened: string;
@@ -121,19 +130,19 @@ export function detectRisks(text: string, profile?: Participant): RiskFlag[] {
     "CANDIDATE_SERIOUS_INJURY",
     "choking",
     "Coughing or choking during a meal needs prompt factual review; this is not a diagnosis.",
-    /\b(?:chok(?:ed|ing)|coughing fit(?: while eating)?|cough(?:ed|ing)[^.?!]{0,65}(?:meal|eat(?:ing)?|food|drink(?:ing)?)|couldn['’]?t (?:breathe|speak)|went red[^.?!]{0,35}(?:eat|meal))\b/gi,
+    /\b(?:chok(?:ed|ing)|coughing fit(?: while eating)?|cough(?:ed|ing)[^.?!]{0,65}(?:meal|eat(?:ing)?|food|drink(?:ing)?)|(?:meal|eat(?:ing)?|food|drink(?:ing)?)[^.?!]{0,65}cough(?:ed|ing)|(?:couldn['’]?t|could not) (?:breathe|speak)|(?:went red|face flushed)[^.?!]{0,35}(?:eat|meal))\b/gi,
   );
   add(
     "CANDIDATE_INCIDENT",
     "fall",
     "A reported fall needs observation and supervisor assessment.",
-    /\b(?:fell|slipped|tripped|went down|had a fall)\b/gi,
+    /\b(?:fell|slipped|tripped|went down(?!\s+(?:the\s+)?wrong\s+way)|had a fall)\b/gi,
   );
   add(
     "CANDIDATE_INCIDENT",
     "seizure_event",
     "Reported movements or unresponsiveness need factual follow-up, without assigning a clinical cause.",
-    /\b(?:seizure|fit|shaking|went stiff|unresponsive|passed out|went floppy)\b/gi,
+    /\b(?:seizure|(?<!cough(?:ing)? )fit|shaking|went stiff|unresponsive|passed out|went floppy)\b/gi,
   );
   add(
     "CANDIDATE_INCIDENT",
@@ -241,15 +250,20 @@ export function rpPatch(
         (key === "uses_in_24h" && !Number.isInteger(Number(value))))
     )
       throw new Error(`Enter a numeric ${key} or leave it unknown.`);
+    const stored = ["start_time", "end_time"].includes(key)
+      ? normalizeDateTime(value)
+      : value;
     if (
       ["start_time", "end_time"].includes(key) &&
-      value &&
-      (!/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(value) ||
-        !Number.isFinite(Date.parse(value + ":00Z")) ||
-        new Date(value + ":00Z").toISOString().slice(0, 16) !== value)
+      stored &&
+      (!/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(stored) ||
+        !Number.isFinite(Date.parse(stored + ":00Z")) ||
+        new Date(stored + ":00Z").toISOString().slice(0, 16) !== stored)
     )
-      throw new Error("Restrictive practice times need a date and time.");
-    (next as unknown as Record<string, unknown>)[key] = value;
+      throw new Error(
+        "Restrictive practice times need a date and time as YYYY-MM-DDTHH:mm.",
+      );
+    (next as unknown as Record<string, unknown>)[key] = stored;
   }
   const start = Date.parse(next.start_time + ":00Z"),
     end = Date.parse(next.end_time + ":00Z");

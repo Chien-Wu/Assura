@@ -1,4 +1,9 @@
-import { emptySafety, type Safety, type RiskFlag } from "./safety.ts";
+import {
+  emptySafety,
+  normalizeDateTime,
+  type Safety,
+  type RiskFlag,
+} from "./safety.ts";
 export const FORM_VERSION = "shift-note-demo-v2";
 export const definitions = [
   {
@@ -155,7 +160,7 @@ export function checkForm(fields: ShiftFields) {
     if (fields[field] && !validDate(fields[field]))
       issues.push({
         field,
-        message: `Enter a valid ${labelFor(field).toLowerCase()}.`,
+        message: `Enter a valid ${labelFor(field).toLowerCase()} as YYYY-MM-DDTHH:mm.`,
       });
   if (
     validDate(fields.shiftStart) &&
@@ -213,7 +218,10 @@ export function applyFieldPatch(
       throw new Error("Choose a valid incident status.");
     if (key === "followUp" && !Object.hasOwn(followUpOptions, value))
       throw new Error("Choose a valid follow-up status.");
-    next[key as FieldKey] = value.trim();
+    next[key as FieldKey] =
+      definitions.find((field) => field.key === key)?.type === "datetime-local"
+        ? normalizeDateTime(value)
+        : value.trim();
   }
   return next;
 }

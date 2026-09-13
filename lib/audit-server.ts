@@ -3,6 +3,7 @@ import { participantFor } from "./participants";
 import {
   detectRisks,
   nextQuestions,
+  normalizeDateTime,
   reportingGuidance,
   type RiskFlag,
 } from "./safety";
@@ -148,6 +149,8 @@ export function removalFlags(
   for (const [field, previous] of Object.entries(before)) {
     if (typeof previous !== "string" || previous === after[field]) continue;
     const next = String(after[field] ?? "");
+    // Reformatting a timestamp is not a removal; compare the canonical values.
+    if (normalizeDateTime(previous) === normalizeDateTime(next)) continue;
     const tokens = [
       ...previous.matchAll(
         /\b\d{1,2}:\d{2}\b|\b\d+(?:\.\d+)?\s*(?:seconds?|minutes?|hours?)\b|["“][^"”]+["”]|\b(?:chok\w*|cough\w*|fell|fall|seizure|injur\w*|bruis\w*|bleed\w*|locked|held|restrain\w*|disclos\w*)\b/gi,

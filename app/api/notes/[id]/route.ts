@@ -173,7 +173,11 @@ export async function PATCH(request: Request, context: Context) {
     const newFlags = [
       ...detectRisks(Object.values(body.fields as object).join("\n"), profile),
       ...assessRP(safety.restrictivePractice, profile),
-      ...removalFlags(JSON.parse(row.fields_json), fields),
+      // The agent rewrites its own draft as the interview proceeds; only a
+      // worker edit at review can remove content from the record.
+      ...(source === "manual"
+        ? removalFlags(JSON.parse(row.fields_json), fields)
+        : []),
     ];
     if (warnings.length && flags.some((f) => f.severity === "urgent"))
       newFlags.push({

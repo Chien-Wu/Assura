@@ -452,9 +452,17 @@ function VoiceControls({
               Array.isArray(payload)
             )
               throw new Error();
-          } catch {
+          } catch (parseError) {
+            // Hand back the parser's own position and the tail of the payload:
+            // without them the model resends the same malformed string.
+            const detail =
+              parseError instanceof Error && parseError.message
+                ? ` ${parseError.message}.`
+                : "";
             throw new Error(
-              "fields_json is not a JSON object. Correct it and retry.",
+              `fields_json is not a JSON object.${detail} It ends with ${JSON.stringify(
+                params.fields_json.slice(-40),
+              )}. Correct it and retry.`,
             );
           }
           const {
