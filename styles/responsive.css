@@ -1,0 +1,128 @@
+@media (max-width: 1100px) {
+  .edition {
+    display: none;
+  }
+  .profile {
+    max-width: 160px;
+  }
+  .editor-grid {
+    grid-template-columns: minmax(260px, 0.85fr) minmax(380px, 1.3fr);
+    gap: 18px;
+  }
+  .form-section,
+  .form-title,
+  .form-bottom {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+  .essentials-fields {
+    grid-template-columns: 1fr;
+  }
+  .heading-actions {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .form-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+@media (max-width: 760px) {
+  .topbar {
+    flex-wrap: wrap;
+    padding: 18px 5%;
+    gap: 15px;
+  }
+  .brand {
+    font-size: 21px;
+  }
+  .profile {
+    margin-left: auto;
+  }
+  .main-tabs {
+    order: 3;
+    width: 100% !important;
+  }
+  .main-tabs [data-slot="tabs-trigger"] {
+    flex: 1;
+  }
+  .main-shell {
+    width: 90%;
+    padding: 27px 0 40px;
+  }
+  .page-heading {
+    display: block;
+    margin-bottom: 24px;
+  }
+  h1 {
+    font-size: 28px;
+  }
+  .page-heading p:last-child {
+    font-size: 15px;
+  }
+  .heading-actions {
+    margin-top: 17px;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .page-heading > button {
+    margin-top: 17px;
+  }
+  .editor-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .conversation-card {
+    position: static;
+  }
+  .voice-intro {
+    padding: 30px 24px 24px;
+  }
+  .mic-symbol {
+    width: 70px;
+    height: 70px;
+    margin-bottom: 20px;
+  }
+  .voice-intro h2 {
+    font-size: 23px;
+  }
+  .voice-intro > p {
+    max-width: 340px;
+  }
+  .panel-heading {
+    padding: 18px 20px;
+  }
+  .form-title,
+  .form-section {
+    padding: 22px 20px;
+  }
+  .form-bottom {
+    padding: 17px 20px;
+  }
+  .site-footer {
+    width: 90%;
+  }
+  .list-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .list-toolbar > div {
+    flex-wrap: wrap;
+  }
+  .coverage {
+    padding-top: 5px;
+  }
+  .notes-table th,
+  .notes-table td {
+    padding: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

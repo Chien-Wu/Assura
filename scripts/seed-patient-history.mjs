@@ -2,21 +2,21 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cleanParticipantInput } from "../lib/roster.ts";
+import { cleanParticipantInput } from "../lib/roster/participants.ts";
 import {
   applyFieldPatch,
   checkForm,
   definitions,
   emptyFields,
   FORM_VERSION,
-} from "../lib/shift-form.ts";
-import { emptySafety, retentionUntil } from "../lib/safety.ts";
-import { validLocalTime } from "../lib/shifts.ts";
+} from "../lib/notes/form.ts";
+import { emptySafety, retentionUntil } from "../lib/notes/safety.ts";
+import { validLocalTime } from "../lib/roster/shifts.ts";
 import {
   TEST_ACCOUNTS,
   TEST_PROVIDER_ID,
   TEST_PROVIDER_NAME,
-} from "../lib/test-accounts.ts";
+} from "../lib/auth/test-accounts.ts";
 
 export const DATASET_ID = "sarah-doyle-history-v1";
 export const PARTICIPANT_ID = "829d744b-71e8-4c82-9ca4-3c999004982c";

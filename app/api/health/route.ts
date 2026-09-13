@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getAuthStatus } from "@/lib/auth";
+import { getAuthStatus } from "@/lib/auth/server";
 
 const requiredTables = [
   "shift_notes",

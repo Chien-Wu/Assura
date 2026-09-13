@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AudioLines } from "lucide-react";
-import { getAppUser } from "@/lib/auth";
-import { managedProviders } from "@/lib/organisations";
-import { contactUrl } from "@/lib/contact";
-import ProviderRoster from "../../components/manager/provider-roster";
+import { getAppUser } from "@/lib/auth/server";
+import { managedProviders } from "@/lib/roster/organisations-server";
+import { contactUrl } from "@/lib/shared/contact-server";
+import ProviderRoster from "../../components/manager/roster/provider-roster";
 import SignOutButton from "../../components/auth/sign-out-button";
 
 export const dynamic = "force-dynamic";

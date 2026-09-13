@@ -1,4 +1,4 @@
-import { getAuthStatus } from "@/lib/auth";
+import { getAuthStatus } from "@/lib/auth/server";
 
 export function GET() {
   return Response.json(getAuthStatus(), {

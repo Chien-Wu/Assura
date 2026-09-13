@@ -5,9 +5,9 @@ import {
   json,
   readBody,
   RequestError,
-} from "@/lib/notes-server";
-import { requireManager } from "@/lib/organisations";
-import { appendManagerActionQuery } from "@/lib/organisation-access";
+} from "@/lib/shared/server";
+import { requireManager } from "@/lib/roster/organisations-server";
+import { appendManagerActionQuery } from "@/lib/roster/access";
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },

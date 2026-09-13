@@ -1,6 +1,6 @@
 "use client";
+import { authClient } from "@/lib/auth/client";
 import { useRef, useState } from "react";
-import { authClient } from "@/lib/auth-client";
 
 export type SignOutOptions = {
   disabled?: boolean;

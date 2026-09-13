@@ -1,10 +1,13 @@
-import { failure, identity, json, readBody } from "@/lib/notes-server";
-import { requireManager, requireWorker } from "@/lib/organisations";
+import { failure, identity, json, readBody } from "@/lib/shared/server";
+import {
+  requireManager,
+  requireWorker,
+} from "@/lib/roster/organisations-server";
 import {
   createScheduledShift,
   listProviderShifts,
   listWorkerShifts,
-} from "@/lib/shifts-server";
+} from "@/lib/roster/shifts-server";
 
 export async function GET(request: Request) {
   try {

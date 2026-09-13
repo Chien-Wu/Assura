@@ -1,21 +1,20 @@
 import {
   requireReadyAssessment,
   validateRecorder,
-} from "@/lib/assessment-server";
+} from "@/lib/assessment/server";
+import { getRow, toNote } from "@/lib/notes/server";
 import {
   database,
   failure,
-  getRow,
   identity,
   json,
   RequestError,
-  toNote,
   readBody,
-} from "@/lib/notes-server";
+} from "@/lib/shared/server";
 import {
   cancelProposedStatements,
   listInterviewQuestions,
-} from "@/lib/interview-server";
+} from "@/lib/knowledge/interview-server";
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },

@@ -1,29 +1,26 @@
+import { listProviderNotes } from "@/lib/notes/server";
 import {
   database,
   failure,
   identity,
   json,
-  listProviderNotes,
   RequestError,
-} from "@/lib/notes-server";
-import { listProviderParticipants } from "@/lib/roster-server";
+} from "@/lib/shared/server";
+import { listProviderParticipants } from "@/lib/roster/participants-server";
 import {
   monthlyParticipantUses,
   providerParticipantUsesQuery,
   type ParticipantUse,
-} from "@/lib/roster";
-import { reportingGuidance } from "@/lib/safety";
-import { requireManager } from "@/lib/organisations";
+} from "@/lib/roster/participants";
+import { reportingGuidance } from "@/lib/notes/safety";
+import { requireManager } from "@/lib/roster/organisations-server";
 import type {
   AssessmentOutput,
   AssessmentStatus,
-} from "@/lib/legacy-assessment";
-import { readManagerFindings } from "@/lib/finding-review-server";
-import { managerNoteAccess } from "@/lib/organisation-access";
-import {
-  providerRisksQuery,
-  providerActionsQuery,
-} from "@/lib/organisation-access";
+} from "@/lib/assessment/legacy-types";
+import { readManagerFindings } from "@/lib/assessment/finding-review-server";
+import { managerNoteAccess } from "@/lib/roster/access";
+import { providerRisksQuery, providerActionsQuery } from "@/lib/roster/access";
 export async function GET(request: Request) {
   try {
     const user = await identity(request);

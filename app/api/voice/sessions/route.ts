@@ -1,20 +1,19 @@
+import { getRow, toNote } from "@/lib/notes/server";
 import {
   database,
   failure,
-  getRow,
   identity,
   json,
   readBody,
   RequestError,
-  toNote,
-} from "@/lib/notes-server";
-import { voiceConfig } from "@/lib/voice-server";
-import { emptyVoiceState } from "@/lib/voice-state";
-import { participantForNote } from "@/lib/participants";
+} from "@/lib/shared/server";
+import { voiceConfig } from "@/lib/recorder/server";
+import { emptyVoiceState } from "@/lib/recorder/state";
+import { participantForNote } from "@/lib/roster/participant-profiles";
 import {
   noCurrentAssessmentSql,
   rejectRecorderDuringAssessment,
-} from "@/lib/assessment-server";
+} from "@/lib/assessment/server";
 export async function POST(request: Request) {
   try {
     const user = await identity(request);

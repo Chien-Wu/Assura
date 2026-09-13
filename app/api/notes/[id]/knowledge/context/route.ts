@@ -1,9 +1,9 @@
-import { failure, identity, json } from "@/lib/notes-server";
-import { getParticipantContext, KnowledgeError } from "@/lib/knowledge-server";
+import { failure, identity, json } from "@/lib/shared/server";
+import { getParticipantContext, KnowledgeError } from "@/lib/knowledge/server";
 import {
   listInterviewQuestions,
   remainingClarifications,
-} from "@/lib/interview-server";
+} from "@/lib/knowledge/interview-server";
 
 export async function GET(
   request: Request,

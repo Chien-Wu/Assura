@@ -1,9 +1,9 @@
-import { failure, identity, json, readBody } from "@/lib/notes-server";
-import { requireManager } from "@/lib/organisations";
+import { failure, identity, json, readBody } from "@/lib/shared/server";
+import { requireManager } from "@/lib/roster/organisations-server";
 import {
   createProviderParticipant,
   listProviderParticipants,
-} from "@/lib/roster-server";
+} from "@/lib/roster/participants-server";
 
 export async function GET(request: Request) {
   try {

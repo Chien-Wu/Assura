@@ -1,5 +1,5 @@
-import { failure, json } from "@/lib/notes-server";
-import { listProviders } from "@/lib/organisations";
+import { failure, json } from "@/lib/shared/server";
+import { listProviders } from "@/lib/roster/organisations-server";
 
 export async function GET() {
   try {

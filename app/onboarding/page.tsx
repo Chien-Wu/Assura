@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AudioLines } from "lucide-react";
-import { getAppUser } from "@/lib/auth";
-import { getOnboarding } from "@/lib/organisations";
+import { getAppUser } from "@/lib/auth/server";
+import { getOnboarding } from "@/lib/roster/organisations-server";
 import OnboardingForm from "./profile-form";
 import SignOutButton from "../../components/auth/sign-out-button";
 

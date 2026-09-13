@@ -1,0 +1,231 @@
+/* next-themes drives the theme with a class on <html> */
+@custom-variant dark (&:is(.dark *), &.dark);
+/* ============================================================
+   LegalMate design tokens
+   Style: Minimalism & Swiss  ·  Trust blue  ·  Light + dark
+   Every text token below clears WCAG AA 4.5:1 on its surface.
+   ============================================================ */
+:root {
+  color-scheme: light;
+
+  /* Brand */
+  --primary: #1b57c7;
+  --primary-foreground: #ffffff;
+  --primary-hover: #164aad;
+  --accent: #eaf1ff;
+  --accent-foreground: #174eae;
+  --ring: #1b57c7;
+
+  /* Deep navy surfaces (conversation panel, launcher card) */
+  --brand-deep: #102a4b;
+  --brand-deep-2: #0c2340;
+  --brand-deep-3: #24466d;
+  --on-deep: #ffffff;
+  --on-deep-2: #c4d4e8;
+  --on-deep-3: #a9bed6;
+  --on-deep-accent: #c2dbff;
+  --on-deep-bar: #85b4ff;
+  --on-deep-danger: #ffccd1;
+  --hairline-deep: #ffffff2e;
+  --hairline-deep-soft: #ffffff1a;
+  --hairline-deep-strong: #729cd166;
+  --halo-deep: #ffffff08;
+  --ok-deep-bg: #245245;
+  --ok-deep-fg: #c6f1d8;
+
+  /* Neutral surfaces */
+  --background: #f4f6fa;
+  --surface: #ffffff;
+  --surface-subtle: #f9fbfd;
+  --surface-sunken: #eef2f8;
+  --field-bg: #fcfdff;
+  --card: var(--surface);
+  --popover: var(--surface);
+  --secondary: var(--surface-sunken);
+  --muted: var(--surface-sunken);
+
+  /* Text */
+  --foreground: #172a43;
+  --text-secondary: #47596f;
+  --muted-foreground: #5b6b81;
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
+  --secondary-foreground: #243a58;
+
+  /* Lines */
+  --border: #dae2ec;
+  --border-subtle: #e9edf3;
+  --border-strong: #c3d0e0;
+  --input: var(--border);
+
+  /* Status */
+  --info-fg: #33527f;
+  --info-bg: #e9f0fc;
+  --info-border: #d6e2f7;
+  --ok-fg: #1f6349;
+  --ok-bg: #ecf7f2;
+  --ok-border: #cbe7db;
+  --warn-fg: #79540f;
+  --warn-bg: #fff7e8;
+  --warn-border: #f0e0bf;
+  --warn-accent: #b5712f;
+  --danger-fg: #a5303c;
+  --danger-bg: #fff1f2;
+  --danger-border: #f3d3d7;
+  --destructive: #b73843;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px #1c2f4a0a, 0 8px 24px #1c2f4a08;
+  --shadow-md: 0 2px 6px #1c2f4a0f, 0 12px 32px #1c2f4a0f;
+  --shadow-lg: 0 4px 10px #1c2f4a14, 0 16px 40px #1c2f4a1a;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+
+  --font-heading: var(--font-heading-src), Lexend;
+  --font-body: var(--font-body-src), "Source Sans 3";
+
+  --radius: 0.65rem;
+  --topbar-h: 72px;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --primary: #7aa5f5;
+  --primary-foreground: #0a1424;
+  --primary-hover: #97b9f8;
+  --accent: #1d2d45;
+  --accent-foreground: #bad1f8;
+  --ring: #7aa5f5;
+
+  --brand-deep: #17253c;
+  --brand-deep-2: #121d30;
+  --brand-deep-3: #2a3e5c;
+  --on-deep: #f2f6fc;
+  --on-deep-2: #c0cfe2;
+  --on-deep-3: #a3b5cb;
+  --on-deep-accent: #b9d4ff;
+  --on-deep-bar: #7aa5f5;
+  --on-deep-danger: #ffb9c0;
+  --hairline-deep: #ffffff24;
+  --hairline-deep-soft: #ffffff14;
+  --hairline-deep-strong: #7aa5f54d;
+  --halo-deep: #ffffff05;
+  --ok-deep-bg: #1c4436;
+  --ok-deep-fg: #a8e7c6;
+
+  --background: #0b1220;
+  --surface: #141d2b;
+  --surface-subtle: #18222f;
+  --surface-sunken: #1e2937;
+  --field-bg: #111a27;
+
+  --foreground: #e7eef8;
+  --text-secondary: #b4c3d5;
+  --muted-foreground: #94a5ba;
+  --secondary-foreground: #d3dded;
+
+  --border: #29364a;
+  --border-subtle: #212c3d;
+  --border-strong: #3a4a63;
+
+  --info-fg: #a9c8f2;
+  --info-bg: #16243a;
+  --info-border: #26395a;
+  --ok-fg: #86d6b0;
+  --ok-bg: #102a1f;
+  --ok-border: #1f4636;
+  --warn-fg: #e8c184;
+  --warn-bg: #2a2011;
+  --warn-border: #4a3a1d;
+  --warn-accent: #d09a5a;
+  --danger-fg: #f2a3ab;
+  --danger-bg: #2c1519;
+  --danger-border: #4c252c;
+  --destructive: #e0606c;
+
+  --shadow-sm: 0 1px 2px #00000047, 0 8px 24px #00000038;
+  --shadow-md: 0 2px 6px #00000059, 0 12px 32px #00000047;
+  --shadow-lg: 0 4px 10px #0000006b, 0 16px 40px #00000059;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-text-secondary: var(--text-secondary);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-body), "Segoe UI", Arial, sans-serif;
+  --font-display: var(--font-heading), var(--font-body), "Segoe UI", sans-serif;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  /* WCAG 2.2 AA "Focus Not Obscured": keep focus clear of the sticky topbar */
+  scroll-padding-top: calc(var(--topbar-h) + 16px);
+}
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), "Segoe UI", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading), var(--font-body), "Segoe UI", sans-serif;
+  text-wrap: balance;
+}
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+button,
+a,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+a {
+  text-decoration: none;
+}

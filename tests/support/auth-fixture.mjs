@@ -3,12 +3,12 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { authSchema } from "../../db/auth-schema.ts";
-import { createAppAuth } from "../../lib/auth-config.ts";
+import { authSchema } from "../../db/schema/auth.ts";
+import { createAppAuth } from "../../lib/auth/config.ts";
 import {
   testAccountScopeQuery,
   testAccountScopeParams,
-} from "../../lib/test-accounts.ts";
+} from "../../lib/auth/test-accounts.ts";
 
 // This isolated test helper has no network sender and is never imported by the app.
 export const testAuthEnvironment = {

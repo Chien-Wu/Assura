@@ -1,12 +1,10 @@
+import { getReadableRow } from "@/lib/notes/server";
+import { failure, identity, json, readBody } from "@/lib/shared/server";
+import { KnowledgeError } from "@/lib/knowledge/server";
 import {
-  failure,
-  getReadableRow,
-  identity,
-  json,
-  readBody,
-} from "@/lib/notes-server";
-import { KnowledgeError } from "@/lib/knowledge-server";
-import { interviewAudit, registerFollowup } from "@/lib/interview-server";
+  interviewAudit,
+  registerFollowup,
+} from "@/lib/knowledge/interview-server";
 
 type Context = { params: Promise<{ id: string }> };
 export async function GET(request: Request, context: Context) {

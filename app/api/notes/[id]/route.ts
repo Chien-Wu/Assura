@@ -1,29 +1,30 @@
-import { recorderFields } from "@/lib/shift-form";
-import { applyFieldPatch, checkForm } from "@/lib/shift-form";
+import { recorderFields } from "@/lib/notes/form";
+import { applyFieldPatch, checkForm } from "@/lib/notes/form";
+import { getRow, getReadableRow, toNote } from "@/lib/notes/server";
 import {
   database,
   failure,
-  getRow,
-  getReadableRow,
   identity,
   json,
   RequestError,
-  toNote,
   readBody,
-} from "@/lib/notes-server";
-import { readSafety, rpPatch, type FieldState } from "@/lib/safety";
-import { participantFor, participantForNote } from "@/lib/participants";
+} from "@/lib/shared/server";
+import { readSafety, rpPatch, type FieldState } from "@/lib/notes/safety";
+import {
+  participantFor,
+  participantForNote,
+} from "@/lib/roster/participant-profiles";
 import {
   auditStatements,
   safetyContext,
   workerTranscript,
-} from "@/lib/audit-server";
-import { getVoiceSession } from "@/lib/voice-server";
-import { questionAnswerStatements } from "@/lib/interview-server";
+} from "@/lib/notes/audit-server";
+import { getVoiceSession } from "@/lib/recorder/server";
+import { questionAnswerStatements } from "@/lib/knowledge/interview-server";
 import {
   noCurrentAssessmentSql,
   rejectRecorderDuringAssessment,
-} from "@/lib/assessment-server";
+} from "@/lib/assessment/server";
 type Context = { params: Promise<{ id: string }> };
 export async function GET(request: Request, context: Context) {
   try {

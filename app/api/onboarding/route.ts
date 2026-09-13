@@ -1,5 +1,8 @@
-import { failure, identity, json, readBody } from "@/lib/notes-server";
-import { getOnboarding, saveWorkerProfile } from "@/lib/organisations";
+import { failure, identity, json, readBody } from "@/lib/shared/server";
+import {
+  getOnboarding,
+  saveWorkerProfile,
+} from "@/lib/roster/organisations-server";
 
 export async function GET(request: Request) {
   try {

@@ -6,7 +6,10 @@ import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { Miniflare, Log, LogLevel } from "miniflare";
 import { testAccountStatements } from "../../scripts/provision-test-accounts.mjs";
-import { TEST_ACCOUNTS, TEST_PROVIDER_ID } from "../../lib/test-accounts.ts";
+import {
+  TEST_ACCOUNTS,
+  TEST_PROVIDER_ID,
+} from "../../lib/auth/test-accounts.ts";
 import { applyMigrations } from "../support/migration-fixture.mjs";
 import {
   createAuthFixture,

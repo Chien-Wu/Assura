@@ -5,7 +5,7 @@ import {
   TEST_ACCOUNTS,
   TEST_PROVIDER_ID,
   TEST_PROVIDER_NAME,
-} from "../lib/test-accounts.ts";
+} from "../lib/auth/test-accounts.ts";
 
 // No password is read, printed, hashed or stored by this operator-only script.
 // The login password belongs solely in LEGALMATE_TEST_PASSWORD server secrets.

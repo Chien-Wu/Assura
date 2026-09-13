@@ -1,4 +1,4 @@
-import { startWorkflowSession, workflowFailure } from "@/lib/workflow-server";
+import { startWorkflowSession, workflowFailure } from "@/lib/workflow/server";
 export async function POST(request: Request) {
   try {
     return await startWorkflowSession(request);

@@ -1,4 +1,5 @@
-import { failure, getRow, identity, json } from "@/lib/notes-server";
+import { getRow } from "@/lib/notes/server";
+import { failure, identity, json } from "@/lib/shared/server";
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },

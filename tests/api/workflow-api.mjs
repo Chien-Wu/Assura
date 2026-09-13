@@ -6,7 +6,7 @@ import { startHarness } from "../support/workflow-harness.mjs";
 import {
   workflowRiskTypes,
   workflowFormDefinitions,
-} from "../../lib/workflow-case.ts";
+} from "../../lib/workflow/case.ts";
 
 const directory = await mkdtemp(join(tmpdir(), "legalmate-workflow-test-"));
 let h,

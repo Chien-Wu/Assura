@@ -2,14 +2,14 @@ import {
   assessmentPayload,
   startAssessment,
   advanceAssessment,
-} from "@/lib/assessment-server";
+} from "@/lib/assessment/server";
 import {
   failure,
   identity,
   json,
   readBody,
   RequestError,
-} from "@/lib/notes-server";
+} from "@/lib/shared/server";
 
 type Context = { params: Promise<{ id: string }> };
 export async function GET(request: Request, context: Context) {

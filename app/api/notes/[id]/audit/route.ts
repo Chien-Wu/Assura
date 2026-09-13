@@ -1,14 +1,8 @@
-import {
-  database,
-  failure,
-  getReadableRow,
-  identity,
-  json,
-  toNote,
-} from "@/lib/notes-server";
-import { interviewAudit } from "@/lib/interview-server";
-import { readAssessment, readAssessmentAudit } from "@/lib/assessment-server";
-import { readFindingsForNote } from "@/lib/finding-review-server";
+import { getReadableRow, toNote } from "@/lib/notes/server";
+import { database, failure, identity, json } from "@/lib/shared/server";
+import { interviewAudit } from "@/lib/knowledge/interview-server";
+import { readAssessment, readAssessmentAudit } from "@/lib/assessment/server";
+import { readFindingsForNote } from "@/lib/assessment/finding-review-server";
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },

@@ -11,8 +11,11 @@ import {
   importHistory,
   readHistory,
 } from "../../scripts/seed-patient-history.mjs";
-import { emptyVoiceState } from "../../lib/voice-state.ts";
-import { TEST_ACCOUNTS, TEST_PROVIDER_ID } from "../../lib/test-accounts.ts";
+import { emptyVoiceState } from "../../lib/recorder/state.ts";
+import {
+  TEST_ACCOUNTS,
+  TEST_PROVIDER_ID,
+} from "../../lib/auth/test-accounts.ts";
 import {
   createAuthFixture,
   signInFixture,

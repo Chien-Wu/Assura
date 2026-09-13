@@ -1,12 +1,12 @@
-import { failure, identity, json, readBody } from "@/lib/notes-server";
+import { failure, identity, json, readBody } from "@/lib/shared/server";
 import {
   searchParticipantRecords,
   KnowledgeError,
-} from "@/lib/knowledge-server";
+} from "@/lib/knowledge/server";
 import {
   listInterviewQuestions,
   remainingClarifications,
-} from "@/lib/interview-server";
+} from "@/lib/knowledge/interview-server";
 
 export async function POST(
   request: Request,

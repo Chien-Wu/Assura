@@ -1,4 +1,4 @@
-import { voiceConfig } from "@/lib/voice-server";
+import { voiceConfig } from "@/lib/recorder/server";
 export function GET() {
   const { key, agentId } = voiceConfig();
   const enabled = Boolean(key && agentId);

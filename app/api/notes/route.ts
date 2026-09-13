@@ -1,12 +1,6 @@
-import {
-  createNote,
-  failure,
-  identity,
-  json,
-  listNotes,
-  readBody,
-} from "@/lib/notes-server";
-import { requireWorker } from "@/lib/organisations";
+import { createNote, listNotes } from "@/lib/notes/server";
+import { failure, identity, json, readBody } from "@/lib/shared/server";
+import { requireWorker } from "@/lib/roster/organisations-server";
 export async function GET(request: Request) {
   try {
     const user = await identity(request);

@@ -1,6 +1,6 @@
-import { failure, identity, json } from "@/lib/notes-server";
-import { requireManager } from "@/lib/organisations";
-import { listProviderWorkers } from "@/lib/roster-server";
+import { failure, identity, json } from "@/lib/shared/server";
+import { requireManager } from "@/lib/roster/organisations-server";
+import { listProviderWorkers } from "@/lib/roster/participants-server";
 
 export async function GET(request: Request) {
   try {

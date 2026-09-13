@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getAppUser } from "@/lib/auth";
-import { workflowCaseForNote } from "@/lib/workflow-server";
-import WorkflowTest from "@/components/worker/workflow-test";
+import { getAppUser } from "@/lib/auth/server";
+import { workflowCaseForNote } from "@/lib/workflow/server";
+import WorkflowTest from "@/components/worker/workflow/workflow-test";
 
 export const dynamic = "force-dynamic";
 export default async function WorkflowPage({

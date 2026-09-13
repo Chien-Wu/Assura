@@ -1,6 +1,6 @@
-import { failure, identity, json, readBody } from "@/lib/notes-server";
-import { requireManager } from "@/lib/organisations";
-import { updateProviderParticipant } from "@/lib/roster-server";
+import { failure, identity, json, readBody } from "@/lib/shared/server";
+import { requireManager } from "@/lib/roster/organisations-server";
+import { updateProviderParticipant } from "@/lib/roster/participants-server";
 
 export async function PATCH(
   request: Request,

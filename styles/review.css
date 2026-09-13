@@ -1,0 +1,401 @@
+.manager-role {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.management-board h2 {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.8px;
+}
+.board-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.board-intro p {
+  color: var(--text-secondary);
+  margin-top: 6px;
+  font-size: 14px;
+}
+.board-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 24px;
+}
+.board-metrics > div {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.board-metrics > div::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--primary),
+    color-mix(in oklab, var(--primary) 45%, transparent)
+  );
+}
+.board-metrics svg {
+  color: var(--muted-foreground);
+}
+.board-metrics strong {
+  font-size: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+  grid-column: 1;
+  grid-row: 2;
+}
+.board-metrics span {
+  font-size: 13px;
+  color: var(--text-secondary);
+  grid-column: 1/-1;
+}
+.board-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin: 28px 0 18px;
+}
+.board-toolbar h3 {
+  font-size: 19px;
+  font-weight: 600;
+}
+.board-toolbar > label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.board-toolbar [data-slot="select-trigger"] {
+  min-width: 190px;
+  background: var(--surface);
+}
+.incident-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.incident-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  min-width: 0;
+  box-shadow: var(--shadow-sm);
+  transition:
+    box-shadow var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+.incident-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.incident-card.urgent {
+  border-top: 3px solid var(--warn-accent);
+}
+.incident-heading {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--warn-fg);
+}
+.incident-card h4 {
+  font-size: 21px;
+  font-weight: 600;
+  margin-top: 20px;
+}
+.incident-card > p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 9px 0;
+}
+.incident-card .incident-type {
+  font-size: 11px;
+  letter-spacing: 0.7px;
+  font-weight: 650;
+  color: var(--warn-fg);
+}
+.incident-card blockquote {
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--border-strong);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.incident-timeline {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 20px 0;
+}
+.incident-timeline dt {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.incident-timeline dd {
+  font-size: 13px;
+  margin-top: 3px;
+}
+.incident-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 18px;
+}
+.board-empty {
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+.reporting-guidance {
+  margin: 24px 0;
+  background: var(--surface-sunken);
+  border-radius: 10px;
+  padding: 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.reporting-guidance summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+.reporting-guidance p {
+  margin-top: 12px;
+}
+.reporting-guidance a {
+  display: inline-block;
+  text-decoration: underline;
+  margin-top: 12px;
+}
+.monthly-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.monthly-grid article {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 22px;
+  border-radius: 12px;
+}
+.monthly-grid h4 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.monthly-grid p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 10px 0;
+}
+.monthly-grid strong {
+  font-size: 18px;
+  font-weight: 500;
+  display: block;
+  margin-top: 20px;
+}
+.management-dialog {
+  max-width: 720px !important;
+  max-height: 90dvh;
+  overflow: auto;
+}
+.review-form {
+  display: grid;
+  gap: 16px;
+}
+.review-form label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+}
+.review-form [data-slot="select-trigger"] {
+  width: 100%;
+}
+.review-form details {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.review-form details p {
+  margin: 12px 0;
+}
+.audit-scroll {
+  max-height: 58dvh;
+  overflow: auto;
+  font-size: 13px;
+}
+.audit-scroll h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 24px 0 12px;
+}
+.audit-scroll pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  background: var(--surface-subtle);
+  border-radius: 8px;
+  padding: 14px;
+}
+.audit-scroll article {
+  padding: 15px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.audit-scroll small {
+  display: block;
+  color: var(--muted-foreground);
+  margin: 6px 0;
+}
+.audit-scroll article p {
+  white-space: pre-wrap;
+}
+.audit-diff {
+  display: grid;
+  grid-template-columns: 1fr 20px 1fr;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
+}
+.safety-section {
+  padding: 26px 28px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.safety-section > h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 22px 0 14px;
+}
+.safety-section details {
+  padding: 12px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.safety-section summary {
+  cursor: pointer;
+  font-weight: 550;
+}
+.profile-summary p {
+  margin: 10px 0;
+  line-height: 1.6;
+}
+.evidence-grid {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+.evidence-grid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  font-size: 12px;
+}
+.evidence-grid strong {
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.rp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 18px;
+}
+.rp-grid > .field-wrap {
+  margin: 0 0 8px;
+}
+.rp-grid > .field-wrap:has(textarea) {
+  grid-column: 1/-1;
+}
+.rp-grid label {
+  font-size: 12px;
+}
+.risk-banner {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: 9px;
+  padding: 16px;
+  margin: 15px 0;
+  color: var(--warn-fg);
+}
+.risk-banner h3 {
+  font-weight: 650;
+  font-size: 14px;
+}
+.risk-banner p {
+  font-size: 12px;
+  margin: 10px 0;
+  line-height: 1.7;
+}
+.risk-banner small {
+  font-size: 11px;
+  display: block;
+  line-height: 1.6;
+}
+.manager-shell {
+  padding-top: 34px;
+}
+.management-board > .section-help {
+  margin: 0 0 20px;
+}
+@media (max-width: 760px) {
+  .incident-grid,
+  .monthly-grid {
+    grid-template-columns: 1fr;
+  }
+  .board-metrics {
+    gap: 8px;
+  }
+  .board-metrics > div {
+    padding: 14px;
+  }
+  .board-metrics span {
+    font-size: 11px;
+  }
+  .board-intro {
+    align-items: flex-start;
+  }
+  .management-board h2 {
+    font-size: 26px;
+  }
+  .manager-role {
+    display: none;
+  }
+  .board-toolbar {
+    flex-wrap: wrap;
+  }
+  .rp-grid {
+    grid-template-columns: 1fr;
+  }
+  .safety-section {
+    padding: 22px 20px;
+  }
+  .audit-diff {
+    grid-template-columns: 1fr;
+  }
+  .audit-diff > span {
+    display: none;
+  }
+}

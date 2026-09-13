@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import { getAppUser } from "@/lib/auth";
-import { getOnboarding } from "@/lib/organisations";
-import Workspace from "../../components/worker/workspace";
-import { workflowEnabled } from "@/lib/workflow-server";
+import { getAppUser } from "@/lib/auth/server";
+import { getOnboarding } from "@/lib/roster/organisations-server";
+import Workspace from "../../components/worker/notes/workspace";
+import { workflowEnabled } from "@/lib/workflow/server";
 export const dynamic = "force-dynamic";
 export default function WorkerPage() {
   return <WorkerContent />;

@@ -2,9 +2,9 @@ import {
   getAppUser,
   getAuthStatus,
   getTestAccountPrefillPassword,
-} from "@/lib/auth";
+} from "@/lib/auth/server";
 import Entry from "../components/auth/entry";
-import { contactUrl } from "@/lib/contact";
+import { contactUrl } from "@/lib/shared/contact-server";
 
 export const dynamic = "force-dynamic";
 

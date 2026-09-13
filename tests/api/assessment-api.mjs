@@ -10,7 +10,10 @@ import {
   importHistory,
   readHistory,
 } from "../../scripts/seed-patient-history.mjs";
-import { TEST_ACCOUNTS, TEST_PROVIDER_ID } from "../../lib/test-accounts.ts";
+import {
+  TEST_ACCOUNTS,
+  TEST_PROVIDER_ID,
+} from "../../lib/auth/test-accounts.ts";
 import {
   testAuthEnvironment,
   createAuthFixture,

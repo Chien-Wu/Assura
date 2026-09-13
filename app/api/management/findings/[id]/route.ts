@@ -1,6 +1,6 @@
-import { failure, identity, json, readBody } from "@/lib/notes-server";
-import { requireManager } from "@/lib/organisations";
-import { reviewFinding } from "@/lib/finding-review-server";
+import { failure, identity, json, readBody } from "@/lib/shared/server";
+import { requireManager } from "@/lib/roster/organisations-server";
+import { reviewFinding } from "@/lib/assessment/finding-review-server";
 
 type Context = { params: Promise<{ id: string }> };
 export async function POST(request: Request, context: Context) {

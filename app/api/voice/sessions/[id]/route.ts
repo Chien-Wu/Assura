@@ -4,16 +4,16 @@ import {
   json,
   readBody,
   RequestError,
-} from "@/lib/notes-server";
-import { getVoiceSession, saveVoiceState } from "@/lib/voice-server";
+} from "@/lib/shared/server";
+import { getVoiceSession, saveVoiceState } from "@/lib/recorder/server";
 import {
   appendVoiceEvent,
   VoiceStateError,
   type VoiceEvent,
   type VoiceState,
-} from "@/lib/voice-state";
-import { captureEvent, safetyContext } from "@/lib/audit-server";
-import { cancelProposedStatements } from "@/lib/interview-server";
+} from "@/lib/recorder/state";
+import { captureEvent, safetyContext } from "@/lib/notes/audit-server";
+import { cancelProposedStatements } from "@/lib/knowledge/interview-server";
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },

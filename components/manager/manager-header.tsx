@@ -1,14 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-import {
-  AudioLines,
-  CalendarDays,
-  ClipboardCheck,
-  Menu,
-  Users,
-} from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -17,6 +8,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  AudioLines,
+  CalendarDays,
+  ClipboardCheck,
+  Menu,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
 import AccountMenu from "../layout/account-menu";
 import "./manager-header.css";
 
