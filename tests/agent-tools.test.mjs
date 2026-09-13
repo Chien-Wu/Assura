@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   agentFormResult,
+  recorderFormResult,
+  parseRecorderUpdate,
   agentKnowledgeResult,
   parseAgentUpdate,
   knowledgeFailure,
@@ -162,7 +164,7 @@ test("Agent tool artifact uses vendor response waiting and excludes model-select
       "utf8",
     ),
   );
-  assert.equal(new Set(tools.map((tool) => tool.name)).size, 6);
+  assert.equal(new Set(tools.map((tool) => tool.name)).size, 2);
   for (const tool of tools) {
     assert.equal(tool.type, "client");
     assert.equal(tool.expects_response, true);
@@ -178,11 +180,54 @@ test("Agent tool artifact uses vendor response waiting and excludes model-select
     ])
       assert.equal(key in tool.parameters.properties, false);
   }
-  const search = tools.find(
-    (tool) => tool.name === "search_participant_records",
+  assert.deepEqual(
+    tools.map((tool) => tool.name),
+    ["get_form_context", "update_and_check_form"],
   );
-  assert.deepEqual(search.parameters.required, ["query", "current_turn_quote"]);
-  const register = tools.find((tool) => tool.name === "register_followup");
-  assert.equal(register.parameters.properties.source_ids.type, "array");
-  assert.equal(register.parameters.properties.source_ids.items.type, "string");
+});
+
+test("recorder excludes detector state and refuses classification or completion writes", () => {
+  const fields = {
+    participant: "Test",
+    shiftStart: "2026-09-13T08:00",
+    shiftEnd: "2026-09-13T10:00",
+    activities: "Walked",
+    supportProvided: "Assisted",
+    participantResponse: "Appeared content",
+    goalProgress: "Completed walk",
+    incidents: "unanswered",
+    incidentDetails: "",
+    followUp: "unanswered",
+    followUpDetails: "",
+  };
+  const value = recorderFormResult({
+    note: {
+      fields,
+      revision: 1,
+      status: "draft",
+      riskFlags: [{ classification: "unverified" }],
+    },
+    requiredFacts: ["screening"],
+    summary: "not approved",
+  });
+  assert.equal(value.validation.complete, true);
+  assert.equal("incidents" in value.note.fields, false);
+  assert.equal("riskFlags" in value.note, false);
+  assert.equal("requiredFacts" in value, false);
+  assert.deepEqual(
+    parseRecorderUpdate(
+      JSON.stringify({ fields: { activities: "Worker described a fall." } }),
+    ),
+    { fields: { activities: "Worker described a fall." } },
+  );
+  for (const payload of [
+    { fields: { incidents: "no" } },
+    { fields: { participant: "Other" } },
+    { fields: {}, field_states: {} },
+    { fields: {}, restrictive_practice: { used: "yes" } },
+  ])
+    assert.throws(
+      () => parseRecorderUpdate(JSON.stringify(payload)),
+      /stage records basic/,
+    );
 });

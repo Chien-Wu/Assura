@@ -1,5 +1,11 @@
 import { emptySafety, type Safety, type RiskFlag } from "./safety.ts";
 import type { Participant } from "./participants";
+import {
+  overallRiskLevel,
+  riskLevelLabels,
+  riskTypeLabels,
+  type RiskResult,
+} from "./risk-assessment.ts";
 export const FORM_VERSION = "shift-note-demo-v2";
 export const definitions = [
   {
@@ -96,6 +102,7 @@ export type ShiftNote = {
   riskFlags?: RiskFlag[];
   clarificationCount?: number;
   retentionUntil?: string | null;
+  assessment?: RiskResult | null;
 };
 export type FormIssue = { field: FieldKey; message: string };
 export const incidentOptions = {
@@ -254,14 +261,42 @@ export function noteText(note: ShiftNote) {
       : []),
     "",
     ...definitions
-      .filter(({ key }) => applicable(key, note.fields))
-      .flatMap(({ key, label }) => [label, noteAnswer(note, key), ""]),
-    "Restrictive practice",
-    JSON.stringify(safety.restrictivePractice, null, 2),
+      .filter(
+        ({ key, section }) =>
+          applicable(key, note.fields) &&
+          (!note.assessment ||
+            section < 3 ||
+            !["unanswered", "unknown", ""].includes(note.fields[key])),
+      )
+      .flatMap(({ key, label }) => [
+        label,
+        note.assessment
+          ? answerText(key, note.fields[key])
+          : noteAnswer(note, key),
+        "",
+      ]),
+    ...(note.assessment
+      ? [
+          "AI RISK CHECK",
+          `${overallRiskLevel(note.assessment)} · ${riskLevelLabels[overallRiskLevel(note.assessment)]}`,
+          note.assessment.summary,
+          ...note.assessment.risks.flatMap((risk) => [
+            `${risk.level}: ${riskTypeLabels[risk.type]}`,
+            ...risk.evidence.map(
+              (item) => `Evidence (${item.sourceId}): ${item.quote}`,
+            ),
+            "",
+          ]),
+          "AI suggestions for human review. Manager decisions are recorded separately.",
+        ]
+      : [
+          "Restrictive practice",
+          JSON.stringify(safety.restrictivePractice, null, 2),
+        ]),
     ...(note.riskFlags ?? []).map(
       (flag) => `SUPERVISOR REVIEW: ${flag.code} — ${flag.reason}`,
     ),
-    ...checkForm(note.fields).reviewReasons.map(
+    ...(note.assessment ? [] : checkForm(note.fields).reviewReasons).map(
       (reason) => `Review: ${reason}`,
     ),
     note.confirmedAt ? `Confirmed: ${note.confirmedAt}` : "Not yet confirmed",

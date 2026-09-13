@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { emptyFields, applyFieldPatch, checkForm } from "../lib/shift-form.ts";
+import {
+  emptyFields,
+  applyFieldPatch,
+  checkForm,
+  noteText,
+} from "../lib/shift-form.ts";
 
 const complete = () => ({
   ...emptyFields(),
@@ -68,4 +73,33 @@ test("unknown fields, wrong types, and invalid choices cannot be persisted", () 
     applyFieldPatch(emptyFields(), { incidents: "probably" }),
   );
   assert.throws(() => applyFieldPatch(emptyFields(), { activities: null }));
+});
+
+test("completed record export retains AI2 findings and uncertainties without inventing negative screens", () => {
+  const assessment = {
+    summary: "Transport did not arrive. Replacement pickup time is unknown.",
+    risks: [
+      {
+        type: "service_exception",
+        level: "P2",
+        evidence: [
+          { sourceId: "transcript:1", quote: "Transport did not arrive." },
+        ],
+      },
+    ],
+  };
+  const text = noteText({
+    fields: { ...complete(), incidents: "unanswered", followUp: "unanswered" },
+    workerName: "Test worker",
+    status: "complete",
+    timezone: "Australia/Melbourne",
+    confirmedAt: "2026-09-13T01:00:00Z",
+    assessment,
+  });
+  assert.match(text, /P2: Service exception/);
+  assert.match(text, /Evidence \(transcript:1\): Transport did not arrive/);
+  assert.match(text, /Replacement pickup time is unknown/);
+  assert.equal(text.includes("Coverage:"), false);
+  assert.equal(text.includes("No incidents"), false);
+  assert.match(text, /Activities\nShopping/);
 });

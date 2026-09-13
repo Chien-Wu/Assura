@@ -24,6 +24,12 @@ const requiredTables = [
   "retrieval_runs",
   "interview_questions",
   "interview_question_events",
+  "shift_assessments",
+  "assessment_messages",
+  "assessment_reviews",
+  "assessment_runs",
+  "assessment_findings",
+  "assessment_manager_actions",
 ];
 
 // Public readiness only: never accepts identity headers, creates a session,

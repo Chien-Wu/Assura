@@ -14,6 +14,9 @@ import {
 } from "@/lib/roster";
 import { reportingGuidance } from "@/lib/safety";
 import { requireManager } from "@/lib/organisations";
+import type { AssessmentOutput, AssessmentStatus } from "@/lib/assessment";
+import { readManagerFindings } from "@/lib/finding-review-server";
+import { managerNoteAccess } from "@/lib/organisation-access";
 import {
   providerRisksQuery,
   providerActionsQuery,
@@ -94,9 +97,49 @@ export async function GET(request: Request) {
       };
     });
     const monthly = monthlyParticipantUses(participants, uses.results, month);
+    const assessments = await database()
+      .prepare(
+        `SELECT a.id,a.note_id,a.status,a.result_json,a.updated_at,a.lease_until,a.schema_version,json_extract(shift_notes.fields_json,'$.participant') AS participant,shift_notes.revision,a.source_revision
+       FROM shift_assessments a JOIN shift_notes ON shift_notes.id=a.note_id AND shift_notes.owner_id=a.owner_id
+       WHERE shift_notes.provider_id=? AND ${managerNoteAccess}
+       ORDER BY a.updated_at DESC`,
+      )
+      .bind(manager.providerId, user.userId)
+      .all<{
+        id: string;
+        note_id: string;
+        status: AssessmentStatus;
+        schema_version: number;
+        result_json: string | null;
+        updated_at: string;
+        participant: string;
+        revision: number;
+        source_revision: number;
+        lease_until: string | null;
+      }>();
     return json({
       notes,
       incidents,
+      findings: await readManagerFindings(manager.providerId, user.userId),
+      assessments: assessments.results.map((row) => ({
+        id: row.id,
+        noteId: row.note_id,
+        schemaVersion: row.schema_version,
+        sourceRevision: row.source_revision,
+        participant: row.participant,
+        status:
+          row.revision !== row.source_revision
+            ? "stale"
+            : row.status === "running" &&
+                (!row.lease_until ||
+                  row.lease_until <= new Date().toISOString())
+              ? "failed"
+              : row.status,
+        updatedAt: row.updated_at,
+        result: row.result_json
+          ? (JSON.parse(row.result_json) as AssessmentOutput)
+          : null,
+      })),
       monthly,
       month,
       provider: { id: manager.providerId, name: manager.providerName },

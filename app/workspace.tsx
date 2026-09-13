@@ -63,7 +63,13 @@ import {
 } from "@/lib/shift-form";
 
 import AccountMenu from "./account-menu";
-import VoicePanel from "./voice-panel";
+import VoicePanel, { type RecorderReviewControl } from "./voice-panel";
+import RiskReview, { RiskSummary } from "./risk-review";
+import {
+  normalizeRiskResult,
+  overallRiskLevel,
+  riskLevelLabels,
+} from "@/lib/risk-assessment";
 import SafetyPanel from "./safety-panel";
 import InterviewReferences from "./interview-references";
 import { participants, participantForNote } from "@/lib/participants";
@@ -71,7 +77,6 @@ import { displayShiftTime, type ScheduledShift } from "@/lib/shifts";
 import WorkerShifts from "./worker-shifts";
 import { type RestrictivePractice } from "@/lib/safety";
 
-type Review = { note: ShiftNote; confirmationId: string };
 async function api<T>(
   path: string,
   method = "GET",
@@ -100,6 +105,14 @@ const hasContent = (fields: ShiftFields) =>
       value &&
       !((key === "incidents" || key === "followUp") && value === "unanswered"),
   );
+const reviewCount = (item: ShiftNote) => {
+  const result = normalizeRiskResult(item.assessment);
+  return result
+    ? result.risks.length
+    : item.status === "complete"
+      ? checkForm(item.fields).reviewReasons.length
+      : 0;
+};
 
 export default function Workspace({
   user,
@@ -116,8 +129,8 @@ export default function Workspace({
   const [voiceActive, setVoiceActive] = useState(false);
   const [error, setError] = useState("");
   const [listError, setListError] = useState("");
-  const [review, setReview] = useState<Review | null>(null);
   const [reloadOpen, setReloadOpen] = useState(false);
+  const [reviewNote, setReviewNote] = useState<ShiftNote | null>(null);
   const [recoveryCopy, setRecoveryCopy] = useState<ShiftNote | null>(null);
   const [filter, setFilter] = useState("all");
   const [showIssues, setShowIssues] = useState(false);
@@ -125,11 +138,26 @@ export default function Workspace({
   const [submitAttempt, setSubmitAttempt] = useState(0);
   const errorSummary = useRef<HTMLDivElement>(null);
   const mutationLock = useRef(false);
+  const recorderReview = useRef<RecorderReviewControl | null>(null);
   const leavingAfterSave = useRef(false);
   const dirty =
     JSON.stringify(fields) !== JSON.stringify(note?.fields ?? emptyFields());
-  const validation = checkForm(fields);
+  const allChecks = checkForm(fields);
+  const basicFields = definitions.filter((field) => field.section < 3);
+  const basicIssues = allChecks.issues.filter((issue) =>
+    basicFields.some((field) => field.key === issue.field),
+  );
+  const validation = {
+    ...allChecks,
+    issues: basicIssues,
+    ready: basicIssues.length === 0,
+    total: basicFields.length,
+    answered:
+      basicFields.length -
+      new Set(basicIssues.map((issue) => issue.field)).size,
+  };
   const completed = note?.status === "complete";
+  const savedRisk = normalizeRiskResult(note?.assessment);
 
   const loadNotes = useCallback(() => {
     if (!user) return;
@@ -146,6 +174,28 @@ export default function Workspace({
   useEffect(() => {
     void loadNotes();
   }, [loadNotes]);
+  useEffect(() => {
+    const noteId = new URLSearchParams(window.location.search).get("note");
+    if (!noteId) return;
+    let cancelled = false;
+    api<{ note: ShiftNote }>(`/api/notes/${encodeURIComponent(noteId)}`)
+      .then(({ note: saved }) => {
+        if (cancelled) return;
+        setNote(saved);
+        setFields(saved.fields);
+      })
+      .catch((cause) => {
+        if (!cancelled)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Could not load your saved note.",
+          );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   useEffect(() => {
     if (!dirty && !voiceActive) return;
     const warn = (event: BeforeUnloadEvent) => {
@@ -191,8 +241,12 @@ export default function Workspace({
     acceptSaved(saved);
     return saved;
   }
-  async function action(name: string, fn: () => Promise<void>) {
-    if (mutationLock.current || voiceActive) return;
+  async function action(
+    name: string,
+    fn: () => Promise<void>,
+    allowRecorderHandoff = false,
+  ) {
+    if (mutationLock.current || (voiceActive && !allowRecorderHandoff)) return;
     mutationLock.current = true;
     setBusy(name);
     setError("");
@@ -252,38 +306,35 @@ export default function Workspace({
   useEffect(() => {
     if (submitAttempt > 0) errorSummary.current?.focus();
   }, [submitAttempt]);
-  function prepareReview() {
-    return action("review", async () => {
-      setShowIssues(true);
-      if (!validation.ready) {
-        setSubmitAttempt((count) => count + 1);
-        return;
-      }
-      const saved = await persist();
-      const result = await api<Review>(
-        `/api/notes/${saved.id}/review`,
-        "POST",
-        { revision: saved.revision },
-      );
-      setReview({ note: result.note, confirmationId: result.confirmationId });
-    });
-  }
-  function confirm() {
-    if (!review) return;
-    return action("confirm", async () => {
-      const result = await api<{ note: ShiftNote }>(
-        `/api/notes/${review.note.id}/confirm`,
-        "POST",
-        {
-          revision: review.note.revision,
-          confirmationId: review.confirmationId,
-          confirmed: true,
-        },
-      );
-      acceptSaved(result.note);
-      setReview(null);
-      setNotice("Your shift note is complete.");
-    });
+  function reviewAndConfirm() {
+    return action(
+      "review",
+      async () => {
+        // Stopping can finish a queued correction. Use the returned server note,
+        // never this render's pre-stop fields or persist() closure.
+        let saved: ShiftNote;
+        if (voiceActive) {
+          if (!recorderReview.current)
+            throw new Error(
+              "The conversation is still preparing. Please try again in a moment.",
+            );
+          saved = await recorderReview.current.finishForReview();
+        } else {
+          saved = await persist();
+        }
+        acceptSaved(saved);
+        setShowIssues(true);
+        const issues = checkForm(saved.fields).issues.filter((issue) =>
+          basicFields.some((field) => field.key === issue.field),
+        );
+        if (issues.length) {
+          setSubmitAttempt((count) => count + 1);
+          return;
+        }
+        setReviewNote(saved);
+      },
+      true,
+    );
   }
   function startNew() {
     return action("new", async () => {
@@ -347,9 +398,7 @@ export default function Workspace({
   const filtered = notes.filter(
     (item) =>
       filter === "all" ||
-      (filter === "review"
-        ? checkForm(item.fields).reviewReasons.length > 0
-        : item.status === filter),
+      (filter === "review" ? reviewCount(item) > 0 : item.status === filter),
   );
 
   return (
@@ -510,6 +559,7 @@ export default function Workspace({
                     prepareDraft={prepareVoiceDraft}
                     onSaved={acceptSaved}
                     onActive={setVoiceActive}
+                    reviewControl={recorderReview}
                   />
                   {completed && !voiceActive && (
                     <div className="voice-download">
@@ -555,17 +605,14 @@ export default function Workspace({
                       </p>
                     )}
                     {!completed && validation.ready && (
-                      <p>
-                        All required details have an answer. Ready for your
-                        review.
-                      </p>
+                      <p>The shift details are ready for your review.</p>
                     )}
                   </div>
                   <div className="conversation-footer">
                     <ShieldCheck size={17} />
                     <span>
                       {completed
-                        ? "Confirmed by you. Review flags remain visible below."
+                        ? "Your confirmed account and saved check are shown below."
                         : "You review and confirm before a note is completed."}
                     </span>
                   </div>
@@ -626,24 +673,32 @@ export default function Workspace({
                   {completed ? (
                     <div className="record-body">
                       {definitions
-                        .filter(({ key }) => applicable(key, fields))
+                        .filter(
+                          ({ key, section }) =>
+                            applicable(key, fields) &&
+                            (!note.assessment ||
+                              section < 3 ||
+                              !["unanswered", "unknown", ""].includes(
+                                fields[key],
+                              )),
+                        )
                         .map(({ key, label }) => (
                           <div className="record-field" key={key}>
                             <h3>{label}</h3>
                             <p>
-                              {note
+                              {note && !note.assessment
                                 ? noteAnswer(note, key)
                                 : answerText(key, fields[key])}
                             </p>
                           </div>
                         ))}
+                      {savedRisk && <RiskSummary result={savedRisk} />}
                     </div>
                   ) : (
                     <>
                       {[
                         { id: 1, title: "The essentials" },
                         { id: 2, title: "During the shift" },
-                        { id: 3, title: "Concerns & next steps" },
                       ].map((section) => (
                         <div className="form-section" key={section.id}>
                           <h3>
@@ -815,29 +870,37 @@ export default function Workspace({
                       ))}
                     </>
                   )}
-                  <InterviewReferences note={note} />
-                  <SafetyPanel
-                    key={`${note?.id ?? "new"}:${note?.revision ?? 0}:${fields.participant}`}
-                    note={note}
-                    participant={fields.participant}
-                    disabled={
-                      Boolean(busy) || voiceActive || completed || !user
-                    }
-                    onSave={savePractice}
-                  />
-                  {validation.reviewReasons.length > 0 && (
-                    <div className="review-flags">
-                      <h3>
-                        <AlertCircle size={16} /> For review
-                      </h3>
-                      <ul>
-                        {validation.reviewReasons.map((reason) => (
-                          <li key={reason}>{reason}</li>
-                        ))}
-                      </ul>
-                    </div>
+                  {completed && !note.assessment && (
+                    <InterviewReferences note={note} />
                   )}
-                  <div className="form-bottom">
+                  {completed && !note.assessment && (
+                    <SafetyPanel
+                      key={`${note?.id ?? "new"}:${note?.revision ?? 0}:${fields.participant}`}
+                      note={note}
+                      participant={fields.participant}
+                      disabled={
+                        Boolean(busy) || voiceActive || completed || !user
+                      }
+                      onSave={savePractice}
+                    />
+                  )}
+                  {completed &&
+                    !note.assessment &&
+                    validation.reviewReasons.length > 0 && (
+                      <div className="review-flags">
+                        <h3>
+                          <AlertCircle size={16} /> For review
+                        </h3>
+                        <ul>
+                          {validation.reviewReasons.map((reason) => (
+                            <li key={reason}>{reason}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  <div
+                    className={`form-bottom${voiceActive ? " with-handoff" : ""}`}
+                  >
                     <span aria-live="polite">
                       {busy === "save"
                         ? "Saving…"
@@ -851,13 +914,21 @@ export default function Workspace({
                     </span>
                     <div>
                       {completed ? (
-                        <Button
-                          variant="outline"
-                          disabled={voiceActive}
-                          onClick={() => setView("history")}
-                        >
-                          <ArrowLeft size={15} /> My notes
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={() => setReviewNote(note)}
+                          >
+                            View saved record
+                          </Button>
+                          <Button
+                            variant="outline"
+                            disabled={voiceActive}
+                            onClick={() => setView("history")}
+                          >
+                            <ArrowLeft size={15} /> My notes
+                          </Button>
+                        </>
                       ) : (
                         <>
                           <Button
@@ -879,17 +950,35 @@ export default function Workspace({
                             Save draft
                           </Button>
                           <Button
-                            disabled={Boolean(busy) || voiceActive || !user}
-                            onClick={prepareReview}
+                            disabled={Boolean(busy) || !user}
+                            aria-describedby={
+                              voiceActive ? "review-handoff-help" : undefined
+                            }
+                            onClick={reviewAndConfirm}
                           >
                             {busy === "review" ? (
                               <LoaderCircle className="spin" size={16} />
                             ) : null}
-                            Review & confirm
+                            {busy === "review"
+                              ? voiceActive
+                                ? "Ending & saving…"
+                                : "Preparing review…"
+                              : voiceActive
+                                ? "End conversation & review"
+                                : "Review & confirm"}
                           </Button>
                         </>
                       )}
                     </div>
+                    {voiceActive && (
+                      <p
+                        id="review-handoff-help"
+                        className="section-help recorder-review-help"
+                      >
+                        Ends the conversation and saves its updates before
+                        opening review.
+                      </p>
+                    )}
                   </div>
                 </section>
               </div>
@@ -981,7 +1070,7 @@ export default function Workspace({
                     <TableHead>Participant</TableHead>
                     <TableHead>Shift</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>For review</TableHead>
+                    <TableHead>Risk check</TableHead>
                     <TableHead>
                       <span className="sr-only">Open note</span>
                     </TableHead>
@@ -989,7 +1078,9 @@ export default function Workspace({
                 </TableHeader>
                 <TableBody>
                   {filtered.map((item) => {
-                    const checks = checkForm(item.fields);
+                    const result = normalizeRiskResult(item.assessment);
+                    const level = result ? overallRiskLevel(result) : null;
+                    const legacyReviews = result ? 0 : reviewCount(item);
                     return (
                       <TableRow key={item.id}>
                         <TableCell>
@@ -1011,15 +1102,23 @@ export default function Workspace({
                           </span>
                         </TableCell>
                         <TableCell>
-                          {checks.reviewReasons.length ? (
+                          {level ? (
+                            <span
+                              className={`status-badge ${level === "P0" ? "complete" : "review"}`}
+                            >
+                              {level} · {riskLevelLabels[level]}
+                            </span>
+                          ) : legacyReviews ? (
                             <span className="status-badge review">
-                              {checks.reviewReasons.length}{" "}
-                              {checks.reviewReasons.length === 1
-                                ? "item"
-                                : "items"}
+                              {legacyReviews} earlier review{" "}
+                              {legacyReviews === 1 ? "item" : "items"}
                             </span>
                           ) : (
-                            <span className="muted-text">—</span>
+                            <span className="muted-text">
+                              {item.status === "complete"
+                                ? "No saved check"
+                                : "Not checked"}
+                            </span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -1044,6 +1143,22 @@ export default function Workspace({
         <span>LegalMate</span>
         <span>Demo workspace · Use fictional participant details</span>
       </footer>
+      {reviewNote && (
+        <RiskReview
+          key={`${reviewNote.id}:${reviewNote.revision}`}
+          note={reviewNote}
+          onClose={() => setReviewNote(null)}
+          onReload={(saved) => {
+            acceptSaved(saved);
+            setReviewNote(saved);
+          }}
+          onSaved={(saved) => {
+            acceptSaved(saved);
+            setReviewNote(null);
+            setNotice("Your shift note is complete.");
+          }}
+        />
+      )}
       <Dialog
         open={reloadOpen}
         onOpenChange={(open) => {
@@ -1074,66 +1189,6 @@ export default function Workspace({
               onClick={reloadSaved}
             >
               Load saved version
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={Boolean(review)}
-        onOpenChange={(open) => {
-          if (!open && !busy) setReview(null);
-        }}
-      >
-        <DialogContent className="confirmation-dialog">
-          <DialogTitle>Review your shift note</DialogTitle>
-          <DialogDescription>
-            Check the details below. Confirming saves this version as your
-            completed record.
-          </DialogDescription>
-          <div className="confirmation-scroll">
-            {review &&
-              definitions
-                .filter(({ key }) => applicable(key, review.note.fields))
-                .map(({ key, label }) => (
-                  <div className="record-field" key={key}>
-                    <h3>{label}</h3>
-                    <p>{noteAnswer(review.note, key)}</p>
-                  </div>
-                ))}
-            {review &&
-              checkForm(review.note.fields).reviewReasons.length > 0 && (
-                <div className="review-flags">
-                  <h3>Items will remain marked for review</h3>
-                  <ul>
-                    {checkForm(review.note.fields).reviewReasons.map(
-                      (reason) => (
-                        <li key={reason}>{reason}</li>
-                      ),
-                    )}
-                  </ul>
-                </div>
-              )}
-          </div>
-          {error && (
-            <p className="field-error" role="alert">
-              {error}
-            </p>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              disabled={Boolean(busy) || voiceActive}
-              onClick={() => setReview(null)}
-            >
-              Make changes
-            </Button>
-            <Button disabled={Boolean(busy) || voiceActive} onClick={confirm}>
-              {busy === "confirm" ? (
-                <LoaderCircle className="spin" size={16} />
-              ) : (
-                <Check size={16} />
-              )}
-              Confirm & save
             </Button>
           </DialogFooter>
         </DialogContent>

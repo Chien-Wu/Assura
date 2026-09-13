@@ -57,6 +57,20 @@
       "when": 1789284651455,
       "tag": "0007_interview_questions",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789296025738,
+      "tag": "0008_shift_assessments",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1789302601785,
+      "tag": "0009_silent_risk_findings",
+      "breakpoints": true
     }
   ]
 }

@@ -25,6 +25,9 @@ import {
 } from "@/components/ui/dialog";
 import { noteText, type ShiftNote } from "@/lib/shift-form";
 import InterviewReferences from "./interview-references";
+import type { AssessmentOutput } from "@/lib/assessment";
+import { riskTypeLabels, type RiskAssessment } from "@/lib/risk-assessment";
+import FindingReview, { RiskBadge, type RiskFinding } from "./finding-review";
 type Incident = {
   id: string;
   noteId: string;
@@ -49,6 +52,16 @@ type Incident = {
 };
 type Board = {
   notes: ShiftNote[];
+  findings: RiskFinding[];
+  assessments?: {
+    id: string;
+    noteId: string;
+    participant: string;
+    schemaVersion: number;
+    sourceRevision: number;
+    status: string;
+    result: AssessmentOutput | null;
+  }[];
   incidents: Incident[];
   monthly: {
     participantId: string;
@@ -63,6 +76,15 @@ type Board = {
 };
 type Audit = {
   note: ShiftNote;
+  assessment: RiskAssessment | null;
+  assessmentAudit?: {
+    id: string;
+    sourceRevision: number;
+    schemaVersion: number;
+    result: AssessmentOutput | null;
+    messages: { id: string; role: string; text: string; createdAt: string }[];
+  }[];
+  findings: RiskFinding[];
   transcript: {
     session_id: string;
     sequence: number;
@@ -195,7 +217,14 @@ export default function ManagementBoard({
       <div className="board-metrics">
         <div>
           <AlertCircle size={20} />
-          <strong>{open.filter((i) => i.severity === "urgent").length}</strong>
+          <strong>
+            {open.filter((i) => i.severity === "urgent").length +
+              (board?.findings?.filter(
+                (item) =>
+                  item.reviewStatus !== "closed" &&
+                  (item.managerLevel ?? item.aiLevel) >= "P3",
+              ).length ?? 0)}
+          </strong>
           <span>Urgent items awaiting review</span>
         </div>
         <div>
@@ -229,8 +258,54 @@ export default function ManagementBoard({
           {error}
         </p>
       )}
+      <FindingReview
+        findings={board?.findings ?? []}
+        loading={!board}
+        onRefresh={load}
+        onAudit={(id) => void showAudit(id)}
+        providerId={providerId}
+      />
+      {!!board?.assessments?.some(
+        (item) => item.schemaVersion === 1 && item.result?.concerns?.length,
+      ) && (
+        <details className="reporting-guidance">
+          <summary>Earlier AI assessments · retained evidence</summary>
+          <p>
+            These findings came from the earlier assessment workflow. Their
+            original results and conversation remain in the audit.
+          </p>
+          {board.assessments
+            .filter(
+              (item) =>
+                item.schemaVersion === 1 && item.result?.concerns?.length,
+            )
+            .map((item) => (
+              <article className="incident-card" key={item.id}>
+                <h4>
+                  {item.participant} · note version {item.sourceRevision}
+                </h4>
+                <p>{item.result?.summary}</p>
+                {item.result?.concerns.map((concern) => (
+                  <p key={concern.id}>
+                    <strong>
+                      {concern.priority} · {concern.title}
+                    </strong>
+                    <br />
+                    {concern.whatHappened}
+                  </p>
+                ))}
+                <Button
+                  variant="outline"
+                  onClick={() => void showAudit(item.noteId)}
+                >
+                  Original assessment & evidence
+                </Button>
+              </article>
+            ))}
+        </details>
+      )}
       <div className="board-toolbar">
-        <h3>Review queue</h3>
+        <h3>Captured evidence requiring review</h3>
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger>
             <SelectValue />
@@ -454,6 +529,96 @@ export default function ManagementBoard({
                     : "Not prepared for review yet. The captured transcript is already retained."}
                 </pre>
                 <InterviewReferences note={audit.note} />
+                <h3>Current saved note</h3>
+                <pre>{noteText(audit.note)}</pre>
+                {audit.assessment && (
+                  <>
+                    <h3>Risk check · {audit.assessment.status}</h3>
+                    <p>
+                      {audit.assessment.result?.summary ??
+                        "Risk check not finished."}
+                    </p>
+                    {audit.assessment.result?.risks.map((risk) => (
+                      <article key={risk.type}>
+                        <strong>{riskTypeLabels[risk.type]}</strong>{" "}
+                        <RiskBadge level={risk.level} />
+                        {risk.evidence.map((evidence, index) => (
+                          <blockquote key={index}>
+                            {evidence.quote}
+                            <small>Source: {evidence.sourceId}</small>
+                          </blockquote>
+                        ))}
+                      </article>
+                    ))}
+                  </>
+                )}
+                {!!audit.findings?.length && (
+                  <>
+                    <h3>Manager finding reviews · all note versions</h3>
+                    {audit.findings.map((finding) => (
+                      <article key={finding.id}>
+                        <strong>
+                          {riskTypeLabels[finding.type]} · original AI{" "}
+                          {finding.aiLevel} · note version{" "}
+                          {finding.sourceRevision}
+                        </strong>
+                        <p>
+                          {finding.reviewStatus}
+                          {finding.managerLevel
+                            ? ` · manager level ${finding.managerLevel}`
+                            : " · AI level retained"}
+                        </p>
+                        {finding.history.map((action) => (
+                          <p key={action.id}>
+                            {when(action.createdAt)} · {action.actorName} ·{" "}
+                            {action.status}
+                            {action.managerLevel
+                              ? ` · ${action.managerLevel}`
+                              : ""}
+                            <br />
+                            {action.comment}
+                          </p>
+                        ))}
+                      </article>
+                    ))}
+                  </>
+                )}
+                {audit.assessmentAudit
+                  ?.filter((item) => item.schemaVersion === 1)
+                  .map((item) => (
+                    <details key={item.id}>
+                      <summary>
+                        Earlier AI assessment and conversation · note version{" "}
+                        {item.sourceRevision}
+                      </summary>
+                      <p>{item.result?.summary}</p>
+                      {item.result?.concerns?.map((concern) => (
+                        <article key={concern.id}>
+                          <strong>
+                            {concern.priority} · {concern.title}
+                          </strong>
+                          <p>{concern.whatHappened}</p>
+                          {concern.evidence.map((source, index) => (
+                            <blockquote key={index}>
+                              {source.quote}
+                              <small>{source.sourceId}</small>
+                            </blockquote>
+                          ))}
+                        </article>
+                      ))}
+                      {item.messages.map((message) => (
+                        <article key={message.id}>
+                          <small>
+                            {message.role === "user"
+                              ? "Worker"
+                              : "Earlier AI assistant"}{" "}
+                            · {when(message.createdAt)}
+                          </small>
+                          <p>{message.text}</p>
+                        </article>
+                      ))}
+                    </details>
+                  ))}
                 <h3>Append-only transcript</h3>
                 {audit.transcript.length ? (
                   audit.transcript.map((turn) => (

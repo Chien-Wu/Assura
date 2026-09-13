@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { database, RequestError } from "./notes-server";
 import { type VoiceState } from "./voice-state";
+import { noCurrentAssessmentSql } from "./assessment-server";
 export function voiceConfig() {
   return {
     key: env.ELEVENLABS_API_KEY || process.env.ELEVENLABS_API_KEY,
@@ -43,7 +44,12 @@ export async function saveVoiceState(
 ) {
   const statement = database()
     .prepare(
-      "UPDATE voice_sessions SET state_json=?,revision=revision+1 WHERE id=? AND owner_id=? AND revision=?",
+      "UPDATE voice_sessions SET state_json=?,revision=revision+1 WHERE id=? AND owner_id=? AND revision=?" +
+        (state.closed
+          ? ""
+          : " AND EXISTS (SELECT 1 FROM shift_notes WHERE id=voice_sessions.note_id AND owner_id=voice_sessions.owner_id AND status='draft' AND " +
+            noCurrentAssessmentSql +
+            ")"),
     )
     .bind(JSON.stringify(state), row.id, row.owner_id, row.revision);
   const result = await database().batch([statement, ...extraStatements]);

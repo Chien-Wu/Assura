@@ -1,7 +1,14 @@
 "use client";
 
 import { ConversationProvider, useConversation } from "@elevenlabs/react";
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
+import { createRecorderHandoff } from "@/lib/recorder-handoff";
 import {
   Mic,
   MicOff,
@@ -13,27 +20,17 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { definitions, type ShiftNote } from "@/lib/shift-form";
+import { type VoiceEvent, type ConversationMode } from "@/lib/voice-state";
 import {
-  checkForm,
-  definitions,
-  incidentOptions,
-  followUpOptions,
-  type ShiftNote,
-} from "@/lib/shift-form";
-import {
-  hasConfirmationPrompt,
-  isVoiceConfirmation,
-  type VoiceEvent,
-  type ConversationMode,
-} from "@/lib/voice-state";
-import {
-  agentFormResult,
-  agentKnowledgeResult,
-  agentNote,
+  recorderFormResult,
+  parseRecorderUpdate,
   knowledgeFailure,
-  parseAgentUpdate,
-  toolSnapshotMatches,
 } from "@/lib/agent-tools";
+
+export type RecorderReviewControl = {
+  finishForReview: () => Promise<ShiftNote>;
+};
 
 type Props = {
   signedIn: boolean;
@@ -42,6 +39,7 @@ type Props = {
   prepareDraft: () => Promise<ShiftNote>;
   onSaved: (note: ShiftNote) => void;
   onActive: (active: boolean) => void;
+  reviewControl: RefObject<RecorderReviewControl | null>;
 };
 type Session = {
   id: string;
@@ -52,15 +50,6 @@ type Session = {
   interruptionGeneration: number;
   generation: number;
 };
-type Pending = {
-  confirmationId: string;
-  revision: number;
-  promptSequence: number | null;
-  sawSpeaking: boolean;
-  ready: boolean;
-  confirmedSequence: number | null;
-};
-type ApiReview = { note: ShiftNote; confirmationId: string; summary: string };
 type FormResult = { note: ShiftNote } & Record<string, unknown>;
 async function request<T>(
   path: string,
@@ -154,6 +143,7 @@ function VoiceControls({
   prepareDraft,
   onSaved,
   onActive,
+  reviewControl,
   initialError,
   initialMessages,
   selectedMode,
@@ -181,18 +171,18 @@ function VoiceControls({
     if (transcript.current)
       transcript.current.scrollTop = transcript.current.scrollHeight;
   }, [messages]);
-  const [confirmReady, setConfirmReady] = useState(false);
-  const [promptReceived, setPromptReceived] = useState(false);
   const active = useRef<Session | null>(null);
-  const pending = useRef<Pending | null>(null);
   const generation = useRef(0);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const latest = useRef({ onSaved, onActive, prepareDraft });
   const locked = useRef(false);
   const closing = useRef(false);
+  const handoff = useRef<ReturnType<
+    typeof createRecorderHandoff<ShiftNote>
+  > | null>(null);
+  const handoffError = useRef<Error | null>(null);
+  const formSaveError = useRef<Error | null>(null);
   const startup = useRef<Promise<void>>(Promise.resolve());
-  const mode = useRef("listening");
-  const readinessTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     latest.current = { onSaved, onActive, prepareDraft };
@@ -222,21 +212,20 @@ function VoiceControls({
         );
       return job();
     });
-    queue.current = work.catch(() => {});
+    queue.current = work.catch((cause: unknown) => {
+      if (closing.current && !handoffError.current)
+        handoffError.current =
+          cause instanceof Error
+            ? cause
+            : new Error(
+                "Some conversation updates could not be saved. Please check your draft.",
+              );
+    });
     return work;
   }
   function saved(session: Session, value: ShiftNote) {
     session.note = value;
     if (active.current === session) latest.current.onSaved(value);
-  }
-  function clearPending() {
-    pending.current = null;
-    setConfirmReady(false);
-    setPromptReceived(false);
-    if (readinessTimer.current) {
-      clearTimeout(readinessTimer.current);
-      readinessTimer.current = null;
-    }
   }
   function clearTimer() {
     if (startupTimer.current) {
@@ -245,94 +234,68 @@ function VoiceControls({
     }
   }
   function finish(message = "") {
-    if (closing.current || !locked.current) return;
-    closing.current = true;
-    generation.current++;
-    clearTimer();
-    clearPending();
-    setPhase("stopping");
-    conversation.endSession();
-    // Drain admitted saves and startup before remounting the SDK provider. Its old
-    // pending connections/callbacks must never be shared with the next attempt.
-    void (async () => {
-      await startup.current.catch(() => {});
-      await queue.current.catch(() => {});
-      const session = active.current;
-      if (session) {
-        await sessionRequest(session, { action: "close" }).catch(() => {});
-        try {
-          const result = await request<{ note: ShiftNote }>(
-            `/api/notes/${session.note.id}`,
-          );
-          saved(session, result.note);
-        } catch {}
-      }
-      active.current = null;
-      latest.current.onActive(false);
-      onReset(message, history.current);
-    })();
+    if (message && !handoffError.current)
+      handoffError.current = new Error(message);
+    if (handoff.current) return handoff.current();
+    if (!locked.current) return Promise.resolve({ note: null, error: null });
+    handoff.current = createRecorderHandoff<ShiftNote>({
+      stopAdmission: () => {
+        closing.current = true;
+        generation.current++;
+        clearTimer();
+        setPhase("stopping");
+        conversation.endSession();
+      },
+      waitForStartup: () => startup.current,
+      drainWrites: async () => {
+        await queue.current;
+        if (handoffError.current) throw handoffError.current;
+        if (formSaveError.current) throw formSaveError.current;
+      },
+      closeSession: async () => {
+        const session = active.current;
+        if (session) await sessionRequest(session, { action: "close" });
+      },
+      readSaved: async () => {
+        const session = active.current;
+        const noteId = session?.note.id ?? note?.id;
+        if (!noteId) throw new Error("Choose a saved shift before reviewing.");
+        const result = await request<{ note: ShiftNote }>(
+          `/api/notes/${noteId}`,
+        );
+        if (session) saved(session, result.note);
+        else latest.current.onSaved(result.note);
+        return result.note;
+      },
+      complete: ({ error: problem }) => {
+        active.current = null;
+        latest.current.onActive(false);
+        onReset(problem?.message ?? "", history.current);
+      },
+    });
+    return handoff.current();
   }
   function stop() {
-    finish();
+    void finish();
   }
   function fatal(message: string) {
     setError(message);
-    finish(message);
+    void finish(message);
   }
   function invalidate() {
     const session = active.current;
     if (!session || closing.current) return;
     session.interruptionGeneration++;
-    clearPending();
     const event: VoiceEvent = {
       sequence: ++session.sequence,
       kind: "interrupt",
-      text: "Readback interrupted or corrected",
+      text: "Recorder interrupted or corrected",
     };
     void enqueue(session, () =>
       sessionRequest(session, { action: "event", event }),
     ).catch((e) => {
       if (active.current === session) fatal(e.message);
     });
-  }
-  function markReady() {
-    const session = active.current;
-    const review = pending.current;
-    if (
-      closing.current ||
-      !session ||
-      !review ||
-      review.ready ||
-      (!textOnly && !review.sawSpeaking) ||
-      !review.promptSequence
-    )
-      return;
-    review.ready = true;
-    void enqueue(session, () =>
-      sessionRequest(session, {
-        action: "readback",
-        confirmationId: review.confirmationId,
-        sequence: review.promptSequence,
-      }),
-    )
-      .then(() => {
-        if (active.current === session && pending.current === review)
-          setConfirmReady(true);
-      })
-      .catch(() => {
-        if (active.current === session) {
-          clearPending();
-          setError(
-            "The review was interrupted. Ask the assistant to read it again, or end the call and confirm on screen.",
-          );
-        }
-      });
-  }
-  function scheduleReady() {
-    if (readinessTimer.current) clearTimeout(readinessTimer.current);
-    readinessTimer.current = setTimeout(() => {
-      if (mode.current === "listening") markReady();
-    }, 650);
   }
   function recordMessage(
     role: "user" | "agent",
@@ -351,16 +314,6 @@ function VoiceControls({
     if (role === "user") session.workerSequence = event.sequence;
     history.current = [...history.current, event];
     setMessages(history.current);
-    const review = pending.current;
-    if (role === "agent" && review && hasConfirmationPrompt(message)) {
-      review.promptSequence = event.sequence;
-      setPromptReceived(true);
-    }
-    if (role === "user" && review) {
-      if (review.ready && isVoiceConfirmation(message))
-        review.confirmedSequence = event.sequence;
-      else clearPending();
-    }
     return enqueue(session, async () => {
       const result = await sessionRequest<{
         note?: ShiftNote;
@@ -371,18 +324,6 @@ function VoiceControls({
         questions?: unknown;
       }>(session, { action: "event", event });
       if (result.note) saved(session, result.note);
-      if (active.current === session && !closing.current)
-        conversation.sendContextualUpdate(
-          JSON.stringify({
-            captureSafety: {
-              remainingClarifications: result.remainingClarifications,
-              riskFlags: result.riskFlags,
-              escalation: result.escalation,
-              coverage: result.coverage,
-              questions: result.questions,
-            },
-          }),
-        );
       return result;
     });
   }
@@ -397,8 +338,7 @@ function VoiceControls({
       waiting ||
       phase !== "active" ||
       !message ||
-      note?.status === "complete" ||
-      (pending.current?.promptSequence && !confirmReady)
+      note?.status === "complete"
     )
       return;
     sendLock.current = true;
@@ -406,7 +346,7 @@ function VoiceControls({
     setError("");
     try {
       // Typed turns are not echoed locally by the SDK. Persist once before the
-      // Agent can act on them, including an explicit confirmation or correction.
+      // recorder can act on them, including a correction.
       await recordMessage("user", message);
       if (closing.current || active.current !== session) return;
       conversation.sendUserMessage(message);
@@ -436,11 +376,6 @@ function VoiceControls({
       active.current === session &&
       !closing.current &&
       session.generation === generation.current;
-    const snapshot = () => ({
-      revision: session.note.revision,
-      workerSequence: session.workerSequence,
-      interruptionGeneration: session.interruptionGeneration,
-    });
     const stale = () =>
       JSON.stringify(
         knowledgeFailure(
@@ -461,29 +396,20 @@ function VoiceControls({
           return value;
         });
         if (!isCurrent()) return stale();
-        const bound = snapshot();
-        let participantContext: unknown;
-        try {
-          // Historical reads must not occupy the transcript/save queue. A new
-          // worker turn can persist while this request is in flight.
-          participantContext = agentKnowledgeResult(
-            await request<Record<string, unknown>>(
-              `/api/notes/${session.note.id}/knowledge/context`,
-            ),
-          );
-        } catch (e) {
-          participantContext = knowledgeFailure(e);
-        }
-        if (!isCurrent() || !toolSnapshotMatches(bound, snapshot()))
-          return stale();
         return JSON.stringify({
           ok: true,
-          ...agentFormResult(result),
-          participantContext,
-          definitions,
-          incidentOptions,
-          followUpOptions,
-          validation: checkForm(result.note.fields),
+          ...recorderFormResult(result),
+          definitions: definitions.filter((field) =>
+            [
+              "participant",
+              "shiftStart",
+              "shiftEnd",
+              "activities",
+              "supportProvided",
+              "participantResponse",
+              "goalProgress",
+            ].includes(field.key),
+          ),
           currentLocalTime: new Date().toLocaleString("en-AU", {
             timeZone: result.note.timezone,
           }),
@@ -492,52 +418,26 @@ function VoiceControls({
         return isCurrent() ? JSON.stringify(knowledgeFailure(e)) : stale();
       }
     }
-    if (name === "search_participant_records" || name === "register_followup") {
-      try {
-        // The barrier includes all previously admitted transcript/form saves;
-        // the slower lookup runs outside that serial queue.
-        const bound = await enqueue(session, async () => snapshot());
-        if (!isCurrent()) return stale();
-        const result = await request<Record<string, unknown>>(
-          name === "search_participant_records"
-            ? `/api/notes/${session.note.id}/knowledge/search`
-            : `/api/notes/${session.note.id}/interview/questions`,
-          name === "search_participant_records"
-            ? {
-                query: params.query,
-                currentTurnQuote: params.current_turn_quote,
-                revision: bound.revision,
-                voiceSessionId: session.id,
-              }
-            : {
-                retrievalId: params.retrieval_id,
-                sourceIds: params.source_ids,
-                purposeKey: params.purpose_key,
-                question: params.question,
-                revision: bound.revision,
-                voiceSessionId: session.id,
-              },
-        );
-        if (!isCurrent() || !toolSnapshotMatches(bound, snapshot()))
-          return stale();
-        return JSON.stringify({
-          ok:
-            (name === "register_followup" ||
-              ["ok", "partial", "no_match"].includes(String(result.status))) &&
-            result.ok !== false,
-          ...agentKnowledgeResult(result),
-        });
-      } catch (e) {
-        // Retrieval errors do not invalidate a readback or discard saved work.
-        return isCurrent() ? JSON.stringify(knowledgeFailure(e)) : stale();
-      }
+    if (
+      [
+        "search_participant_records",
+        "register_followup",
+        "prepare_confirmation",
+        "finalize_form",
+      ].includes(name)
+    ) {
+      return JSON.stringify({
+        ok: false,
+        stage: "record",
+        action:
+          "Save the worker's account using update_and_check_form. This stage only records the shift. A silent risk check and confirmation happen after the worker ends the conversation and selects Review & confirm. Do not screen for incidents or ask for final confirmation here.",
+      });
     }
     const result = await enqueue(session, async () => {
       try {
         if (name === "update_and_check_form") {
-          clearPending();
           await sessionRequest(session, { action: "invalidate" });
-          const update = parseAgentUpdate(params.fields_json);
+          const update = parseRecorderUpdate(params.fields_json);
           const result = await request<FormResult>(
             `/api/notes/${session.note.id}`,
             {
@@ -547,72 +447,26 @@ function VoiceControls({
             },
             "PATCH",
           );
+          formSaveError.current = null;
           saved(session, result.note);
           return JSON.stringify({
             ok: true,
-            ...agentFormResult(result),
-            validation: checkForm(result.note.fields),
-          });
-        }
-        if (name === "prepare_confirmation") {
-          clearPending();
-          const result = await request<ApiReview>(
-            `/api/notes/${session.note.id}/review`,
-            { revision: session.note.revision },
-          );
-          await sessionRequest(session, {
-            action: "prepare",
-            confirmationId: result.confirmationId,
-            revision: result.note.revision,
-          });
-          saved(session, result.note);
-          pending.current = {
-            confirmationId: result.confirmationId,
-            revision: result.note.revision,
-            promptSequence: null,
-            sawSpeaking: false,
-            ready: false,
-            confirmedSequence: null,
-          };
-          return JSON.stringify({
-            ok: true,
-            ...agentFormResult(result),
-            instruction:
-              "Read back every saved field, uncertainty, restrictive practice and supervisor flag in the summary. Not yet reviewed is not an absence. Do not ask the worker to classify events. Finish by saying: To save this note, say I confirm this shift note, or tell me what to change. Wait for a new answer before calling finalize_form.",
-          });
-        }
-        if (name === "finalize_form") {
-          const review = pending.current;
-          if (
-            !review ||
-            !review.ready ||
-            !review.confirmedSequence ||
-            params.confirmationId !== review.confirmationId ||
-            review.revision !== session.note.revision
-          )
-            throw new Error(
-              "No new explicit confirmation after the current review. Read the saved note again and ask the worker to say: I confirm this shift note.",
-            );
-          const result = await request<{ note: ShiftNote }>(
-            `/api/notes/${session.note.id}/confirm`,
-            {
-              revision: review.revision,
-              confirmationId: review.confirmationId,
-              confirmed: true,
-              voiceSessionId: session.id,
-            },
-          );
-          saved(session, result.note);
-          clearPending();
-          return JSON.stringify({
-            ok: true,
-            note: agentNote(result.note),
-            message:
-              "The confirmed note is saved. Tell the worker it is complete; they can end this call.",
+            ...recorderFormResult(result),
           });
         }
         throw new Error("Unknown LegalMate tool.");
       } catch (e) {
+        // Recovery reads can overlap Review. Keep a failed form write pending
+        // until a later successful write, even if closing has not started yet.
+        formSaveError.current =
+          e instanceof Error
+            ? e
+            : new Error("The final recorder update could not be saved.");
+        if (closing.current && !handoffError.current)
+          handoffError.current =
+            e instanceof Error
+              ? e
+              : new Error("The final recorder update could not be saved.");
         if (!isCurrent()) return stale();
         const message =
           e instanceof Error ? e.message : "Could not save the note.";
@@ -623,14 +477,13 @@ function VoiceControls({
           );
           saved(session, latestNote.note);
         } catch {}
-        clearPending();
         await sessionRequest(session, { action: "invalidate" }).catch(() => {});
         setError(message);
         return JSON.stringify({
           ok: false,
           error: message,
           action:
-            "Do not claim success. Address the problem, then prepare a fresh review before confirmation.",
+            "Do not claim success. Refresh the saved draft and address the problem before continuing.",
         });
       }
     }).catch((e: unknown) =>
@@ -666,26 +519,9 @@ function VoiceControls({
       const session = active.current;
       if (!session || closing.current || (textOnly && role === "user")) return;
       if (role === "agent") setWaiting(false);
-      const persisted = recordMessage(role, message, event_id);
-      void persisted
-        .then(() => {
-          if (active.current !== session || closing.current) return;
-          if (textOnly && role === "agent") markReady();
-          else if (role === "agent" && mode.current === "listening")
-            scheduleReady();
-        })
-        .catch((e) => {
-          if (active.current === session) fatal(e.message);
-        });
-    },
-    onModeChange: ({ mode: value }) => {
-      if (closing.current || textOnly) return;
-      mode.current = value;
-      const review = pending.current;
-      if (value === "speaking") {
-        if (readinessTimer.current) clearTimeout(readinessTimer.current);
-        if (review) review.sawSpeaking = true;
-      } else scheduleReady();
+      void recordMessage(role, message, event_id).catch((e) => {
+        if (active.current === session) fatal(e.message);
+      });
     },
     onInterruption: () => invalidate(),
     onAgentResponseCorrection: () => invalidate(),
@@ -695,13 +531,29 @@ function VoiceControls({
           "The conversation stopped. Your saved draft is safe; start again to continue.",
         );
     },
-    onDisconnect: () => finish(),
+    onDisconnect: () => {
+      void finish();
+    },
   });
+  useImperativeHandle(reviewControl, () => ({
+    async finishForReview() {
+      if (input.trim())
+        throw new Error(
+          "You have an unsent message. Send it or clear it before reviewing.",
+        );
+      const result = await finish();
+      if (result.error) throw result.error;
+      if (!result.note)
+        throw new Error(
+          "The conversation has ended. Select Review & confirm again to review the saved note.",
+        );
+      return result.note;
+    },
+  }));
   useEffect(
     () => () => {
       closing.current = true;
       clearTimer();
-      if (readinessTimer.current) clearTimeout(readinessTimer.current);
       const session = active.current;
       active.current = null;
       generation.current++;
@@ -722,7 +574,6 @@ function VoiceControls({
     setMessages([]);
     history.current = [];
     setWaiting(false);
-    clearPending();
     latest.current.onActive(true);
     startup.current = Promise.resolve().then(async () => {
       try {
@@ -827,7 +678,7 @@ function VoiceControls({
           : textOnly
             ? "Your messages and the assistant’s questions are recorded and retained with your note. The original transcript protects what you disclosed, even if the note is edited."
             : phase === "active"
-              ? "Your answers are saved into the form as you speak."
+              ? "Your account is saved as you speak. Select End conversation & review when you are ready."
               : "This conversation’s transcript is recorded and retained with your note, protecting what you disclosed if the note is edited. Audio is sent to ElevenLabs. Use fictional details."}
       </p>
       {phase === "idle" ? (
@@ -878,9 +729,7 @@ function VoiceControls({
         ) : phase === "stopping" ? (
           "Finishing saved updates…"
         ) : phase === "active" ? (
-          confirmReady ? (
-            `Review the note, then ${textOnly ? "type" : "say"}: I confirm this shift note.`
-          ) : textOnly ? (
+          textOnly ? (
             waiting ? (
               "Waiting for the assistant…"
             ) : (
@@ -957,12 +806,7 @@ function VoiceControls({
             <Button
               type="submit"
               className="voice-button"
-              disabled={
-                sending ||
-                waiting ||
-                !input.trim() ||
-                (promptReceived && !confirmReady)
-              }
+              disabled={sending || waiting || !input.trim()}
             >
               {sending ? (
                 <LoaderCircle className="spin" size={16} />

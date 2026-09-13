@@ -13,6 +13,7 @@ export * from "./roster-schema";
 export * from "./shift-schema";
 export * from "./knowledge-schema";
 export * from "./interview-schema";
+export * from "./assessment-schema";
 export {
   authUser,
   authSession,

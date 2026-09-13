@@ -1,6 +1,8 @@
+> Current local workflow: the recorder only records basic shift facts. **Review & confirm** opens the note and a silent AI2 risk check on the same page. AI2 does not interview or speak. See [the current workflow](ai2-workflow.md). Earlier published-agent notes below are retained as rollout history.
+
 # Voice integration
 
-The English MVP connects a private ElevenLabs Agent using `@elevenlabs/react` 1.15.2. Temporary **Text · Test mode** is the default; Voice remains selectable before starting. Both use the same Agent and model. This checkout registers four form tools plus two participant-history tools; the matching remote Agent configuration must be applied before the RAG flow can be exercised live. The API key stays on the server. The provisional form remains editable manually when voice is unavailable.
+The English MVP connects a private ElevenLabs Agent using `@elevenlabs/react` 1.15.2. Temporary **Text · Test mode** is the default; Voice remains selectable before starting. Both use the same Agent and model. The VM app and matching remote Agent now use four form tools plus two participant-history tools, published on 2026-09-13; see the verified version in [Agent configuration](elevenlabs-agent.md). The API key stays on the server. The provisional form remains editable manually when voice is unavailable.
 
 ## Configuration
 
@@ -49,7 +51,7 @@ This is browser SDK transcript evidence, not an independent audio audit or ident
 
 ## RAG acceptance after Agent configuration
 
-1. Apply the local prompt and all six tool configurations documented in [Agent configuration](elevenlabs-agent.md). This implementation does not publish them remotely.
+1. Verify the deployed prompt and all six tool configurations documented in [Agent configuration](elevenlabs-agent.md), using `node scripts/sync-elevenlabs-agent.mjs --check`. The matching configuration was published on 2026-09-13.
 2. Use the seeded fictional Sarah history with a new shift after 12 September 2026. Establish actual shift times, then describe library/craft activity. Verify search returns dated, permitted records and registration succeeds before the related question is asked.
 3. Answer that the craft-group arrangements are unknown. Verify the exact reply is stored with question state `unknown`; reconnect and check it is not asked again.
 4. Supply the relevant answer in the opening account instead. The Agent should skip that question. Check the form contains current facts rather than copied historical observations.

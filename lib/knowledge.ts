@@ -1,6 +1,8 @@
 import { validLocalTime } from "./shifts.ts";
 import type { ShiftFields } from "./shift-form";
 import type { Participant } from "./participants";
+import type { RiskResult } from "./risk-assessment";
+import type { AssessmentOutput } from "./assessment";
 
 export const KNOWLEDGE_TIMEZONE = "Australia/Melbourne";
 export const KNOWLEDGE_CANDIDATE_LIMIT = 100;
@@ -28,6 +30,13 @@ export type KnowledgeSource = {
   workerName: string;
   fields: Omit<ShiftFields, "participant">;
   isSynthetic: boolean;
+  followup?: {
+    assessmentId: string;
+    assessmentRevision: number;
+    provenance: "worker_confirmed_ai_assessment";
+    result: AssessmentOutput | RiskResult;
+    answers: { id: string; questionId: string | null; text: string }[];
+  };
 };
 export type KnowledgeCutoff = {
   local: string;

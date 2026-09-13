@@ -1,7 +1,8 @@
 import { database, getRow, toNote, type Row } from "./notes-server";
 import { participantForNote } from "./participants";
-import { detectRisks, reportingGuidance, type RiskFlag } from "./safety";
+import { reportingGuidance, type RiskFlag } from "./safety";
 import { type VoiceSessionRow } from "./voice-server";
+import { noCurrentAssessmentSql } from "./assessment-server";
 import {
   type VoiceEvent,
   type VoiceState,
@@ -55,38 +56,14 @@ export async function captureEvent(
   state: VoiceState,
   event: VoiceEvent,
 ) {
-  const note = toNote(await getRow(row.note_id, row.owner_id));
   const serialised = JSON.stringify(state);
   const now = new Date().toISOString();
   const guard = {
     sql: "EXISTS (SELECT 1 FROM voice_sessions WHERE id=? AND owner_id=? AND revision=? AND state_json=?)",
     bindings: [row.id, row.owner_id, row.revision + 1, serialised],
   };
-  const flags =
-    event.kind === "user"
-      ? detectRisks(event.text, participantForNote(note)).map((flag) => ({
-          ...flag,
-          sessionId: row.id,
-          sequence: event.sequence,
-        }))
-      : [];
-  if (
-    event.kind === "user" &&
-    note.riskFlags?.some((flag) => flag.severity === "urgent") &&
-    /\b(?:not (?:an? )?(?:incident|restraint|restrictive practice|reportable)|don['’]?t (?:report|flag)|nothing (?:to report|happened)|disagree)\b/i.test(
-      event.text,
-    )
-  )
-    flags.push({
-      code: "WORKER_DISAGREEMENT",
-      category: "worker_statement",
-      reason:
-        "The worker disputes a possible incident or restrictive practice. Preserve their words alongside the original flag for supervisor assessment.",
-      quote: event.text,
-      severity: "review",
-      sessionId: row.id,
-      sequence: event.sequence,
-    });
+  // Stage one records source evidence. New concern detection belongs to AI2;
+  // existing risk_events remain readable as historical audit material.
   const questionCount =
     event.kind === "agent" && !hasConfirmationPrompt(event.text)
       ? (event.text.match(/\?/g)?.length ?? 0)
@@ -94,9 +71,11 @@ export async function captureEvent(
   const result = await database().batch([
     database()
       .prepare(
-        "UPDATE voice_sessions SET state_json=?,revision=revision+1 WHERE id=? AND owner_id=? AND revision=?",
+        "UPDATE voice_sessions SET state_json=?,revision=revision+1 WHERE id=? AND owner_id=? AND revision=? AND expires_at>? AND COALESCE(json_extract(state_json,'$.closed'),0)=0 AND EXISTS (SELECT 1 FROM shift_notes WHERE id=voice_sessions.note_id AND owner_id=voice_sessions.owner_id AND status='draft' AND " +
+          noCurrentAssessmentSql +
+          ")",
       )
-      .bind(serialised, row.id, row.owner_id, row.revision),
+      .bind(serialised, row.id, row.owner_id, row.revision, now),
     database()
       .prepare(
         "INSERT OR IGNORE INTO transcript_events (id,session_id,note_id,owner_id,sequence,role,content,received_at,question_count) SELECT ?,?,?,?,?,?,?,?,? WHERE " +
@@ -114,7 +93,6 @@ export async function captureEvent(
         questionCount,
         ...guard.bindings,
       ),
-    ...riskStatements(row.note_id, row.owner_id, flags, guard),
     ...questionCaptureStatements(row, event, guard),
   ]);
   return Boolean(result[0].meta.changes);

@@ -34,14 +34,14 @@ const desiredTools = JSON.parse(
   ),
 );
 if (
-  desiredTools.length !== 6 ||
-  new Set(desiredTools.map((tool) => tool.name)).size !== 6 ||
+  desiredTools.length !== 2 ||
+  new Set(desiredTools.map((tool) => tool.name)).size !== 2 ||
   desiredTools.some(
     (tool) => tool.type !== "client" || tool.expects_response !== true,
   )
 )
   throw new Error(
-    "Expected six uniquely named client tools that wait for responses.",
+    "Expected two uniquely named recorder client tools that wait for responses.",
   );
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const backupDirectory = new URL(
@@ -240,10 +240,17 @@ const planned = await Promise.all(
     };
   }),
 );
+const retiredRecorderTools = new Set([
+  "search_participant_records",
+  "register_followup",
+  "prepare_confirmation",
+  "finalize_form",
+]);
 const unrelatedIds = attached
   .filter(
     (tool) =>
-      !desiredTools.some((desired) => desired.name === tool.tool_config.name),
+      !desiredTools.some((desired) => desired.name === tool.tool_config.name) &&
+      !retiredRecorderTools.has(tool.tool_config.name),
   )
   .map((tool) => tool.id);
 const report = {
@@ -267,6 +274,9 @@ const report = {
     afterTimeout: desired.response_timeout_secs,
   })),
   unrelatedToolIdsPreserved: unrelatedIds,
+  retiredToolsDetached: attached
+    .filter((tool) => retiredRecorderTools.has(tool.tool_config.name))
+    .map((tool) => ({ id: tool.id, name: tool.tool_config.name })),
   promptChanged: prompt.prompt !== desiredPrompt,
   beforePromptHash: digest(prompt.prompt),
   desiredPromptHash: digest(desiredPrompt),

@@ -1,6 +1,10 @@
+> Current local workflow: the recorder only records basic shift facts. **Review & confirm** opens the note and a silent AI2 risk check on the same page. AI2 does not interview or speak. See [the current workflow](ai2-workflow.md). Earlier published-agent notes below are retained as rollout history.
+
 # ElevenLabs Agent configuration
 
-Status: the user explicitly approved the ElevenAgents Terms on 2026-09-12. The existing voice/text Agent used four form tools. This checkout adds two participant-history tools, source-backed question registration and updated interview instructions. These files are local configuration artifacts; the RAG prompt and new tools have not been published to the remote Agent by this implementation. The dashboard remains authoritative for the deployed revision.
+Status: after the matching application deployment was ready, the RAG prompt and all six client tools were published on **2026-09-13 at 07:56:15 UTC (17:56:15 Melbourne)**, following the user's instruction to deliver the working online version. The published Agent version is `agtvrsn_8101m2cw8mevfnwrz1nmefvgxpys` on the main branch below. Fresh Agent/tool API reads verified the maintained prompt, all six parameter contracts and response-waiting settings; unrelated Agent configuration was unchanged. Live text and microphone acceptance are still pending at this publication checkpoint. The user explicitly approved the ElevenAgents Terms on 2026-09-12.
+
+Publication used `node scripts/sync-elevenlabs-agent.mjs --apply`. The script privately backs up current settings, reuses existing matching tools, checks dependent Agents/branches and concurrent changes, then verifies the published result. Before/after evidence is retained in the ignored directory `.secrets/elevenlabs-sync/2026-09-13T07-56-06-559Z/`; credentials are never printed. Use `--check` for a read-only comparison.
 
 - Agent ID: `agent_8901m2a5v4rgeffbaaatcsgnhe38`
 - Main branch ID: `agtbrch_0401m2a5v6szehna9ychmtnptxh8`
@@ -8,7 +12,7 @@ Status: the user explicitly approved the ElevenAgents Terms on 2026-09-12. The e
 - Current voice: Eric — Smooth, Trustworthy. Current LLM: Qwen3.5-397B-A17B (the account's default).
 - Authentication enabled; one concurrent call; bursting disabled. Audio storage and file attachments disabled. Transcript retention remains the provider default until retention requirements are agreed.
 - Client events currently enabled: audio, interruption, user_transcript, agent_response, agent_response_correction. The current Dashboard does not list client_tool_call in the selectable events; verify actual tool delivery during SDK testing.
-- The new tool configuration requires response waiting on all six tools. Its timeout values allow the browser's bounded API requests; verify these values when applying the configuration.
+- All six published tools have response waiting enabled. `get_form_context`, `update_and_check_form` and `prepare_confirmation` use 45-second timeouts; `search_participant_records`, `register_followup` and `finalize_form` use 25 seconds. These values were verified through the tool API after publication.
 - The user supplied an API key in `.env.local`; it successfully retrieved the Agent and a conversation token. The key is ignored by Git and configured as a Sites server secret. No permission expansion was needed. The earlier unsubmitted key dialog had suggested ElevenAgents Read, a 30-day expiry and 10,000-credit limit; the supplied key’s actual restrictions have not been independently checked.
 
 ## Agent settings
@@ -23,7 +27,7 @@ Status: the user explicitly approved the ElevenAgents Terms on 2026-09-12. The e
 
 ## System prompt
 
-The current complete prompt is in `docs/elevenlabs-system-prompt.txt`. It preserves extraction field names, reference codes, direct quotes, timestamps, evidence checks and confirmation safeguards. It replaces named demo-patient question banks with questions formed by the same conversational Agent from current facts, selected background and retrieved historical sources. Apply it together with `docs/elevenlabs-first-message.txt` and the six tool configurations when deploying this change.
+The published complete prompt matches `docs/elevenlabs-system-prompt.txt`. It preserves extraction field names, reference codes, direct quotes, timestamps, evidence checks and confirmation safeguards. It replaces named demo-patient question banks with questions formed by the same conversational Agent from current facts, selected background and retrieved historical sources. The existing first message was preserved during this publication.
 
 The app supplies saved field states, a limited projection of the selected fictional profile, remaining clarification budget, prior question status, dated historical source records, persisted flags and truthful escalation status. Model responses omit administrative profile fields such as NDIS number/date of birth and the full participant snapshot. There is no separate question-generating model. The prompt must respect returned facts, use at most three clarification questions per shift, and never claim external notification or supervisor awareness from inbox creation.
 
@@ -42,7 +46,7 @@ All tool names and arguments must match the SDK registration exactly. Return str
 
 The published prompt asks the worker to say the complete phrase **“I confirm this shift note.”** after readback. The app must check a fresh user transcript turn for that phrase; an old or negated “yes” is insufficient.
 
-This checkout registers all six browser client tools and retains revision-bound oral and button confirmation. SDK transcript evidence is checked by the app; it is not independent audio verification. Run the unit and HTTP checks documented in the README. End-to-end Agent acceptance requires applying the updated remote configuration first; local wiring alone does not make an older remote Agent call new tools. The new RAG flow has not yet been verified in a real voice conversation. See the microphone acceptance steps in `docs/voice-integration.md`.
+This checkout registers all six browser client tools and retains revision-bound oral and button confirmation. SDK transcript evidence is checked by the app; it is not independent audio verification. Run the unit and HTTP checks documented in the README. The matching remote configuration is now published; API configuration verification does not establish end-to-end Agent behavior. The new RAG flow has not yet been verified in a real voice conversation. See the microphone acceptance steps in `docs/voice-integration.md`.
 
 ## Tool configuration artifact
 

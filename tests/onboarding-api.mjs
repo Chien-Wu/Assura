@@ -476,12 +476,31 @@ try {
     body: { revision: actualTimes.revision },
     expected: 422,
   });
-  assert.deepEqual(
-    invalidReview.validation.issues.map((issue) => issue.field),
-    ["shiftEnd"],
-  );
+  assert.match(invalidReview.error, /end must be after the start/i);
   assert.equal(actualTimes.expectedStart, "2026-09-12T09:00");
   assert.equal(actualTimes.expectedEnd, "2026-09-12T13:00");
+  const setupNote = (
+    await request(`/api/notes/${noteA.id}`, {
+      session: workerA,
+      method: "PATCH",
+      body: {
+        revision: actualTimes.revision,
+        fields: { shiftEnd: "2026-09-12T13:00" },
+      },
+    })
+  ).note;
+  const setupRequired = await request(`/api/notes/${noteA.id}/assessment`, {
+    session: workerA,
+    body: { action: "start", revision: setupNote.revision },
+    expected: 503,
+  });
+  assert.match(setupRequired.error, /needs setup/i);
+  const setupState = await request(`/api/notes/${noteA.id}/assessment`, {
+    session: workerA,
+  });
+  assert.equal(setupState.enabled, false);
+  assert.equal(setupState.assessment, null);
+  assert.equal(setupState.note.status, "draft");
   await request(`/api/notes/${noteA.id}`, { session: workerB, expected: 404 });
   await request(`/api/notes/${noteA.id}/audit`, {
     session: workerB,

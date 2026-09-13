@@ -22,6 +22,8 @@ Set the shared origin, authentication secret and Google credentials in `/etc/leg
 | `BETTER_AUTH_SECRET`                           | Stable random secret with at least 32 characters. Keep the same value across releases.                                                  |
 | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`  | Google OAuth web application credentials. Register `<LEGALMATE_PUBLIC_ORIGIN>/api/auth/callback/google` as its authorised redirect URI. |
 | `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` | Existing server-side Agent connection configuration.                                                                                    |
+| `OPENAI_API_KEY`                               | Required server-only credential for the silent AI2 risk assessment.                                                                     |
+| `LEGALMATE_AI2_MODEL`                          | Optional model override; defaults to `gpt-5.6-terra`. The selected model must support the Responses API and strict JSON output.         |
 
 Use separate localhost Google redirect configuration for local testing. The app reads runtime Worker bindings with a server-side process environment fallback; none of these credentials belong in a browser bundle. Keep secrets out of Git and deployment logs. Do not print the runtime environment file during validation.
 
@@ -47,6 +49,8 @@ If rollback crosses the old Basic-auth/new cookie-auth boundary, restore the mat
 VM data starts empty on a new installation. Local Mac test records and the Sites database are not copied.
 
 ## Hourly deployment
+
+For the silent AI2 release, verify `OPENAI_API_KEY` privately before activation and apply both `0008_shift_assessments.sql` and `0009_silent_risk_findings.sql` through the deployment helper. These additive migrations preserve existing notes and assessment evidence. The health endpoint checks the assessment schema but does not validate the OpenAI credential or model access. After the matching app is online, run `node scripts/sync-elevenlabs-agent.mjs --check`, then `--apply` to publish the recorder-only prompt and its two client tools. Confirm the published configuration with another `--check`; new conversations then use the recorder configuration. Keep the timer paused during this coordinated transition and resume it after verification.
 
 Install the files in `deploy/vm` as root-owned configuration: service units in `/etc/systemd/system`, deployment helpers in `/usr/local/lib/legalmate`, and the rendered Nginx template in `/etc/nginx/sites-available/legalmate`. The root deployment helper runs fetched code, npm builds and migrations as `legalmate`, never as root.
 

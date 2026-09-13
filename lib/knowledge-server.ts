@@ -170,7 +170,11 @@ export async function validateRetrievalSources(
       )
       .bind(...scopeBindings(scope), source.noteId, source.revision)
       .first<SourceRow>();
-    const dto = current && sourceDto(current);
+    const original = current && sourceDto(current);
+    const dto =
+      original && source.followup
+        ? (await withConfirmedFollowups([original], scope.ownerId))[0]
+        : original;
     if (
       !dto ||
       !sourceIsHistorical(dto, scope.cutoff) ||
@@ -197,6 +201,16 @@ function coverageResult(
     candidateLimitReached,
     scope: "same_worker_same_provider_same_participant",
     method,
+    includedContent:
+      method === "recent"
+        ? "recorder_fields_and_confirmed_followup"
+        : "recorder_fields_only",
+    ...(method === "english_fts5"
+      ? {
+          guidance:
+            "Keyword search covers recorder fields only. AI2 follow-up details are available in recent context; no match is not an exhaustive absence.",
+        }
+      : {}),
   };
 }
 
@@ -322,7 +336,11 @@ export async function getParticipantContext(noteId: string, ownerId: string) {
     .filter((source): source is KnowledgeSource =>
       Boolean(source && sourceIsHistorical(source, scope.cutoff!)),
     );
-  const limited = boundedKnowledgeSources(valid, 2);
+  // AI2 can learn facts after the recorder finishes. Carry that confirmed
+  // follow-up forward with the same dated, owner/provider/participant scope.
+  // Apply whole-source size bounds after enrichment so omissions stay explicit.
+  const enriched = await withConfirmedFollowups(valid, ownerId);
+  const limited = boundedKnowledgeSources(enriched, 2);
   const coverage = coverageResult(
     candidates.results.length,
     limited,
@@ -344,6 +362,58 @@ export async function getParticipantContext(noteId: string, ownerId: string) {
     null,
   );
   return { ...base, status, retrievalId, sources: limited.sources, coverage };
+}
+
+async function withConfirmedFollowups(
+  sources: KnowledgeSource[],
+  ownerId: string,
+) {
+  if (!sources.length) return sources;
+  type FollowupRow = {
+    id: string;
+    note_id: string;
+    source_revision: number;
+    revision: number;
+    result_json: string;
+    answers_json: string;
+  };
+  const followups: FollowupRow[] = [];
+  for (let offset = 0; offset < sources.length; offset += 80) {
+    const batch = sources.slice(offset, offset + 80);
+    const rows = await database()
+      .prepare(
+        `SELECT a.id,a.note_id,a.source_revision,a.revision,a.result_json,
+      (SELECT COALESCE(json_group_array(json_object('id',m.id,'questionId',m.question_id,'text',m.text)),'[]')
+       FROM assessment_messages m JOIN shift_assessments prior ON prior.id=m.assessment_id
+       WHERE prior.note_id=a.note_id AND prior.owner_id=a.owner_id AND prior.source_revision<=a.source_revision AND m.role='user') AS answers_json
+     FROM shift_assessments a
+     JOIN shift_notes n ON n.id=a.note_id AND n.owner_id=a.owner_id AND n.revision=a.source_revision AND n.status='complete'
+     JOIN assessment_reviews r ON r.confirmation_id=n.confirmation_id AND r.assessment_id=a.id AND r.assessment_revision=a.revision
+     WHERE a.owner_id=? AND a.status='ready' AND a.note_id IN (${batch.map(() => "?").join(",")})`,
+      )
+      .bind(ownerId, ...batch.map((source) => source.noteId))
+      .all<FollowupRow>();
+    followups.push(...rows.results);
+  }
+  return sources.map((source) => {
+    const row = followups.find(
+      (item) =>
+        item.note_id === source.noteId &&
+        item.source_revision === source.revision,
+    );
+    return row
+      ? {
+          ...source,
+          followup: {
+            assessmentId: row.id,
+            assessmentRevision: row.revision,
+            provenance: "worker_confirmed_ai_assessment" as const,
+            result: JSON.parse(row.result_json),
+            answers: JSON.parse(row.answers_json),
+          },
+        }
+      : source;
+  });
 }
 
 export async function searchParticipantRecords(

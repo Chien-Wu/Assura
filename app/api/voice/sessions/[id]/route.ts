@@ -1,6 +1,5 @@
 import {
   failure,
-  getRow,
   identity,
   json,
   readBody,
@@ -9,7 +8,6 @@ import {
 import { getVoiceSession, saveVoiceState } from "@/lib/voice-server";
 import {
   appendVoiceEvent,
-  markReadback,
   VoiceStateError,
   type VoiceEvent,
   type VoiceState,
@@ -45,33 +43,10 @@ export async function POST(
     } else if (body.action === "invalidate") state = { ...state, review: null };
     else if (body.action === "close")
       state = { ...state, closed: true, review: null };
-    else if (body.action === "prepare") {
-      const note = await getRow(row.note_id, user.userId);
-      if (
-        typeof body.confirmationId !== "string" ||
-        note.status !== "draft" ||
-        note.confirmation_id !== body.confirmationId ||
-        note.review_version !== note.revision ||
-        body.revision !== note.revision
-      )
-        throw new RequestError(
-          "Prepare the current saved note for review first.",
-          409,
-        );
-      state = {
-        ...state,
-        review: {
-          confirmationId: body.confirmationId,
-          revision: note.revision,
-          afterSequence: state.events.length,
-          readbackSequence: null,
-        },
-      };
-    } else if (body.action === "readback")
-      state = markReadback(
-        state,
-        String(body.confirmationId),
-        Number(body.sequence),
+    else if (body.action === "prepare" || body.action === "readback")
+      throw new RequestError(
+        "Continue to follow-up before reviewing and confirming the final shift summary.",
+        409,
       );
     else throw new RequestError("Invalid voice session action.");
     const cancellations =

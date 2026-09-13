@@ -1,3 +1,4 @@
+import { normalizeRiskResult } from "./risk-assessment";
 import { env } from "cloudflare:workers";
 import { getAppUser } from "@/lib/auth";
 import {
@@ -109,6 +110,7 @@ export type Row = {
   retention_until: string | null;
   risk_flags_json?: string;
   question_count?: number;
+  assessment_json?: string | null;
 };
 export function toNote(row: Row): ShiftNote {
   const fields = JSON.parse(row.fields_json) as ShiftFields;
@@ -144,10 +146,13 @@ export function toNote(row: Row): ShiftNote {
     riskFlags: JSON.parse(row.risk_flags_json ?? "[]"),
     clarificationCount: row.question_count ?? 0,
     retentionUntil: row.retention_until ?? retentionUntil(row.created_at),
+    assessment: row.assessment_json
+      ? normalizeRiskResult(JSON.parse(row.assessment_json))
+      : null,
   };
 }
 const noteSelect =
-  "SELECT shift_notes.*, (SELECT COALESCE(json_group_array(json(data_json)),'[]') FROM risk_events WHERE note_id=shift_notes.id) AS risk_flags_json, (SELECT COALESCE(SUM(question_count),0) FROM transcript_events WHERE note_id=shift_notes.id) AS question_count, (SELECT name FROM providers WHERE providers.id=shift_notes.provider_id) AS provider_name FROM shift_notes";
+  "SELECT shift_notes.*, (SELECT COALESCE(json_group_array(json(data_json)),'[]') FROM risk_events WHERE note_id=shift_notes.id) AS risk_flags_json, (SELECT COALESCE(SUM(question_count),0) FROM transcript_events WHERE note_id=shift_notes.id) AS question_count, (SELECT name FROM providers WHERE providers.id=shift_notes.provider_id) AS provider_name, (SELECT CASE WHEN a.status='ready' THEN a.result_json ELSE NULL END FROM shift_assessments a WHERE a.note_id=shift_notes.id AND a.owner_id=shift_notes.owner_id AND a.source_revision=shift_notes.revision AND (shift_notes.status<>'complete' OR EXISTS (SELECT 1 FROM assessment_reviews ar WHERE ar.confirmation_id=shift_notes.confirmation_id AND ar.assessment_id=a.id AND ar.assessment_revision=a.revision AND ar.source_revision=shift_notes.revision)) ORDER BY a.schema_version DESC,a.updated_at DESC LIMIT 1) AS assessment_json FROM shift_notes";
 export async function getRow(id: string, ownerId: string) {
   const row = await database()
     .prepare(noteSelect + " WHERE id = ? AND owner_id = ?")

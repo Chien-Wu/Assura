@@ -1,7 +1,71 @@
 import type { Participant } from "./participants";
-import type { ShiftNote } from "./shift-form";
+import { checkForm, type ShiftNote } from "./shift-form.ts";
 
 type ToolRecord = Record<string, unknown>;
+
+export const recorderFields = [
+  "participant",
+  "shiftStart",
+  "shiftEnd",
+  "activities",
+  "supportProvided",
+  "participantResponse",
+  "goalProgress",
+] as const;
+
+export function recorderFormResult(result: ToolRecord & { note: ShiftNote }) {
+  const issues = checkForm(result.note.fields).issues.filter((issue) =>
+    (recorderFields as readonly string[]).includes(issue.field),
+  );
+  return {
+    stage: "record",
+    instruction:
+      "Record this shift only. Preserve observations, quotes and uncertainty in the worker's account. Ask only for missing basic shift details. A silent risk check and final confirmation happen after the worker ends this conversation and selects Review & confirm.",
+    note: {
+      ...pick(result.note, [
+        "revision",
+        "status",
+        "timezone",
+        "expectedStart",
+        "expectedEnd",
+      ]),
+      fields: pick(result.note.fields, recorderFields),
+    },
+    validation: { complete: issues.length === 0, issues },
+    scheduledShift:
+      result.scheduledShift == null
+        ? null
+        : pick(result.scheduledShift, [
+            "expectedStart",
+            "expectedEnd",
+            "timezone",
+            "instruction",
+          ]),
+  };
+}
+
+export function parseRecorderUpdate(fieldsJson: unknown) {
+  const update = parseAgentUpdate(fieldsJson);
+  if (
+    !update.fields ||
+    typeof update.fields !== "object" ||
+    Array.isArray(update.fields)
+  )
+    throw new Error("Provide supported changed fields as a JSON object.");
+  const allowed = recorderFields.filter((field) => field !== "participant");
+  if (
+    Object.keys(update.fields).some(
+      (key) => !(allowed as readonly string[]).includes(key),
+    ) ||
+    update.fieldStates !== undefined ||
+    update.restrictivePractice !== undefined ||
+    update.questionUpdates !== undefined
+  )
+    throw new Error(
+      "This stage records basic shift details only. Preserve any concern in the narrative fields; AI2 checks the saved account silently during review and never asks questions.",
+    );
+  return { fields: update.fields };
+}
 
 function pick(value: unknown, keys: readonly string[]): ToolRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -130,6 +194,7 @@ export function agentKnowledgeResult(result: ToolRecord) {
             "workerName",
             "fields",
             "isSynthetic",
+            "followup",
           ]),
         )
       : [],

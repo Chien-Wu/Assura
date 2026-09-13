@@ -510,9 +510,39 @@ try {
     null,
     "Draft observations must not enter historical retrieval",
   );
+  // Model execution has its own isolated assessment-api coverage. Seed a
+  // synthetic completed assessment here so this test continues to exercise
+  // real final confirmation and FTS indexing without contacting a model.
+  const assessedId = randomUUID();
+  await db
+    .prepare(
+      "INSERT INTO shift_assessments (id,note_id,owner_id,source_revision,schema_version,revision,status,source_json,result_json,created_at,updated_at) VALUES (?,?,?,?,2,1,'ready',?,?,?,?)",
+    )
+    .bind(
+      assessedId,
+      different.id,
+      history.workerId,
+      differentSaved.revision,
+      JSON.stringify({
+        note: { fields: differentSaved.fields, syntheticFixture: true },
+        sources: [],
+      }),
+      JSON.stringify({
+        risks: [],
+        summary:
+          "Synthetic assessed account used to verify historical indexing.",
+      }),
+      new Date().toISOString(),
+      new Date().toISOString(),
+    )
+    .run();
   const otherReview = await request(`/api/notes/${different.id}/review`, {
     session: worker,
-    body: { revision: differentSaved.revision },
+    body: {
+      revision: differentSaved.revision,
+      assessmentId: assessedId,
+      assessmentRevision: 1,
+    },
   });
   await request(`/api/notes/${different.id}/confirm`, {
     session: worker,
@@ -520,6 +550,8 @@ try {
       revision: differentSaved.revision,
       confirmationId: otherReview.confirmationId,
       confirmed: true,
+      assessmentId: assessedId,
+      assessmentRevision: 1,
     },
   });
   assert.ok(
@@ -724,17 +756,30 @@ try {
       },
     ],
   };
+  // Stage one no longer marks specialist questions answered. It may preserve
+  // the worker's narrative; the legacy question ledger remains auditable.
+  await request(`/api/notes/${note.id}`, {
+    session: worker,
+    method: "PATCH",
+    body: answerBody,
+    expected: 409,
+  });
+  const recorderAnswerBody = {
+    revision: note.revision,
+    voiceSessionId: live.id,
+    fields: { participantResponse: answer },
+  };
   await db
     .prepare(
       `CREATE TRIGGER knowledge_test_reject_answer
-    BEFORE INSERT ON interview_question_events WHEN NEW.event_type='answered'
+    BEFORE INSERT ON note_changes WHEN NEW.field='participantResponse'
     BEGIN SELECT RAISE(ABORT,'Isolated integration test rejects answer write'); END;`,
     )
     .run();
   await request(`/api/notes/${note.id}`, {
     session: worker,
     method: "PATCH",
-    body: answerBody,
+    body: recorderAnswerBody,
     expected: 503,
   });
   const rolledBack = (
@@ -750,13 +795,13 @@ try {
   const answered = await request(`/api/notes/${note.id}`, {
     session: worker,
     method: "PATCH",
-    body: answerBody,
+    body: recorderAnswerBody,
   });
   note.revision = answered.note.revision;
   assert.equal(answered.note.fields.participantResponse, answer);
   assert.equal(
     (await request(questionPath, { session: manager })).questions[0].status,
-    "answered",
+    "emitted",
   );
   await search(note, live, quote, "lunch", {}, 409);
 
@@ -789,24 +834,17 @@ try {
     body: {
       revision: note.revision,
       voiceSessionId: live.id,
-      fields: { followUp: "unknown" },
-      questionUpdates: [
-        {
-          questionId: second.question.id,
-          state: "unknown",
-          quote: unknownAnswer,
-        },
-      ],
+      fields: { participantResponse: unknownAnswer },
     },
   });
   note.revision = unknownSaved.note.revision;
-  assert.equal(unknownSaved.note.fields.followUp, "unknown");
+  assert.equal(unknownSaved.note.fields.participantResponse, unknownAnswer);
   const currentQuestions = (await request(questionPath, { session: worker }))
     .questions;
   assert.equal(
     currentQuestions.find((question) => question.id === second.question.id)
       .status,
-    "unknown",
+    "emitted",
   );
 
   const walking = await search(
@@ -847,13 +885,6 @@ try {
       revision: note.revision,
       voiceSessionId: live.id,
       fields: { activities: thirdAnswer },
-      questionUpdates: [
-        {
-          questionId: third.question.id,
-          state: "answered",
-          quote: thirdAnswer,
-        },
-      ],
     },
   });
   note.revision = finalSaved.note.revision;
@@ -887,7 +918,7 @@ try {
     "Knowledge retrieval must not call external services",
   );
   console.log(
-    `${checks} isolated knowledge HTTP checks passed; retrieval, evidence, scope, question state and atomic updates verified.`,
+    `${checks} isolated knowledge HTTP checks passed; retrieval, evidence, scope, legacy question audit and atomic recorder updates verified.`,
   );
 } finally {
   for (const fixture of fixtures) fixture.sqlite.close();

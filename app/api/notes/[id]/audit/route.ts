@@ -7,6 +7,8 @@ import {
   toNote,
 } from "@/lib/notes-server";
 import { interviewAudit } from "@/lib/interview-server";
+import { readAssessment, readAssessmentAudit } from "@/lib/assessment-server";
+import { readFindingsForNote } from "@/lib/finding-review-server";
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },
@@ -41,6 +43,9 @@ export async function GET(
       transcript: transcript.results,
       changes: changes.results,
       interviewQuestions: await interviewAudit(id, row.owner_id, user.userId),
+      assessment: await readAssessment(id, row.owner_id),
+      assessmentAudit: await readAssessmentAudit(id, row.owner_id),
+      findings: await readFindingsForNote(id, row.owner_id, user.userId),
       draftV0: snapshot ? JSON.parse(snapshot.snapshot_json) : null,
       draftV0CreatedAt: snapshot?.created_at ?? null,
       retention: {

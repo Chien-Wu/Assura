@@ -1,4 +1,7 @@
-import { checkForm } from "@/lib/shift-form";
+import {
+  requireReadyAssessment,
+  validateRecorder,
+} from "@/lib/assessment-server";
 import {
   database,
   failure,
@@ -9,8 +12,6 @@ import {
   toNote,
   readBody,
 } from "@/lib/notes-server";
-import { getVoiceSession } from "@/lib/voice-server";
-import { voiceEvidence } from "@/lib/voice-state";
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
@@ -20,6 +21,11 @@ export async function POST(
     const { id } = await context.params;
     const body = await readBody(request);
     const row = await getRow(id, user.userId);
+    if (body.voiceSessionId !== undefined)
+      throw new RequestError(
+        "The recorder cannot confirm a note. Review the saved note and risk summary.",
+        409,
+      );
     if (
       body.confirmed !== true ||
       typeof body.confirmationId !== "string" ||
@@ -33,49 +39,22 @@ export async function POST(
         409,
       );
     if (row.status === "complete") return json({ note: toNote(row) });
-    if (!checkForm(JSON.parse(row.fields_json)).ready)
-      throw new RequestError("Some details still need an answer.", 422);
-    let evidence: unknown = { method: "button" };
-    let sessionGuard = "";
-    const sessionBindings: (string | number)[] = [];
-    if (body.voiceSessionId !== undefined) {
-      const session = await getVoiceSession(
-        body.voiceSessionId,
-        user.userId,
-        id,
-      );
-      try {
-        evidence = {
-          ...voiceEvidence(
-            JSON.parse(session.state_json),
-            body.confirmationId,
-            row.revision,
-          ),
-          sessionId: session.id,
-          conversationId: session.conversation_id,
-        };
-      } catch (error) {
-        throw new RequestError(
-          error instanceof Error
-            ? error.message
-            : "Voice confirmation is missing.",
-          409,
-        );
-      }
-      sessionGuard =
-        " AND EXISTS (SELECT 1 FROM voice_sessions WHERE id=? AND owner_id=? AND note_id=shift_notes.id AND revision=? AND expires_at>?)";
-      sessionBindings.push(
-        session.id,
-        user.userId,
-        session.revision,
-        new Date().toISOString(),
-      );
-    }
+    validateRecorder(row);
+    const assessment = await requireReadyAssessment(
+      row,
+      body.assessmentId,
+      body.assessmentRevision,
+    );
+    const evidence = {
+      method: "button",
+      assessmentId: assessment.id,
+      assessmentRevision: assessment.revision,
+      sourceRevision: assessment.sourceRevision,
+    };
     const now = new Date().toISOString();
     const result = await database()
       .prepare(
-        "UPDATE shift_notes SET status='complete',confirmed_at=?,updated_at=?,confirmation_evidence=? WHERE id=? AND owner_id=? AND revision=? AND review_version=revision AND confirmation_id=? AND status='draft'" +
-          sessionGuard,
+        "UPDATE shift_notes SET status='complete',confirmed_at=?,updated_at=?,confirmation_evidence=? WHERE id=? AND owner_id=? AND revision=? AND review_version=revision AND confirmation_id=? AND status='draft' AND EXISTS (SELECT 1 FROM assessment_reviews r JOIN shift_assessments a ON a.id=r.assessment_id WHERE r.confirmation_id=shift_notes.confirmation_id AND r.note_id=shift_notes.id AND r.owner_id=shift_notes.owner_id AND r.source_revision=shift_notes.revision AND r.assessment_id=? AND r.assessment_revision=? AND a.note_id=shift_notes.id AND a.owner_id=shift_notes.owner_id AND a.source_revision=shift_notes.revision AND a.revision=r.assessment_revision AND a.status='ready' AND a.schema_version=2)",
       )
       .bind(
         now,
@@ -85,7 +64,8 @@ export async function POST(
         user.userId,
         row.revision,
         body.confirmationId,
-        ...sessionBindings,
+        assessment.id,
+        assessment.revision,
       )
       .run();
     if (!result.meta.changes)

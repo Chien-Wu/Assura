@@ -11,6 +11,10 @@ import {
 import { voiceConfig } from "@/lib/voice-server";
 import { emptyVoiceState } from "@/lib/voice-state";
 import { participantForNote } from "@/lib/participants";
+import {
+  noCurrentAssessmentSql,
+  rejectRecorderDuringAssessment,
+} from "@/lib/assessment-server";
 export async function POST(request: Request) {
   try {
     const user = await identity(request);
@@ -23,6 +27,7 @@ export async function POST(request: Request) {
     const note = await getRow(body.noteId, user.userId);
     if (note.status !== "draft")
       throw new RequestError("Start a new draft to begin a conversation.", 409);
+    await rejectRecorderDuringAssessment(note.id, user.userId);
     if (!participantForNote(toNote(note)))
       throw new RequestError(
         "Select a participant profile before starting the conversation.",
@@ -59,31 +64,41 @@ export async function POST(request: Request) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-    await database().batch([
+    const savedSession = await database().batch([
       database()
         .prepare(
-          "UPDATE voice_sessions SET expires_at=? WHERE note_id=? AND owner_id=?",
+          "UPDATE voice_sessions SET expires_at=?,revision=revision+1 WHERE note_id=? AND owner_id=? AND EXISTS (SELECT 1 FROM shift_notes WHERE id=voice_sessions.note_id AND status='draft' AND " +
+            noCurrentAssessmentSql +
+            ")",
         )
         .bind(now, note.id, user.userId),
       database()
         .prepare(
-          "UPDATE shift_notes SET confirmation_id=NULL,review_version=NULL WHERE id=? AND owner_id=? AND status='draft'",
+          "UPDATE shift_notes SET confirmation_id=NULL,review_version=NULL WHERE id=? AND owner_id=? AND status='draft' AND " +
+            noCurrentAssessmentSql,
         )
         .bind(note.id, user.userId),
       database()
         .prepare(
-          "INSERT INTO voice_sessions (id,owner_id,note_id,conversation_id,created_at,expires_at,state_json,revision) VALUES (?,?,?,?,?,?,?,0)",
+          "INSERT INTO voice_sessions (id,owner_id,note_id,conversation_id,created_at,expires_at,state_json,revision) SELECT ?,owner_id,id,?,?,?,?,0 FROM shift_notes WHERE id=? AND owner_id=? AND revision=? AND status='draft' AND " +
+            noCurrentAssessmentSql,
         )
         .bind(
           id,
-          user.userId,
-          note.id,
           conversationId,
           now,
           expires,
           JSON.stringify(emptyVoiceState(mode)),
+          note.id,
+          user.userId,
+          note.revision,
         ),
     ]);
+    if (!savedSession[2].meta.changes)
+      throw new RequestError(
+        "The draft moved to follow-up or changed while the recorder connected. Reload the saved shift.",
+        409,
+      );
     return json({
       sessionId: id,
       conversationId,

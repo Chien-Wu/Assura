@@ -10,23 +10,20 @@ import {
   toNote,
   readBody,
 } from "@/lib/notes-server";
-import {
-  assessRP,
-  detectRisks,
-  readSafety,
-  rpPatch,
-  type FieldState,
-} from "@/lib/safety";
+import { readSafety, rpPatch, type FieldState } from "@/lib/safety";
 import { participantFor, participantForNote } from "@/lib/participants";
 import {
   auditStatements,
-  removalFlags,
-  riskStatements,
   safetyContext,
   workerTranscript,
 } from "@/lib/audit-server";
 import { getVoiceSession } from "@/lib/voice-server";
 import { questionAnswerStatements } from "@/lib/interview-server";
+import {
+  noCurrentAssessmentSql,
+  recorderFields,
+  rejectRecorderDuringAssessment,
+} from "@/lib/assessment-server";
 type Context = { params: Promise<{ id: string }> };
 export async function GET(request: Request, context: Context) {
   try {
@@ -60,8 +57,22 @@ export async function PATCH(request: Request, context: Context) {
       );
     }
     const source = body.voiceSessionId ? "agent" : "manual";
-    if (body.voiceSessionId)
+    if (body.voiceSessionId) {
       await getVoiceSession(body.voiceSessionId, user.userId, id);
+      await rejectRecorderDuringAssessment(id, user.userId);
+      if (
+        Object.keys(body.fields as object).some(
+          (key) =>
+            !recorderFields.includes(key as (typeof recorderFields)[number]),
+        ) ||
+        body.restrictivePractice !== undefined ||
+        body.questionUpdates !== undefined
+      )
+        throw new RequestError(
+          "The recorder collects basic shift facts. Additional concerns and questions belong to follow-up.",
+          409,
+        );
+    }
     const savedNote = toNote(row);
     if (
       savedNote.shiftId &&
@@ -181,20 +192,8 @@ export async function PATCH(request: Request, context: Context) {
         safety.restrictivePractice.used = "unsure";
     }
     const mutationId = crypto.randomUUID();
-    const newFlags = [
-      ...detectRisks(Object.values(body.fields as object).join("\n"), profile),
-      ...assessRP(safety.restrictivePractice, profile),
-      ...removalFlags(JSON.parse(row.fields_json), fields),
-    ];
-    if (warnings.length && flags.some((f) => f.severity === "urgent"))
-      newFlags.push({
-        code: "CONTRADICTORY_NEGATIVE",
-        category: "review",
-        reason:
-          "A negative answer conflicts with captured risk facts. Keep the original statement and seek supervisor review.",
-        quote: JSON.stringify(body.fields),
-        severity: "review",
-      });
+    // AI2 assesses the saved facts and their changes. Do not create a second,
+    // competing set of keyword classifications during recorder capture.
     const questionStatements = await questionAnswerStatements(
       row,
       body.voiceSessionId,
@@ -204,7 +203,12 @@ export async function PATCH(request: Request, context: Context) {
     const result = await database().batch([
       database()
         .prepare(
-          "UPDATE shift_notes SET fields_json=?,safety_json=?,mutation_id=?, revision=revision+1, updated_at=?, confirmation_id=NULL, review_version=NULL WHERE id=? AND owner_id=? AND revision=? AND status='draft'",
+          "UPDATE shift_notes SET fields_json=?,safety_json=?,mutation_id=?, revision=revision+1, updated_at=?, confirmation_id=NULL, review_version=NULL WHERE id=? AND owner_id=? AND revision=? AND status='draft'" +
+            (source === "agent"
+              ? " AND " +
+                noCurrentAssessmentSql +
+                " AND EXISTS (SELECT 1 FROM voice_sessions v WHERE v.id=? AND v.note_id=shift_notes.id AND v.owner_id=shift_notes.owner_id AND v.expires_at>? AND COALESCE(json_extract(v.state_json,'$.closed'),0)=0)"
+              : ""),
         )
         .bind(
           JSON.stringify(fields),
@@ -214,13 +218,12 @@ export async function PATCH(request: Request, context: Context) {
           id,
           user.userId,
           row.revision,
+          ...(source === "agent"
+            ? [body.voiceSessionId, new Date().toISOString()]
+            : []),
         ),
       ...auditStatements(row, { ...fields, safety }, source, mutationId),
       ...questionStatements,
-      ...riskStatements(id, user.userId, newFlags, {
-        sql: "EXISTS (SELECT 1 FROM shift_notes WHERE id=? AND mutation_id=?)",
-        bindings: [id, mutationId],
-      }),
     ]);
     if (!result[0].meta.changes)
       throw new RequestError(
