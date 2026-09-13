@@ -2,10 +2,119 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
+  recorderDynamicVariables,
   recorderFormResult,
   parseRecorderUpdate,
   recorderToolFailure,
 } from "../../src/lib/recorder/tools.ts";
+import { participants } from "../../src/lib/roster/participant-profiles.ts";
+
+function scheduledNote(profile) {
+  return {
+    fields: { participant: profile.name },
+    shiftId: `shift-${profile.id}`,
+    participantSnapshot: profile,
+  };
+}
+
+test("recorder startup uses the saved participant snapshot and excludes unrelated profile data", () => {
+  const demo = participants[0];
+  const snapshot = {
+    ...structuredClone(demo),
+    id: "provider-participant",
+    communication: "Uses a communication board during supported activities",
+    goals: ["Prepare a shopping list with support"],
+    setting: "Community participation",
+    ndis: "excluded-identifier",
+    dateOfBirth: "2000-01-01",
+    conditions: ["Excluded medical condition"],
+    risks: ["Excluded risk assessment"],
+    medications: [
+      {
+        name: "Excluded medication",
+        description: "Excluded dose",
+        routine: true,
+      },
+    ],
+    mealtimePlan: "Excluded mealtime plan",
+    behaviourPlan: true,
+    plan: [
+      {
+        id: "excluded-plan",
+        category: "physical",
+        description: "Excluded restrictive practice",
+        behaviour: "Excluded behaviour",
+        authorised: true,
+      },
+    ],
+    seizureProtocol: "Excluded clinical instructions",
+  };
+  const variables = recorderDynamicVariables(scheduledNote(snapshot));
+  assert.deepEqual(Object.keys(variables).sort(), [
+    "participant_context",
+    "participant_name",
+  ]);
+  assert.equal(variables.participant_name, demo.name);
+  assert.deepEqual(JSON.parse(variables.participant_context), {
+    name: demo.name,
+    communication: snapshot.communication,
+    goals: snapshot.goals,
+    setting: snapshot.setting,
+  });
+  assert.notEqual(snapshot.communication, demo.communication);
+});
+
+test("recorder startup supports legacy notes using the selected demo profile", () => {
+  const profile = participants[1];
+  const variables = recorderDynamicVariables({
+    fields: { participant: profile.name },
+  });
+  assert.equal(variables.participant_name, profile.name);
+  assert.deepEqual(JSON.parse(variables.participant_context), {
+    name: profile.name,
+    communication: profile.communication,
+    goals: profile.goals,
+    setting: profile.setting,
+  });
+});
+
+test("scheduled recorder startup rejects a missing snapshot even when a demo name matches", () => {
+  for (const participantSnapshot of [undefined, null]) {
+    assert.throws(() =>
+      recorderDynamicVariables({
+        fields: { participant: participants[0].name },
+        shiftId: "scheduled-without-snapshot",
+        participantSnapshot,
+      }),
+    );
+  }
+});
+
+test("sequential recorder sessions retain only their own participant context", () => {
+  const firstNote = scheduledNote({
+    ...structuredClone(participants[0]),
+    communication: "First participant communication",
+    goals: ["First participant goal"],
+  });
+  const secondNote = scheduledNote({
+    ...structuredClone(participants[1]),
+    communication: "Second participant communication",
+    goals: ["Second participant goal"],
+  });
+  const first = recorderDynamicVariables(firstNote);
+  const savedFirst = structuredClone(first);
+  const second = recorderDynamicVariables(secondNote);
+  assert.deepEqual(first, savedFirst);
+  assert.equal(second.participant_name, secondNote.fields.participant);
+  assert.deepEqual(JSON.parse(second.participant_context), {
+    name: secondNote.fields.participant,
+    communication: "Second participant communication",
+    goals: ["Second participant goal"],
+    setting: secondNote.participantSnapshot.setting,
+  });
+  assert.notEqual(first.participant_context, second.participant_context);
+  assert.deepEqual(recorderDynamicVariables(firstNote), savedFirst);
+});
 
 test("Agent tool artifact uses vendor response waiting and excludes model-selected patient identities", async () => {
   const tools = JSON.parse(

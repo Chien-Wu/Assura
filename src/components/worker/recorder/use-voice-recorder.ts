@@ -4,6 +4,7 @@ import { createRecorderHandoff } from "@/lib/recorder/handoff";
 import { type ConversationMode, type VoiceEvent } from "@/lib/recorder/state";
 import {
   parseRecorderUpdate,
+  recorderDynamicVariables,
   recorderFormResult,
   recorderToolFailure,
 } from "@/lib/recorder/tools";
@@ -555,6 +556,8 @@ export function useVoiceRecorder({
         if (run !== generation.current) return;
         const draft = await latest.current.prepareDraft();
         if (run !== generation.current) return;
+        // Personalization must be available before the first message or tool call.
+        const dynamicVariables = recorderDynamicVariables(draft);
         const data = await request<{
           sessionId: string;
           conversationId: string;
@@ -590,6 +593,7 @@ export function useVoiceRecorder({
             signedUrl: data.signedUrl,
             connectionType: "websocket",
             textOnly: true,
+            dynamicVariables,
           });
         } else {
           if (!data.conversationToken)
@@ -599,6 +603,7 @@ export function useVoiceRecorder({
           conversation.startSession({
             conversationToken: data.conversationToken,
             connectionType: "webrtc",
+            dynamicVariables,
           });
         }
       } catch (e) {

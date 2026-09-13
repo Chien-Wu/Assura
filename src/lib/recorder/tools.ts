@@ -1,6 +1,22 @@
 import { checkForm, recorderFields, type ShiftNote } from "../notes/form.ts";
+import { participantForNote } from "../roster/participant-profiles.ts";
 
 type ToolRecord = Record<string, unknown>;
+
+export function recorderDynamicVariables(note: ShiftNote) {
+  const profile = participantForNote(note);
+  if (!profile)
+    throw new Error("Choose a participant profile before starting.");
+  return {
+    participant_name: note.fields.participant,
+    participant_context: JSON.stringify({
+      name: note.fields.participant,
+      communication: profile.communication,
+      goals: profile.goals,
+      setting: profile.setting,
+    }),
+  };
+}
 
 export function recorderFormResult(result: ToolRecord & { note: ShiftNote }) {
   const issues = checkForm(result.note.fields).issues.filter((issue) =>
