@@ -292,7 +292,7 @@ function VoiceControls({
       text: "Recorder interrupted or corrected",
     };
     void enqueue(session, () =>
-      sessionRequest(session, { action: "event", event }),
+      sessionRequest(session, { action: "event", event, responseMode: "ack" }),
     ).catch((e) => {
       if (active.current === session) fatal(e.message);
     });
@@ -322,7 +322,7 @@ function VoiceControls({
         escalation?: unknown;
         coverage?: unknown;
         questions?: unknown;
-      }>(session, { action: "event", event });
+      }>(session, { action: "event", event, responseMode: "ack" });
       if (result.note) saved(session, result.note);
       return result;
     });
@@ -436,7 +436,8 @@ function VoiceControls({
     const result = await enqueue(session, async () => {
       try {
         if (name === "update_and_check_form") {
-          await sessionRequest(session, { action: "invalidate" });
+          // PATCH clears the note's confirmation in the same guarded write.
+          // Recorder sessions cannot prepare a review, so no preflight is needed.
           const update = parseRecorderUpdate(params.fields_json);
           const result = await request<FormResult>(
             `/api/notes/${session.note.id}`,

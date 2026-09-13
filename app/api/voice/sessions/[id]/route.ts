@@ -36,6 +36,14 @@ export async function POST(
           "The session changed. Please retry the same message.",
           409,
         );
+      // The recorder needs durable acknowledgement, not a second full note and
+      // interview read on every transcript event. Preserve the default response
+      // for existing clients; explicit context/form reads still return it.
+      if (body.responseMode === "ack")
+        return json({
+          ok: true,
+          sequence: (body.event as VoiceEvent).sequence,
+        });
       return json({
         ok: true,
         ...(await safetyContext(row.note_id, user.userId)),

@@ -388,6 +388,104 @@ try {
     await request(assessmentPath(incomplete), { session, expected: 404 });
   await start(incomplete, 422);
   assert.equal(calls, 0);
+  // Fast recorder acknowledgements retain source durability, replay guards and
+  // the same atomic confirmation invalidation as a normal form PATCH.
+  const fastNote = await newNote();
+  const fastVoice = await request("/api/voice/sessions", {
+    session: worker,
+    body: { noteId: fastNote.id },
+  });
+  const fastPath = `/api/voice/sessions/${fastVoice.sessionId}`;
+  const fastEvent = {
+    action: "event",
+    responseMode: "ack",
+    event: {
+      sequence: 1,
+      kind: "user",
+      text: "Synthetic timing check: we walked to the park.",
+    },
+  };
+  await request(fastPath, { body: fastEvent, expected: 401 });
+  await request(fastPath, {
+    session: colleague,
+    body: fastEvent,
+    expected: 404,
+  });
+  assert.deepEqual(
+    await request(fastPath, { session: worker, body: fastEvent }),
+    { ok: true, sequence: 1 },
+  );
+  assert.deepEqual(
+    await request(fastPath, { session: worker, body: fastEvent }),
+    { ok: true, sequence: 1 },
+  );
+  const preserved = await db
+    .prepare("SELECT content FROM transcript_events WHERE session_id=?")
+    .bind(fastVoice.sessionId)
+    .all();
+  assert.deepEqual(
+    preserved.results.map((row) => row.content),
+    [fastEvent.event.text],
+  );
+  await request(fastPath, {
+    session: worker,
+    body: {
+      ...fastEvent,
+      event: {
+        ...fastEvent.event,
+        text: "Different statement at the same sequence",
+      },
+    },
+    expected: 409,
+  });
+  const defaultEvent = await request(fastPath, {
+    session: worker,
+    body: {
+      action: "event",
+      event: { sequence: 2, kind: "agent", text: "What happened next?" },
+    },
+  });
+  assert.equal(
+    defaultEvent.note.id,
+    fastNote.id,
+    "Existing clients retain the full response",
+  );
+  await db
+    .prepare(
+      "UPDATE shift_notes SET confirmation_id='old-review',review_version=? WHERE id=?",
+    )
+    .bind(fastNote.revision, fastNote.id)
+    .run();
+  const fastSaved = await request(`/api/notes/${fastNote.id}`, {
+    session: worker,
+    method: "PATCH",
+    body: {
+      revision: fastNote.revision,
+      voiceSessionId: fastVoice.sessionId,
+      fields: { activities: "Synthetic timing check: walked to the park." },
+    },
+  });
+  assert.equal(
+    fastSaved.note.fields.activities,
+    "Synthetic timing check: walked to the park.",
+  );
+  const invalidated = await db
+    .prepare(
+      "SELECT confirmation_id,review_version FROM shift_notes WHERE id=?",
+    )
+    .bind(fastNote.id)
+    .first();
+  assert.equal(invalidated.confirmation_id, null);
+  assert.equal(invalidated.review_version, null);
+  await request(fastPath, { session: worker, body: { action: "close" } });
+  await request(fastPath, {
+    session: worker,
+    body: {
+      ...fastEvent,
+      event: { sequence: 3, kind: "user", text: "After close" },
+    },
+    expected: 409,
+  });
   const plain = await newNote();
   await request(assessmentPath(plain), {
     session: colleague,
