@@ -1,5 +1,5 @@
 import { database, getRow, toNote, type Row } from "./notes-server";
-import { participantFor } from "./participants";
+import { participantForNote } from "./participants";
 import {
   detectRisks,
   nextQuestions,
@@ -64,9 +64,11 @@ export async function captureEvent(
   };
   const flags =
     event.kind === "user"
-      ? detectRisks(event.text, participantFor(note.fields.participant)).map(
-          (flag) => ({ ...flag, sessionId: row.id, sequence: event.sequence }),
-        )
+      ? detectRisks(event.text, participantForNote(note)).map((flag) => ({
+          ...flag,
+          sessionId: row.id,
+          sequence: event.sequence,
+        }))
       : [];
   if (
     event.kind === "user" &&
@@ -119,10 +121,20 @@ export async function captureEvent(
 export async function safetyContext(noteId: string, ownerId: string) {
   const note = toNote(await getRow(noteId, ownerId));
   const transcript = await workerTranscript(noteId, ownerId);
-  const profile = participantFor(note.fields.participant);
+  const profile = participantForNote(note);
   return {
     note,
     profile,
+    scheduledShift: note.shiftId
+      ? {
+          id: note.shiftId,
+          expectedStart: note.expectedStart,
+          expectedEnd: note.expectedEnd,
+          timezone: note.timezone,
+          instruction:
+            "Expected times are the manager's plan. Ask the worker for actual start and end times; do not treat the schedule as evidence of attendance.",
+        }
+      : null,
     remainingClarifications: Math.max(0, 3 - (note.clarificationCount ?? 0)),
     nextObservationalQuestions: nextQuestions(
       profile,

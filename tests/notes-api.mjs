@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { loadTestSession } from "./session-fixture.mjs";
+import { loadAssignedTestShift, loadTestSession } from "./session-fixture.mjs";
 import { randomUUID } from "node:crypto";
 const origin = process.env.LEGALMATE_TEST_ORIGIN || "http://localhost:5173";
 let cookie = "";
@@ -39,11 +39,29 @@ async function request(
 }
 await request("/api/notes", "GET", undefined, 401);
 cookie = await loadTestSession(origin);
+const shift = await loadAssignedTestShift(origin, cookie, {
+  environment: "LEGALMATE_TEST_NOTES_SHIFT_ID",
+  participantName: "Sarah Doyle",
+});
 const id = randomUUID();
-const first = await request("/api/notes", "POST", { id }, 201);
+await request("/api/notes", "POST", { id }, 400);
+const first = await request(
+  "/api/notes",
+  "POST",
+  { id, shiftId: shift.id },
+  201,
+);
 assert.equal(first.note.revision, 0);
 assert.equal(first.note.fields.incidents, "unanswered");
-const retry = await request("/api/notes", "POST", { id }, 201);
+assert.equal(first.note.fields.participant, "Sarah Doyle");
+assert.equal(first.note.fields.shiftStart, "");
+assert.equal(first.note.fields.shiftEnd, "");
+const retry = await request(
+  "/api/notes",
+  "POST",
+  { id: randomUUID(), shiftId: shift.id },
+  201,
+);
 assert.equal(retry.note.id, id);
 await request(`/api/notes/${id}/review`, "POST", { revision: 0 }, 422);
 await request(
@@ -122,9 +140,15 @@ await request(
   409,
 );
 await request(`/api/notes/${randomUUID()}`, "GET", undefined, 404);
-await request("/api/notes", "POST", { id: randomUUID() }, 403, {
-  Origin: "https://untrusted.example",
-});
+await request(
+  "/api/notes",
+  "POST",
+  { id: randomUUID(), shiftId: shift.id },
+  403,
+  {
+    Origin: "https://untrusted.example",
+  },
+);
 const list = await request("/api/notes");
 assert.equal(list.notes.filter((item) => item.id === id).length, 1);
 console.log(

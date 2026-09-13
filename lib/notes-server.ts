@@ -8,10 +8,8 @@ import {
 } from "./shift-form";
 import { readSafety, retentionUntil } from "./safety";
 import { isAllowedRequestOrigin } from "./request-origin";
-import {
-  createWorkerNoteQuery,
-  readableNoteAccess,
-} from "./organisation-access";
+import { readableNoteAccess } from "./organisation-access";
+import { createScheduledNoteQuery } from "./shifts";
 import { claimManagerGrants, type OrganisationUser } from "./organisations";
 import { TEST_ACCOUNTS, TEST_PROVIDER_ID } from "./test-accounts";
 
@@ -90,6 +88,11 @@ export type Row = {
   id: string;
   owner_id: string;
   provider_id: string | null;
+  shift_id?: string | null;
+  participant_id?: string | null;
+  participant_snapshot_json?: string | null;
+  expected_start?: string | null;
+  expected_end?: string | null;
   provider_name?: string | null;
   worker_name: string;
   fields_json: string;
@@ -127,6 +130,13 @@ export function toNote(row: Row): ShiftNote {
     workerName: row.worker_name,
     providerId: row.provider_id ?? null,
     providerName: row.provider_name ?? null,
+    shiftId: row.shift_id ?? null,
+    participantId: row.participant_id ?? null,
+    participantSnapshot: row.participant_snapshot_json
+      ? JSON.parse(row.participant_snapshot_json)
+      : null,
+    expectedStart: row.expected_start ?? null,
+    expectedEnd: row.expected_end ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     confirmedAt: row.confirmed_at,
@@ -196,11 +206,13 @@ export async function listProviderNotes(providerId: string) {
 export async function createNote(
   id: unknown,
   ownerId: string,
-  workerName: string,
   providerId: string,
+  shiftId: unknown,
 ) {
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id))
     throw new RequestError("Invalid note identifier.");
+  if (typeof shiftId !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(shiftId))
+    throw new RequestError("Choose an assigned shift before starting a note.");
   const testAccount = TEST_ACCOUNTS.find((account) => account.id === ownerId);
   if (
     testAccount &&
@@ -208,22 +220,37 @@ export async function createNote(
   )
     throw new RequestError("Test accounts belong to TestProvider.", 403);
   const now = new Date().toISOString();
+  const assigned = await database()
+    .prepare(
+      "SELECT id FROM scheduled_shifts WHERE id=? AND worker_id=? AND provider_id=?",
+    )
+    .bind(shiftId, ownerId, providerId)
+    .first();
+  if (!assigned) throw new RequestError("Assigned shift not found.", 404);
   await database()
-    .prepare(createWorkerNoteQuery)
+    .prepare(createScheduledNoteQuery)
     .bind(
       id,
-      ownerId,
-      workerName,
       JSON.stringify(emptyFields()),
       FORM_VERSION,
-      "Australia/Melbourne",
       now,
       now,
       retentionUntil(now),
-      providerId,
+      shiftId,
       ownerId,
       providerId,
     )
     .run();
-  return toNote(await getRow(id, ownerId));
+  const saved = await database()
+    .prepare(
+      "SELECT id FROM shift_notes WHERE shift_id=? AND owner_id=? AND provider_id=?",
+    )
+    .bind(shiftId, ownerId, providerId)
+    .first<{ id: string }>();
+  if (!saved)
+    throw new RequestError(
+      "This shift is no longer available for a new note. Refresh your shifts.",
+      409,
+    );
+  return toNote(await getRow(saved.id, ownerId));
 }

@@ -1,6 +1,16 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  integer,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 import { providers } from "./organisation-schema";
+import { providerParticipants } from "./roster-schema";
+import { scheduledShifts } from "./shift-schema";
 export * from "./organisation-schema";
+export * from "./roster-schema";
+export * from "./shift-schema";
 export {
   authUser,
   authSession,
@@ -14,6 +24,13 @@ export const shiftNotes = sqliteTable(
     id: text("id").primaryKey(),
     ownerId: text("owner_id").notNull(),
     providerId: text("provider_id").references(() => providers.id),
+    shiftId: text("shift_id").references(() => scheduledShifts.id),
+    participantId: text("participant_id").references(
+      () => providerParticipants.id,
+    ),
+    participantSnapshotJson: text("participant_snapshot_json"),
+    expectedStart: text("expected_start"),
+    expectedEnd: text("expected_end"),
     workerName: text("worker_name").notNull(),
     fields: text("fields_json").notNull(),
     revision: integer("revision").notNull().default(0),
@@ -31,6 +48,7 @@ export const shiftNotes = sqliteTable(
     retentionUntil: text("retention_until"),
   },
   (table) => [
+    uniqueIndex("idx_shift_notes_shift").on(table.shiftId),
     index("idx_shift_notes_owner_updated").on(table.ownerId, table.updatedAt),
     index("idx_shift_notes_provider_updated").on(
       table.providerId,

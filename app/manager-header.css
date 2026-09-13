@@ -1,0 +1,115 @@
+.topbar.manager-topbar {
+  flex-wrap: nowrap;
+  gap: 16px;
+}
+
+.manager-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.manager-nav-trigger {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.manager-nav-trigger:hover,
+.manager-nav-trigger[data-state="open"] {
+  background: var(--surface-sunken);
+}
+
+.manager-nav-trigger:focus-visible,
+.manager-navigation button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+.manager-topbar .manager-role {
+  min-width: 0;
+  max-width: 30%;
+  margin-left: auto;
+  overflow-wrap: anywhere;
+}
+
+.manager-drawer {
+  width: min(320px, calc(100vw - 32px));
+  overflow-y: auto;
+  background: var(--surface);
+}
+
+.manager-drawer-heading {
+  padding: 28px 48px 22px 24px;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.manager-drawer-heading [data-slot="sheet-title"] {
+  font-family: var(--font-heading), sans-serif;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.manager-drawer-heading [data-slot="sheet-description"] {
+  font-size: 0.875rem;
+}
+
+.manager-navigation {
+  display: grid;
+  gap: 6px;
+  padding: 0 14px;
+}
+
+.manager-navigation button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  text-align: left;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.manager-navigation button svg {
+  flex-shrink: 0;
+}
+
+.manager-navigation button:hover {
+  background: var(--surface-sunken);
+}
+
+.manager-navigation button[aria-current="page"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+@media (max-width: 760px) {
+  .topbar.manager-topbar {
+    gap: 8px;
+  }
+
+  .manager-brand-group {
+    gap: 8px;
+  }
+
+  .manager-topbar .brand {
+    font-size: 18px;
+  }
+
+  .manager-topbar .brand-icon {
+    display: none;
+  }
+}

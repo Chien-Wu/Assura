@@ -1,4 +1,8 @@
-import { getAppUser, getAuthStatus } from "@/lib/auth";
+import {
+  getAppUser,
+  getAuthStatus,
+  getTestAccountPrefillPassword,
+} from "@/lib/auth";
 import Entry from "./entry";
 import { contactUrl } from "@/lib/contact";
 
@@ -19,6 +23,7 @@ export default async function Home({
           : null
       }
       methods={getAuthStatus()}
+      testPassword={user ? "" : getTestAccountPrefillPassword()}
       initialRole={
         query.role === "worker" || query.role === "manager" ? query.role : null
       }

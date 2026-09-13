@@ -6,13 +6,17 @@ import {
   listProviderNotes,
   RequestError,
 } from "@/lib/notes-server";
-import { participants } from "@/lib/participants";
+import { listProviderParticipants } from "@/lib/roster-server";
+import {
+  monthlyParticipantUses,
+  providerParticipantUsesQuery,
+  type ParticipantUse,
+} from "@/lib/roster";
 import { reportingGuidance } from "@/lib/safety";
 import { requireManager } from "@/lib/organisations";
 import {
   providerRisksQuery,
   providerActionsQuery,
-  providerUsesQuery,
 } from "@/lib/organisation-access";
 export async function GET(request: Request) {
   try {
@@ -26,7 +30,7 @@ export async function GET(request: Request) {
       new Date().toISOString().slice(0, 7);
     if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month))
       throw new RequestError("Choose a valid reporting month.");
-    const [notes, risks, actions, uses] = await Promise.all([
+    const [notes, risks, actions, uses, participants] = await Promise.all([
       listProviderNotes(manager.providerId),
       database().prepare(providerRisksQuery).bind(manager.providerId).all<{
         id: string;
@@ -44,9 +48,10 @@ export async function GET(request: Request) {
         created_at: string;
       }>(),
       database()
-        .prepare(providerUsesQuery)
+        .prepare(providerParticipantUsesQuery)
         .bind(manager.providerId, month)
-        .all<{ participant: string; item: string; count: number }>(),
+        .all<ParticipantUse>(),
+      listProviderParticipants(manager.providerId),
     ]);
     const incidents = risks.results.map((risk) => {
       const history = actions.results
@@ -88,18 +93,7 @@ export async function GET(request: Request) {
         history,
       };
     });
-    const monthly = participants.flatMap((p) =>
-      p.plan.map((item) => ({
-        participantId: p.id,
-        participant: p.name,
-        item: item.id,
-        description: item.description,
-        month,
-        recordedUses: uses.results
-          .filter((u) => u.participant === p.name && u.item === item.id)
-          .reduce((n, u) => n + u.count, 0),
-      })),
-    );
+    const monthly = monthlyParticipantUses(participants, uses.results, month);
     return json({
       notes,
       incidents,

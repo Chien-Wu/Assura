@@ -6,6 +6,8 @@ GitHub 版本包含可執行的 Web app 與需求文件。文中的原始 `web/`
 
 本文件記錄本次對話已確認的需求，以及為落實需求提出的技術方案。產品範圍與 `IDEA.txt` 不一致時，以本文件記錄的最新使用者決定為準。第 1–7 節記錄需求與初始方案；第 8 節記錄實作進度。
 
+未來 General Note／Extra Notes 的最新方向見第 10 節及 [標準補充表單規劃](extra-notes-plan.md)；該部分是規劃紀錄，尚未實作。
+
 ## 1. 已確認的產品範圍
 
 - **只做 Web。** 使用者透過瀏覽器操作，不開發原生 iOS／Android app。
@@ -14,7 +16,7 @@ GitHub 版本包含可執行的 Web app 與需求文件。文中的原始 `web/`
 - worker 不需要先寫好 shift note，也不需要每答一題就停止錄音或切換到另一個填表步驟。
 - **Worker 與 Manager 使用不同工作介面。** Worker 在 `/worker` 訪談及填寫紀錄；Manager 在 `/manager` 操作管理看板。新版根目錄改為手機優先的身分選擇與原頁展開入口（見第 9 節）；worker 畫面不放主管控制項。
 - **主管端先做實用的簡單版本。** 本次新增事件覆核、通知時間線、原始對話與編輯紀錄、限制性措施及月報／nil-return 提醒；進階趨勢分析仍非本次範圍。
-- **正式表單仍由使用者準備。** 尚未確認欄位、必填條件、條件式問題、版面及輸出格式。專案內的 `sample_form/` 是參考材料，不代表已選定正式模板。
+- **正式表單尚未定稿。** 未來由 LegalMate 提供標準 Extra Notes，Provider 勾選需要的表單（見第 10 節）。正式欄位、必填條件、條件式問題、版面及輸出格式仍待確認；`sample_form/` 是參考材料，不代表已選定正式模板。
 - **全部英文。** 介面、語音對話及產出紀錄均使用英文。
 - **先做簡單版本。** 使用者已確認 ElevenLabs API key／Agent 尚未準備，先實作其餘部分；語音不可用時須如實標示。
 
@@ -124,7 +126,7 @@ sequenceDiagram
 - 實作時以表單 schema 驅動畫面、工具欄位驗證和缺項檢查，避免三處各自維護不同規則。
 - 在模板交付前可做示範 schema，但須標為暫定，不把示範欄位當成正式需求或官方要求。
 - 照護計畫、BSP 等既有文件可作為受授權的背景資料；本次 worker 交班流程不以先上傳文件為必要步驟。
-- 匯出 PDF／DOCX、是否需填回原檔，以及是否需額外事件表單，均待正式模板及工作範圍確認。
+- 匯出 PDF／DOCX、是否需填回原檔，仍待正式模板及工作範圍確認。額外表單方向已於第 10 節確認，具體模板與實作範圍另見該節。
 
 ## 6. 第一版驗收重點
 
@@ -255,8 +257,24 @@ sequenceDiagram
 ### 9.6 最新發行決定：Google 與限定 Email／密碼測試帳號（2026-09-13）
 
 - 保留個人的 Google 登入；重新加入 **Continue with email**，但只接受固定的 TestProvider 共用測試帳號，不開放任意 Email／密碼註冊，也不恢復 Email OTP。
-- 公開登入別名為 `managertest@gmail.com`（manager）與 `workertest@gmail.com`（worker）；共用測試密碼只存在私密伺服器環境變數 `LEGALMATE_TEST_PASSWORD`，不寫入程式碼、Git、文件、前端或 log。
+- 公開登入別名為 `managertest@gmail.com`（manager）與 `workertest@gmail.com`（worker）；共用測試密碼由私密伺服器環境變數 `LEGALMATE_TEST_PASSWORD` 設定，不把實際值寫入程式碼、Git、文件或 log。依使用者要求，啟用測試帳號時會把共用密碼送至未登入訪客的首頁，連同所選角色的 Email 預填，供所有訪客測試；密碼欄位維持遮罩且可編輯。
 - 兩個別名對應獨立的內部測試身分 `auth_test_manager`／`manager@test.legalmate.invalid` 與 `auth_test_worker`／`worker@test.legalmate.invalid`，不能視為 Gmail 所有權驗證，也不得讓同名的個人 Google 帳號自動取得測試密碼或權限。
 - 由我們預先建立 TestProvider 及上述固定測試身分；登入成功使用一般簽署、可撤銷的資料庫 session，manager 直接前往 `/manager`，worker 直接前往 `/worker`。公開表單不能建立其他機構、任意帳號或提升 manager 權限。
 - 測試 worker 可建立自己的 TestProvider 紀錄；測試 manager 可讀取及覆核 TestProvider 紀錄；仍禁止 worker 取得其他 worker 紀錄或 manager 權限，以及 manager 跨機構存取。測試帳號供共用展示，只使用虛構資料。
 - Google 設定及完整資料庫 schema 仍為部署 readiness 必要條件；測試密碼或 Email OTP 設定不能單獨使部署通過。本次不需 Resend。
+
+### Provider participant setup and assigned shifts (2026-09-13)
+
+Managers now create and edit provider-owned participant profiles, then schedule one participant and one active worker with expected start/end times in Australia/Melbourne. Worker onboarding remains self-service; only workers with an active current provider affiliation appear in the scheduling selector.
+
+The worker workspace starts with assigned shifts and their note status. Selecting a shift creates or resumes its single note. The participant is fixed for that note; expected times remain distinct from worker-entered actual times. Each new note retains its shift, participant identity, profile snapshot and planned times. Existing notes remain accessible under the original ownership and provider rules. Provider-wide participant browsing is manager-only.
+
+New schema is introduced by `0005_scheduled_shifts.sql`. No sample participants or schedules are automatically added. Schedule editing, cancellation, recurrence and multiple workers on one shift remain outside this first version.
+
+## 10. 未來方向：General Note 與標準 Extra Notes（2026-09-13）
+
+- **已確認：先完成 General Note，有需要時再接續 Extra Notes。**
+- **已確認：由 LegalMate 團隊提供一套標準表單，Provider 勾選該機構需要使用的 Extra Notes。** Provider 啟用表單與本次班次是否觸發該表單分開判斷。
+- 使用者提供六類表單草案：Incident、Health & Wellbeing Concern、Medication Variance、Behaviour／ABC（含 Restrictive Practice 分支）、Complaint／Feedback、Service Delivery Exception。
+- 觸發條件、提問、主管欄位、跨表關係、討論中的建議與待決定事項整理在 [標準補充表單規劃](extra-notes-plan.md)；[完整使用者原文](sources/extra-notes-user-input-2026-09-13.txt) 另存供後續設計參考。
+- 本節是未來規劃，尚未新增表單庫、Provider 勾選或 Extra Note 流程。原文中的法規／臨床及時限敘述屬待查核素材，不代表已核實規則或現有功能。

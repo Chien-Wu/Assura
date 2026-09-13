@@ -36,6 +36,13 @@
       "when": 1789267207272,
       "tag": "0004_organisations",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789272524139,
+      "tag": "0005_scheduled_shifts",
+      "breakpoints": true
     }
   ]
 }

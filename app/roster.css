@@ -1,0 +1,397 @@
+.provider-roster {
+  display: grid;
+  gap: 24px;
+}
+.roster-heading,
+.roster-form-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.roster-heading h1 {
+  font-family: var(--font-heading);
+  font-size: 27px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.7px;
+  margin: 0 0 7px;
+}
+.roster-heading p,
+.roster-form-heading p {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 14px;
+}
+.roster-actions,
+.roster-form-footer,
+.roster-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.roster-actions {
+  flex-wrap: wrap;
+}
+.roster-empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 48px 24px;
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: 14px;
+  color: var(--text-secondary);
+}
+.roster-empty > svg {
+  margin-bottom: 4px;
+  color: var(--primary);
+}
+.roster-empty h1,
+.roster-empty h2 {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 19px;
+  color: var(--foreground);
+  margin: 0;
+}
+.roster-empty p {
+  margin: 0;
+  max-width: 430px;
+}
+.roster-participant-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.roster-participant-card {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+.roster-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.roster-card-heading > div {
+  min-width: 0;
+}
+.roster-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-family: var(--font-heading);
+  font-size: 18px;
+}
+.roster-card-heading h2 {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 3px;
+  overflow-wrap: anywhere;
+}
+.roster-card-heading p,
+.roster-card-footer > span {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.roster-setting {
+  color: var(--text-secondary);
+  font-size: 14px;
+  min-height: 40px;
+  margin: 18px 0;
+  overflow-wrap: anywhere;
+}
+.roster-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 14px;
+}
+.roster-form {
+  margin-bottom: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+  padding: 24px;
+}
+.roster-form-heading h2 {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 20px;
+  margin: 0 0 6px;
+}
+.roster-form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.roster-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.roster-fields > label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+}
+.roster-fields input,
+.roster-fields textarea {
+  background: var(--field-bg);
+  font-weight: 400;
+}
+.roster-fields textarea {
+  min-height: 82px;
+}
+.roster-field-wide {
+  grid-column: 1 / -1;
+}
+.roster-field-help {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.roster-fields .roster-field-help {
+  margin-top: -5px;
+}
+.roster-select {
+  height: 36px;
+  min-width: 0;
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--input);
+  background: var(--field-bg);
+  padding: 4px 10px;
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 400;
+}
+.roster-select:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.roster-details {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+  padding-top: 18px;
+}
+.roster-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+.roster-details[open] summary {
+  margin-bottom: 16px;
+}
+.roster-details > .roster-field-help {
+  margin-bottom: 12px;
+}
+.roster-details > .roster-checkbox {
+  margin-bottom: 12px;
+}
+.roster-detail-row {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.roster-limit-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 14px;
+}
+.roster-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.roster-checkbox input {
+  margin-top: 3px;
+  accent-color: var(--primary);
+}
+.roster-row-actions {
+  justify-content: space-between;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.roster-form-footer {
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+.roster-success {
+  padding: 12px 16px;
+  margin: 0;
+  color: var(--ok-fg);
+  background: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+  border-radius: 9px;
+  font-size: 14px;
+}
+.roster-setup {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  color: var(--info-fg);
+}
+.roster-setup h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 5px;
+}
+.roster-setup p {
+  font-size: 14px;
+  margin: 0;
+  max-width: 600px;
+}
+.roster-shift-list {
+  display: grid;
+  gap: 12px;
+}
+.roster-shift-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+.roster-shift-people h2 {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 16px;
+  margin: 0 0 7px;
+  overflow-wrap: anywhere;
+}
+.roster-shift-people p {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.roster-shift-people svg {
+  flex-shrink: 0;
+}
+.roster-shift-time {
+  display: grid;
+  gap: 4px;
+}
+.roster-shift-time > span,
+.roster-shift-time > small {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.roster-shift-time strong {
+  font-weight: 500;
+  font-size: 14px;
+}
+.roster-note-status {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  border-radius: 20px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.roster-note-complete {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+.roster-note-draft {
+  background: var(--info-bg);
+  color: var(--info-fg);
+}
+.roster-schedule-caption {
+  margin-top: 18px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+@media (max-width: 1080px) {
+  .roster-participant-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  .provider-roster {
+    gap: 20px;
+  }
+  .roster-heading {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .roster-heading h1 {
+    font-size: 24px;
+  }
+  .roster-actions {
+    width: 100%;
+  }
+  .roster-actions > button {
+    flex: 1;
+  }
+  .roster-fields,
+  .roster-participant-grid,
+  .roster-limit-fields {
+    grid-template-columns: 1fr;
+  }
+  .roster-form {
+    padding: 18px;
+  }
+  .roster-detail-row {
+    padding: 12px;
+  }
+  .roster-form-footer > button {
+    flex: 1;
+  }
+  .roster-shift-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 18px;
+    gap: 16px;
+  }
+  .roster-shift-time {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .roster-setup {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -13,7 +13,7 @@ Set these values in the ignored `web/.env.local` for development and in the host
 | `GOOGLE_CLIENT_ID`        | Google OAuth client ID for a Web application.                                                                                         |
 | `GOOGLE_CLIENT_SECRET`    | Secret belonging to that Google client.                                                                                               |
 
-The optional test-account form additionally requires `LEGALMATE_TEST_PASSWORD` in the private server environment and the operator-provisioned test identities described below. Never put the actual password in source, documentation, browser code or logs.
+The optional test-account form additionally requires `LEGALMATE_TEST_PASSWORD` in the server environment and the operator-provisioned test identities described below. The shared demo password is intentionally delivered to signed-out visitors to prefill the form. Keep its actual value out of source, documentation and logs.
 
 Authentication also requires the D1 `DB` binding and migrations `0003_auth.sql` and `0004_organisations.sql`, following the existing migrations. These create new tables and preserve existing shift-note evidence. Do not reset the database to add sign-in.
 
@@ -36,7 +36,7 @@ References: [Better Auth Google configuration](https://better-auth.com/docs/auth
 
 ## Limited Email/password test accounts
 
-When the server has a test password configured, **Continue with email** opens a test-account form for these fixed aliases:
+When test-account sign-in is enabled, choosing a role opens the test-account form with its corresponding alias and the shared password already filled in:
 
 | Public login alias      | Internal identity                                      | Access                                         |
 | ----------------------- | ------------------------------------------------------ | ---------------------------------------------- |
@@ -47,7 +47,7 @@ The aliases are labels for shared test accounts, not proof of ownership of those
 
 An operator provisions TestProvider and its two internal identities before enabling access. `node --experimental-strip-types scripts/provision-test-accounts.mjs --sql` prints the idempotent provisioning statements for review; apply them to the intended database after migrations. The script neither reads nor stores the password and does not execute SQL itself. The login form cannot create arbitrary accounts, providers, or manager grants. The test worker and manager share TestProvider records for testing, while the normal worker and provider access checks still apply. Use fictional records only: people using the same shared test account share its identity and saved records.
 
-The password is stored only in the server's private environment. Obtain it through the agreed private channel; it is neither prefilled in the form nor shown in this documentation. Failed passwords and unrecognised aliases are rejected. The endpoint is `POST /api/auth/sign-in/test-account` with `{ email, password }`; successful responses return a server-selected `redirectTo`, and sign-out revokes the resulting session normally.
+The server reads the configured password at runtime and sends it to the signed-out homepage for prefilling. This makes the two shared test accounts available to all visitors; the password input remains masked and editable. Signed-in visitors and instances with test-account sign-in disabled receive no prefill password. Auth-status and health responses continue to report only readiness flags. Failed passwords and unrecognised aliases are rejected. The endpoint is `POST /api/auth/sign-in/test-account` with `{ email, password }`; successful responses return a server-selected `redirectTo`, and sign-out revokes the resulting session normally.
 
 ## Deferred email sign-in
 
@@ -68,11 +68,18 @@ Run `node --experimental-strip-types --test tests/auth.test.mjs` for isolated au
 The existing notes, voice, safety and live text tests use a real test account. Sign in normally and complete the worker's name and provider selection. In browser developer tools, copy the Cookie request-header value from a request to the app into a private, ignored local file such as `.secrets/http-test-cookie.txt`; keep that file readable only by you (mode `600`). It contains session access, so do not paste it into chat, Git or logs. Refresh the file after signing in again if the session expires.
 
 ```sh
-LEGALMATE_TEST_COOKIE_FILE="$PWD/.secrets/http-test-cookie.txt" npm run test:api
-LEGALMATE_TEST_COOKIE_FILE="$PWD/.secrets/http-test-cookie.txt" npm run test:live
+export LEGALMATE_TEST_COOKIE_FILE="$PWD/.secrets/http-test-cookie.txt"
+export LEGALMATE_TEST_NOTES_SHIFT_ID="unused-sarah-notes-shift-id"
+export LEGALMATE_TEST_VOICE_SHIFT_ID="unused-sarah-voice-shift-id"
+export LEGALMATE_TEST_SAFETY_SHIFT_ID="unused-minh-safety-shift-id"
+npm run test:api
+
+LEGALMATE_TEST_TEXT_SHIFT_ID="unused-sarah-text-shift-id" npm run test:live
 ```
 
-`LEGALMATE_TEST_ORIGIN` optionally selects a test deployment; the default is `http://localhost:5173`. Use a cookie from that same origin. Safety tests require the signed-in worker to also have an operator-provisioned manager grant for their selected provider, and scope management requests to that provider. These tests create fictional records in the selected test account. Voice tests need configured ElevenLabs access; the live text test uses Agent credits.
+An existing test provider manager must first prepare the fictional participant profiles and assign a separate unused shift to the signed-in worker for each script. Notes, voice and live text tests use **Sarah Doyle**; safety tests use **Minh Pham** with the matching clinical details and kitchen-door behaviour-plan item from `lib/participants.ts`. Replace the example shift IDs above with those assignments. Each script verifies its assignment before creating a note and refuses a shift that already has a note. Prepare fresh assignments before rerunning. For one script, `LEGALMATE_TEST_SHIFT_ID` can replace its specific variable. The scripts only read prepared assignments; they do not create profiles, shifts or access grants.
+
+`LEGALMATE_TEST_ORIGIN` optionally selects a test deployment; the default is `http://localhost:5173`. Use a cookie from that same origin. The safety script expects an already configured test worker with management access to the same provider. The fixed TestProvider aliases intentionally have separate roles; use the isolated harness below to test that pair without changing their access. These tests create fictional records in the selected test account. Voice tests need configured ElevenLabs access; the live text test uses Agent credits.
 
 For a fully isolated run without external credentials, first build the app and then run:
 

@@ -183,6 +183,7 @@ try {
     assert.deepEqual(Object.keys(provider).sort(), ["id", "name"]);
   const workerA = await account("worker-a@example.test");
   const workerB = await account("worker-b@example.test");
+  const workerC = await account("worker-c@example.test");
   const managerA = await account("manager-a@example.test");
   const managerB = await account("manager-b@example.test");
   assert.equal(
@@ -207,33 +208,16 @@ try {
     session: workerB,
     body: { fullName: "Worker B", providerId: "provider_b" },
   });
+  await request("/api/onboarding", {
+    session: workerC,
+    body: { fullName: "Worker C", providerId: "provider_a" },
+  });
   const onboarded = await request("/api/onboarding", { session: workerA });
   assert.deepEqual(onboarded.profile, {
     fullName: "Worker A",
     providerId: "provider_a",
   });
   assert.deepEqual(onboarded.managedProviders, []);
-  const noteA = (
-    await request("/api/notes", {
-      session: workerA,
-      body: { id: randomUUID() },
-      expected: 201,
-    })
-  ).note;
-  const noteB = (
-    await request("/api/notes", {
-      session: workerB,
-      body: { id: randomUUID() },
-      expected: 201,
-    })
-  ).note;
-  assert.equal(noteA.providerId, "provider_a");
-  assert.equal(noteB.providerId, "provider_b");
-  await request(`/api/notes/${noteA.id}`, { session: workerB, expected: 404 });
-  await request(`/api/notes/${noteA.id}/audit`, {
-    session: workerB,
-    expected: 404,
-  });
   await request("/api/management", { session: workerA, expected: 403 });
   await request("/api/management", { session: managerA, expected: 403 });
   for (const [session, providerId] of [
@@ -247,6 +231,274 @@ try {
       active: 1,
       created_at: now,
     });
+  async function participant(session, providerId, name) {
+    return (
+      await request(`/api/participants?providerId=${providerId}`, {
+        session,
+        body: {
+          profile: {
+            name,
+            communication: "Original communication guidance",
+            risks: ["Original support risk"],
+          },
+        },
+        expected: 201,
+      })
+    ).participant;
+  }
+  async function shift(
+    session,
+    providerId,
+    participantId,
+    workerId,
+    changes = {},
+  ) {
+    return (
+      await request(`/api/shifts?providerId=${providerId}`, {
+        session,
+        body: {
+          participantId,
+          workerId,
+          expectedStart: "2026-09-12T09:00",
+          expectedEnd: "2026-09-12T13:00",
+          timezone: "Australia/Melbourne",
+          ...changes,
+        },
+        expected: 201,
+      })
+    ).shift;
+  }
+  await request("/api/participants", { expected: 401 });
+  await request("/api/shifts", { expected: 401 });
+  await request("/api/provider-workers", { expected: 401 });
+  await request("/api/participants?providerId=provider_a", {
+    session: workerA,
+    body: { profile: { name: "Worker-created participant" } },
+    expected: 403,
+  });
+  await request("/api/provider-workers?providerId=provider_a", {
+    session: workerA,
+    expected: 403,
+  });
+  await request("/api/participants?providerId=provider_b", {
+    session: managerA,
+    expected: 403,
+  });
+  const participantA = await participant(
+    managerA,
+    "provider_a",
+    "Participant A",
+  );
+  const participantB = await participant(
+    managerB,
+    "provider_b",
+    "Participant B",
+  );
+  assert.deepEqual(
+    (
+      await request("/api/participants?providerId=provider_a", {
+        session: managerA,
+      })
+    ).participants.map((item) => item.id),
+    [participantA.id],
+  );
+  assert.deepEqual(
+    new Set(
+      (
+        await request("/api/provider-workers?providerId=provider_a", {
+          session: managerA,
+        })
+      ).workers.map((item) => item.userId),
+    ),
+    new Set([workerA.user.id, workerC.user.id]),
+  );
+  await request(`/api/participants/${participantB.id}?providerId=provider_a`, {
+    session: managerA,
+    method: "PATCH",
+    body: { profile: { name: "Cross-provider edit" } },
+    expected: 404,
+  });
+  const shiftBody = {
+    participantId: participantA.id,
+    workerId: workerA.user.id,
+    expectedStart: "2026-09-12T09:00",
+    expectedEnd: "2026-09-12T13:00",
+    timezone: "Australia/Melbourne",
+  };
+  await request("/api/shifts?providerId=provider_a", {
+    session: workerA,
+    body: shiftBody,
+    expected: 403,
+  });
+  await request("/api/shifts?providerId=provider_b", {
+    session: managerA,
+    body: shiftBody,
+    expected: 403,
+  });
+  for (const changes of [
+    { participantId: participantB.id },
+    { workerId: workerB.user.id },
+    { expectedStart: "2026-02-30T09:00" },
+    { expectedEnd: "2026-09-12T09:00" },
+    { expectedEnd: "2026-09-12T08:00" },
+    { timezone: "Not/A_Timezone" },
+  ])
+    await request("/api/shifts?providerId=provider_a", {
+      session: managerA,
+      body: { ...shiftBody, ...changes },
+      expected: 400,
+    });
+  const shiftA = await shift(
+    managerA,
+    "provider_a",
+    participantA.id,
+    workerA.user.id,
+  );
+  const shiftB = await shift(
+    managerB,
+    "provider_b",
+    participantB.id,
+    workerB.user.id,
+  );
+  const shiftC = await shift(
+    managerA,
+    "provider_a",
+    participantA.id,
+    workerC.user.id,
+    {
+      expectedStart: "2026-09-12T22:00",
+      expectedEnd: "2026-09-13T06:00",
+    },
+  );
+  assert.deepEqual(
+    (await request("/api/shifts", { session: workerA })).shifts.map(
+      (item) => item.id,
+    ),
+    [shiftA.id],
+  );
+  assert.deepEqual(
+    new Set(
+      (
+        await request("/api/shifts?providerId=provider_a", {
+          session: managerA,
+        })
+      ).shifts.map((item) => item.id),
+    ),
+    new Set([shiftA.id, shiftC.id]),
+  );
+  await request("/api/shifts?providerId=provider_b", {
+    session: managerA,
+    expected: 403,
+  });
+  await request("/api/notes", {
+    session: workerA,
+    body: { id: randomUUID() },
+    expected: 400,
+  });
+  for (const unavailable of [shiftB.id, shiftC.id, randomUUID()])
+    await request("/api/notes", {
+      session: workerA,
+      body: { id: randomUUID(), shiftId: unavailable },
+      expected: 404,
+    });
+  const noteA = (
+    await request("/api/notes", {
+      session: workerA,
+      body: { id: randomUUID(), shiftId: shiftA.id },
+      expected: 201,
+    })
+  ).note;
+  const noteB = (
+    await request("/api/notes", {
+      session: workerB,
+      body: { id: randomUUID(), shiftId: shiftB.id },
+      expected: 201,
+    })
+  ).note;
+  assert.equal(noteA.providerId, "provider_a");
+  assert.equal(noteB.providerId, "provider_b");
+  assert.equal(noteA.shiftId, shiftA.id);
+  assert.equal(noteA.participantId, participantA.id);
+  assert.equal(noteA.fields.participant, "Participant A");
+  assert.equal(noteA.fields.shiftStart, "");
+  assert.equal(noteA.fields.shiftEnd, "");
+  assert.equal(noteA.expectedStart, shiftA.expectedStart);
+  assert.equal(noteA.expectedEnd, shiftA.expectedEnd);
+  assert.equal(
+    noteA.participantSnapshot.communication,
+    "Original communication guidance",
+  );
+  assert.equal(
+    (
+      await request("/api/notes", {
+        session: workerA,
+        body: { id: randomUUID(), shiftId: shiftA.id },
+        expected: 201,
+      })
+    ).note.id,
+    noteA.id,
+  );
+  assert.equal(
+    (await request("/api/shifts", { session: workerA })).shifts[0].noteId,
+    noteA.id,
+  );
+  await request(`/api/participants/${participantA.id}?providerId=provider_a`, {
+    session: managerA,
+    method: "PATCH",
+    body: {
+      profile: {
+        name: "Participant A renamed",
+        communication: "Updated guidance",
+        risks: [],
+      },
+    },
+  });
+  const frozenNote = (
+    await request(`/api/notes/${noteA.id}`, { session: workerA })
+  ).note;
+  assert.deepEqual(frozenNote.participantSnapshot, noteA.participantSnapshot);
+  assert.equal(frozenNote.fields.participant, "Participant A");
+  await request(`/api/notes/${noteA.id}`, {
+    session: workerA,
+    method: "PATCH",
+    body: { revision: 0, fields: { participant: "Participant B" } },
+    expected: 400,
+  });
+  const actualTimes = (
+    await request(`/api/notes/${noteA.id}`, {
+      session: workerA,
+      method: "PATCH",
+      body: {
+        revision: 0,
+        fields: {
+          shiftStart: "2026-09-12T10:00",
+          shiftEnd: "2026-09-12T09:00",
+          activities: "Fictional community outing",
+          supportProvided: "Verbal prompts",
+          participantResponse: "Chose an activity",
+          goalProgress: "Practised choices",
+          incidents: "no",
+          followUp: "none",
+        },
+      },
+    })
+  ).note;
+  const invalidReview = await request(`/api/notes/${noteA.id}/review`, {
+    session: workerA,
+    body: { revision: actualTimes.revision },
+    expected: 422,
+  });
+  assert.deepEqual(
+    invalidReview.validation.issues.map((issue) => issue.field),
+    ["shiftEnd"],
+  );
+  assert.equal(actualTimes.expectedStart, "2026-09-12T09:00");
+  assert.equal(actualTimes.expectedEnd, "2026-09-12T13:00");
+  await request(`/api/notes/${noteA.id}`, { session: workerB, expected: 404 });
+  await request(`/api/notes/${noteA.id}/audit`, {
+    session: workerB,
+    expected: 404,
+  });
   assert.deepEqual(
     (
       await request("/api/onboarding", { session: managerA })
@@ -314,10 +566,25 @@ try {
     session: workerA,
     body: { fullName: "Worker A", providerId: "provider_b" },
   });
+  assert.deepEqual(
+    (await request("/api/shifts", { session: workerA })).shifts,
+    [],
+  );
+  await request("/api/notes", {
+    session: workerA,
+    body: { id: randomUUID(), shiftId: shiftA.id },
+    expected: 404,
+  });
+  const nextShift = await shift(
+    managerB,
+    "provider_b",
+    participantB.id,
+    workerA.user.id,
+  );
   const nextNote = (
     await request("/api/notes", {
       session: workerA,
-      body: { id: randomUUID() },
+      body: { id: randomUUID(), shiftId: nextShift.id },
       expected: 201,
     })
   ).note;
@@ -449,10 +716,21 @@ try {
     joined_at: now,
     updated_at: now,
   });
+  const testParticipant = await participant(
+    testManager,
+    TEST_PROVIDER_ID,
+    "Test participant",
+  );
+  const testShift = await shift(
+    testManager,
+    TEST_PROVIDER_ID,
+    testParticipant.id,
+    "auth_test_worker",
+  );
   const testNote = (
     await request("/api/notes", {
       session: testWorker,
-      body: { id: randomUUID() },
+      body: { id: randomUUID(), shiftId: testShift.id },
       expected: 201,
     })
   ).note;
@@ -466,6 +744,11 @@ try {
     ...originalTestRow,
     id: strayNoteId,
     provider_id: "provider_b",
+    shift_id: null,
+    participant_id: null,
+    participant_snapshot_json: null,
+    expected_start: null,
+    expected_end: null,
   });
   assert.deepEqual(
     (await request("/api/notes", { session: testWorker })).notes.map(
@@ -485,13 +768,13 @@ try {
   });
   await request("/api/notes", {
     session: testWorker,
-    body: { id: strayNoteId },
+    body: { id: strayNoteId, shiftId: randomUUID() },
     expected: 404,
   });
   await request("/api/management", { session: testWorker, expected: 403 });
   await request("/api/notes", {
     session: testManager,
-    body: { id: randomUUID() },
+    body: { id: randomUUID(), shiftId: testShift.id },
     expected: 403,
   });
   await request("/api/onboarding", {
@@ -512,10 +795,16 @@ try {
     session: colleague,
     body: { fullName: "Test colleague", providerId: TEST_PROVIDER_ID },
   });
+  const colleagueShift = await shift(
+    testManager,
+    TEST_PROVIDER_ID,
+    testParticipant.id,
+    colleague.user.id,
+  );
   const colleagueNote = (
     await request("/api/notes", {
       session: colleague,
-      body: { id: randomUUID() },
+      body: { id: randomUUID(), shiftId: colleagueShift.id },
       expected: 201,
     })
   ).note;

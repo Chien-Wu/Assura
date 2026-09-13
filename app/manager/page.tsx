@@ -4,8 +4,7 @@ import { AudioLines } from "lucide-react";
 import { getAppUser } from "@/lib/auth";
 import { managedProviders } from "@/lib/organisations";
 import { contactUrl } from "@/lib/contact";
-import ManagementBoard from "../management-board";
-import ThemeToggle from "../theme-toggle";
+import ProviderRoster from "../provider-roster";
 import SignOutButton from "../sign-out-button";
 
 export const dynamic = "force-dynamic";
@@ -75,40 +74,14 @@ async function ManagerContent({
     );
   }
   return (
-    <>
-      <header className="topbar">
-        <Link className="brand" href="/">
-          <span className="brand-icon">
-            <AudioLines size={24} aria-hidden="true" />
-          </span>
-          LegalMate<span className="edition">MANAGER</span>
-        </Link>
-        <span className="manager-role">{provider.name}</span>
-        <div className="profile">
-          <ThemeToggle />
-          <span className="profile-name" title={user.displayName}>
-            {user.displayName}
-          </span>
-          <SignOutButton />
-        </div>
-      </header>
-      <main className="main-shell manager-shell">
-        {providers.length > 1 && (
-          <nav aria-label="Your service providers" className="entry-form-links">
-            {providers.map((item) => (
-              <a
-                key={item.id}
-                className="entry-text-button"
-                href={`/manager?providerId=${encodeURIComponent(item.id)}`}
-                aria-current={item.id === provider.id ? "page" : undefined}
-              >
-                {item.name}
-              </a>
-            ))}
-          </nav>
-        )}
-        <ManagementBoard key={provider.id} signedIn providerId={provider.id} />
-      </main>
-    </>
+    <ProviderRoster
+      key={provider.id}
+      providerId={provider.id}
+      account={{
+        name: user.displayName,
+        providerName: provider.name,
+        providers,
+      }}
+    />
   );
 }

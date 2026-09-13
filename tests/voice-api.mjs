@@ -1,7 +1,7 @@
 // Requires local preview and a configured ElevenLabs key. Issues a connection
 // token but never opens audio or sends test participant details to ElevenLabs.
 import assert from "node:assert/strict";
-import { loadTestSession } from "./session-fixture.mjs";
+import { loadAssignedTestShift, loadTestSession } from "./session-fixture.mjs";
 import { randomUUID } from "node:crypto";
 const origin = process.env.LEGALMATE_TEST_ORIGIN || "http://localhost:5173";
 let cookie = "",
@@ -32,9 +32,13 @@ async function api(
 }
 await api("/api/voice/sessions", { noteId: randomUUID() }, 401);
 cookie = await loadTestSession(origin);
+const shift = await loadAssignedTestShift(origin, cookie, {
+  environment: "LEGALMATE_TEST_VOICE_SHIFT_ID",
+  participantName: "Sarah Doyle",
+});
 assert.equal((await api("/api/voice/status")).enabled, true);
 const id = randomUUID();
-await api("/api/notes", { id }, 201);
+await api("/api/notes", { id, shiftId: shift.id }, 201);
 await api(
   `/api/notes/${id}`,
   {

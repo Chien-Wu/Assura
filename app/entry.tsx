@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
+import { TEST_ACCOUNTS } from "@/lib/test-accounts";
 import SignOutButton from "./sign-out-button";
 
 type Role = "worker" | "manager";
@@ -20,12 +21,14 @@ type Provider = { id: string; name: string };
 export default function Entry({
   user,
   methods,
+  testPassword,
   initialRole,
   initialError,
   contact,
 }: {
   user: { name: string; email: string } | null;
   methods: { google: boolean; testAccounts: boolean };
+  testPassword: string;
   initialRole: Role | null;
   initialError: string;
   contact: string | null;
@@ -185,6 +188,7 @@ export default function Entry({
                     <SignInForm
                       role={item}
                       methods={methods}
+                      initialPassword={testPassword}
                       providerId={providerId}
                       disabled={item === "worker" && !providerId}
                       initialError={initialError}
@@ -223,20 +227,24 @@ function SignInForm({
   role,
   providerId,
   methods,
+  initialPassword,
   disabled,
   initialError,
 }: {
   role: Role;
   providerId: string;
   methods: { google: boolean; testAccounts: boolean };
+  initialPassword: string;
   disabled: boolean;
   initialError: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(initialError);
-  const [emailOpen, setEmailOpen] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [emailOpen, setEmailOpen] = useState(methods.testAccounts);
+  const [email, setEmail] = useState(
+    () => TEST_ACCOUNTS.find((account) => account.role === role)?.alias ?? "",
+  );
+  const [password, setPassword] = useState(initialPassword);
   const destination =
     role === "manager"
       ? "/manager"

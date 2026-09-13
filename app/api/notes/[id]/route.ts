@@ -17,7 +17,7 @@ import {
   rpPatch,
   type FieldState,
 } from "@/lib/safety";
-import { participantFor } from "@/lib/participants";
+import { participantFor, participantForNote } from "@/lib/participants";
 import {
   auditStatements,
   removalFlags,
@@ -61,7 +61,17 @@ export async function PATCH(request: Request, context: Context) {
     const source = body.voiceSessionId ? "agent" : "manual";
     if (body.voiceSessionId)
       await getVoiceSession(body.voiceSessionId, user.userId, id);
-    const profile = participantFor(fields.participant);
+    const savedNote = toNote(row);
+    if (
+      savedNote.shiftId &&
+      fields.participant !== savedNote.fields.participant
+    )
+      throw new RequestError(
+        "The participant belongs to this shift. Choose another shift to write a different participant's note.",
+      );
+    const profile = savedNote.shiftId
+      ? participantForNote(savedNote)
+      : participantFor(fields.participant);
     if (fields.participant && !profile)
       throw new RequestError("Choose one of the demo participant profiles.");
     if (

@@ -6,10 +6,11 @@ import {
   json,
   readBody,
   RequestError,
+  toNote,
 } from "@/lib/notes-server";
 import { voiceConfig } from "@/lib/voice-server";
 import { emptyVoiceState } from "@/lib/voice-state";
-import { participantFor } from "@/lib/participants";
+import { participantForNote } from "@/lib/participants";
 export async function POST(request: Request) {
   try {
     const user = await identity(request);
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     const note = await getRow(body.noteId, user.userId);
     if (note.status !== "draft")
       throw new RequestError("Start a new draft to begin a conversation.", 409);
-    if (!participantFor(JSON.parse(note.fields_json).participant))
+    if (!participantForNote(toNote(note)))
       throw new RequestError(
         "Select a participant profile before starting the conversation.",
       );

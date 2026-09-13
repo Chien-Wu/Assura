@@ -1,4 +1,5 @@
 import { emptySafety, type Safety, type RiskFlag } from "./safety.ts";
+import type { Participant } from "./participants";
 export const FORM_VERSION = "shift-note-demo-v2";
 export const definitions = [
   {
@@ -84,6 +85,11 @@ export type ShiftNote = {
   workerName: string;
   providerId?: string | null;
   providerName?: string | null;
+  shiftId?: string | null;
+  participantId?: string | null;
+  participantSnapshot?: Participant | null;
+  expectedStart?: string | null;
+  expectedEnd?: string | null;
   formVersion: string;
   timezone: string;
   safety?: Safety;
@@ -238,6 +244,14 @@ export function noteText(note: ShiftNote) {
     `Worker: ${note.workerName}`,
     `Status: ${note.status}`,
     `Times: ${note.timezone}`,
+    ...(note.shiftId
+      ? [
+          `Scheduled shift: ${note.shiftId}`,
+          `Expected start: ${note.expectedStart}`,
+          `Expected end: ${note.expectedEnd}`,
+          "Note times below describe the actual shift.",
+        ]
+      : []),
     "",
     ...definitions
       .filter(({ key }) => applicable(key, note.fields))

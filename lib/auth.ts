@@ -53,6 +53,14 @@ export function getAuthStatus(): {
   };
 }
 
+export function getTestAccountPrefillPassword(): string {
+  const configuration = authEnvironment();
+  if (!env.DB || !readAuthConfiguration(configuration).testAccounts) return "";
+  // Shared demo credentials are intentionally prefilled for all visitors.
+  // Only the fixed test-account password is sent to the entry form.
+  return configuration.LEGALMATE_TEST_PASSWORD ?? "";
+}
+
 function getAuth() {
   if (!env.DB) return null;
   const configuration = authEnvironment();

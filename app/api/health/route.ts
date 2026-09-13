@@ -18,6 +18,8 @@ const requiredTables = [
   "app_profiles",
   "provider_memberships",
   "provider_manager_grants",
+  "provider_participants",
+  "scheduled_shifts",
 ];
 
 // Public readiness only: never accepts identity headers, creates a session,
@@ -38,7 +40,16 @@ export async function GET() {
       ).all<{ name: string }>();
       databaseReady =
         tables?.count === requiredTables.length &&
-        columns.results.some((column) => column.name === "provider_id");
+        [
+          "provider_id",
+          "shift_id",
+          "participant_id",
+          "participant_snapshot_json",
+          "expected_start",
+          "expected_end",
+        ].every((name) =>
+          columns.results.some((column) => column.name === name),
+        );
     }
   } catch {
     // Do not expose database errors or environment values to public callers.

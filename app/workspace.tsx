@@ -62,11 +62,12 @@ import {
   type FieldKey,
 } from "@/lib/shift-form";
 
-import ThemeToggle from "./theme-toggle";
-import SignOutButton from "./sign-out-button";
+import AccountMenu from "./account-menu";
 import VoicePanel from "./voice-panel";
 import SafetyPanel from "./safety-panel";
-import { participants, participantFor } from "@/lib/participants";
+import { participants, participantForNote } from "@/lib/participants";
+import { displayShiftTime, type ScheduledShift } from "@/lib/shifts";
+import WorkerShifts from "./worker-shifts";
 import { type RestrictivePractice } from "@/lib/safety";
 
 type Review = { note: ShiftNote; confirmationId: string };
@@ -122,7 +123,6 @@ export default function Workspace({
   const [notice, setNotice] = useState("");
   const [submitAttempt, setSubmitAttempt] = useState(0);
   const errorSummary = useRef<HTMLDivElement>(null);
-  const newId = useRef<string | null>(null);
   const mutationLock = useRef(false);
   const leavingAfterSave = useRef(false);
   const dirty =
@@ -174,16 +174,9 @@ export default function Workspace({
   }
   async function persist(): Promise<ShiftNote> {
     if (!user) throw new Error("Sign in to save your note.");
-    let current = note;
-    if (!current) {
-      newId.current ??= crypto.randomUUID();
-      current = (
-        await api<{ note: ShiftNote }>("/api/notes", "POST", {
-          id: newId.current,
-        })
-      ).note;
-      setNote(current);
-    }
+    const current = note;
+    if (!current)
+      throw new Error("Choose an assigned shift before writing a note.");
     if (current.status === "complete") return current;
     if (JSON.stringify(fields) === JSON.stringify(current.fields)) {
       acceptSaved(current);
@@ -224,7 +217,7 @@ export default function Workspace({
     });
   }
   async function prepareVoiceDraft() {
-    if (!participantFor(fields.participant))
+    if (!note || !participantForNote(note))
       throw new Error("Choose a participant profile before starting.");
     if (mutationLock.current)
       throw new Error("Wait for the current save to finish.");
@@ -296,7 +289,6 @@ export default function Workspace({
       if (dirty && (note || hasContent(fields))) await persist();
       setNote(null);
       setFields(emptyFields());
-      newId.current = null;
       setShowIssues(false);
       setView("worker");
     });
@@ -308,6 +300,20 @@ export default function Workspace({
       acceptSaved(result.note);
       setView("worker");
       setShowIssues(false);
+    });
+  }
+  function selectShift(shift: ScheduledShift) {
+    return action("shift", async () => {
+      if (dirty && note) await persist();
+      const result = shift.noteId
+        ? await api<{ note: ShiftNote }>(`/api/notes/${shift.noteId}`)
+        : await api<{ note: ShiftNote }>("/api/notes", "POST", {
+            id: crypto.randomUUID(),
+            shiftId: shift.id,
+          });
+      acceptSaved(result.note);
+      setShowIssues(false);
+      setView("worker");
     });
   }
   function download(saved: ShiftNote | null = note) {
@@ -362,78 +368,64 @@ export default function Workspace({
         </div>
         <TabsList className="main-tabs">
           <TabsTrigger value="worker">
-            <Mic size={16} /> My shift
+            <Mic size={16} /> My shifts
           </TabsTrigger>
           <TabsTrigger value="history" disabled={voiceActive}>
             <ClipboardList size={16} /> My notes
           </TabsTrigger>
         </TabsList>
-        <div className="profile">
-          <ThemeToggle />
-          {user ? (
-            <>
-              <span className="avatar">{user.name[0].toUpperCase()}</span>
-              <span className="profile-name" title={user.name}>
-                {user.name}
-              </span>
-              <SignOutButton
-                disabled={voiceActive || Boolean(busy)}
-                beforeSignOut={saveBeforeSignOut}
-                onBusyChange={(signingOut) => {
-                  mutationLock.current = signingOut;
-                  setBusy(signingOut ? "signOut" : "");
-                  if (!signingOut) leavingAfterSave.current = false;
-                }}
-              />
-            </>
-          ) : (
+        {user ? (
+          <AccountMenu
+            name={user.name}
+            role="worker"
+            providerName={user.providerName}
+            onDetails={() => void openDetails()}
+            disabled={voiceActive || Boolean(busy)}
+            beforeSignOut={saveBeforeSignOut}
+            onBusyChange={(signingOut) => {
+              mutationLock.current = signingOut;
+              setBusy(signingOut ? "signOut" : "");
+              if (!signingOut) leavingAfterSave.current = false;
+            }}
+          />
+        ) : (
+          <div className="profile">
             <Link href="/?role=worker">
               Sign in <ArrowUpRight size={15} />
             </Link>
-          )}
-        </div>
+          </div>
+        )}
       </header>
       <main className="main-shell">
         <TabsContent value="worker">
-          <div className="page-heading">
-            <div>
-              <p className="eyebrow">
-                {note
-                  ? (note.providerName ?? "Unassigned provider")
-                  : (user?.providerName ?? "SHIFT RECORD")}
-              </p>
-              <button
-                type="button"
-                className="workspace-provider entry-text-button"
-                disabled={voiceActive || Boolean(busy)}
-                onClick={() => void openDetails()}
-              >
-                Your details
-              </button>
-              <h1>
-                {completed
-                  ? "One shift, all wrapped up."
-                  : "Let’s wrap up your shift."}
-              </h1>
-              <p>
-                {completed
-                  ? "Your confirmed record is saved and ready to review."
-                  : "Keep the details that matter, while they’re still fresh."}
-              </p>
-            </div>
-            <div className="heading-actions">
-              <span className="demo-label">Demo form · Temporary fields</span>
-              {note && (
+          {note && (
+            <div className="page-heading">
+              <div>
+                <p className="eyebrow">
+                  {note.providerName ?? "Unassigned provider"}
+                </p>
+                <h1>
+                  {completed
+                    ? "One shift, all wrapped up."
+                    : "Let’s wrap up your shift."}
+                </h1>
+                <p>
+                  {completed
+                    ? "Your confirmed record is saved and ready to review."
+                    : "Keep the details that matter, while they’re still fresh."}
+                </p>
+              </div>
+              <div className="heading-actions">
                 <Button
                   variant="outline"
                   disabled={Boolean(busy) || voiceActive}
                   onClick={startNew}
                 >
-                  <Plus size={16} /> New note
+                  <ArrowLeft size={16} /> Choose another shift
                 </Button>
-              )}
+              </div>
             </div>
-          </div>
+          )}
           {!user && (
             <div className="info-banner">
               <ShieldCheck size={18} />
@@ -477,373 +469,430 @@ export default function Workspace({
               <p>{notice}</p>
             </div>
           )}
-          <div className="editor-grid">
-            <aside className="conversation-card">
-              <div className="panel-heading">
-                <AudioLines size={20} />
-                <span>Your conversation</span>
-                <span className="quiet-badge">
-                  {voiceActive
-                    ? "Connected"
-                    : completed
-                      ? "Note complete"
-                      : "English"}
-                </span>
-              </div>
-              <VoicePanel
-                signedIn={Boolean(user)}
-                disabled={Boolean(busy)}
-                note={note}
-                prepareDraft={prepareVoiceDraft}
-                onSaved={acceptSaved}
-                onActive={setVoiceActive}
-              />
-              {completed && !voiceActive && (
-                <div className="voice-download">
-                  <Button className="voice-button" onClick={() => download()}>
-                    <Download size={18} />
-                    Download note
-                  </Button>
+          {!note ? (
+            <WorkerShifts
+              busy={Boolean(busy)}
+              onSelect={(shift) => void selectShift(shift)}
+            />
+          ) : (
+            <>
+              {note.shiftId && (
+                <div className="scheduled-note-details">
+                  <strong>{note.fields.participant} · Scheduled shift</strong>
+                  <p>
+                    Expected: {displayShiftTime(note.expectedStart ?? "")} —{" "}
+                    {displayShiftTime(note.expectedEnd ?? "")} · Melbourne
+                  </p>
+                  <p id="scheduled-participant-help">
+                    The participant is set by your manager. Record the actual
+                    start and end times below.
+                  </p>
                 </div>
               )}
-              <div className="coverage">
-                <div>
-                  <span>
-                    {completed ? "Record complete" : "Details covered"}
-                  </span>
-                  <strong>
-                    {validation.answered}
-                    <span> / {validation.total}</span>
-                  </strong>
-                </div>
-                <Progress
-                  value={Math.max(
-                    0,
-                    (validation.answered / validation.total) * 100,
-                  )}
-                  aria-label="Details covered"
-                  className="coverage-bar"
-                />
-                {!completed && validation.issues.length > 0 && (
-                  <p>
-                    {Array.from(
-                      new Set(
-                        validation.issues.map((issue) => labelFor(issue.field)),
-                      ),
-                    )
-                      .slice(0, 3)
-                      .join(" · ")}
-                    {validation.issues.length > 3 ? " …" : ""}
-                  </p>
-                )}
-                {!completed && validation.ready && (
-                  <p>
-                    All required details have an answer. Ready for your review.
-                  </p>
-                )}
-              </div>
-              <div className="conversation-footer">
-                <ShieldCheck size={17} />
-                <span>
-                  {completed
-                    ? "Confirmed by you. Review flags remain visible below."
-                    : "You review and confirm before a note is completed."}
-                </span>
-              </div>
-            </aside>
-            <section className="form-card" aria-label="Shift note form">
-              <div className="form-title">
-                <div>
-                  <h2>Shift note</h2>
-                  <p>
-                    {note
-                      ? `Updated ${formatDate(note.updatedAt)}`
-                      : "Start with what you remember."}
-                  </p>
-                </div>
-                <span className={`status-badge ${completed ? "complete" : ""}`}>
-                  {completed ? (
-                    <>
-                      <Check size={13} /> Complete
-                    </>
-                  ) : (
-                    "Draft"
-                  )}
-                </span>
-              </div>
-              {!completed && showIssues && validation.issues.length > 0 && (
-                <div
-                  className="error-banner error-summary"
-                  role="alert"
-                  tabIndex={-1}
-                  ref={errorSummary}
-                  aria-labelledby="error-summary-title"
-                >
-                  <AlertCircle size={18} aria-hidden="true" />
-                  <div>
-                    <p id="error-summary-title">
-                      <strong>
-                        {validation.issues.length === 1
-                          ? "1 detail still needs an answer"
-                          : `${validation.issues.length} details still need an answer`}
-                      </strong>
-                    </p>
-                    <ul>
-                      {validation.issues.map((issue) => (
-                        <li key={issue.field}>
-                          <a href={`#${issue.field}`}>
-                            {labelFor(issue.field)}
-                          </a>
-                          {" — "}
-                          {issue.message}
-                        </li>
-                      ))}
-                    </ul>
+              <div className="editor-grid">
+                <aside className="conversation-card">
+                  <div className="panel-heading">
+                    <AudioLines size={20} />
+                    <span>Your conversation</span>
+                    <span className="quiet-badge">
+                      {voiceActive
+                        ? "Connected"
+                        : completed
+                          ? "Note complete"
+                          : "English"}
+                    </span>
                   </div>
-                </div>
-              )}
-              {completed ? (
-                <div className="record-body">
-                  {definitions
-                    .filter(({ key }) => applicable(key, fields))
-                    .map(({ key, label }) => (
-                      <div className="record-field" key={key}>
-                        <h3>{label}</h3>
-                        <p>
-                          {note
-                            ? noteAnswer(note, key)
-                            : answerText(key, fields[key])}
-                        </p>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <>
-                  {[
-                    { id: 1, title: "The essentials" },
-                    { id: 2, title: "During the shift" },
-                    { id: 3, title: "Concerns & next steps" },
-                  ].map((section) => (
-                    <div className="form-section" key={section.id}>
-                      <h3>
-                        <span>0{section.id}</span>
-                        {section.title}
-                      </h3>
-                      {section.id === 1 && (
-                        <p className="section-help">
-                          Times are in Melbourne. Include both dates for
-                          overnight shifts.
-                        </p>
-                      )}
-                      <div
-                        className={section.id === 1 ? "essentials-fields" : ""}
+                  <VoicePanel
+                    signedIn={Boolean(user)}
+                    disabled={Boolean(busy)}
+                    note={note}
+                    prepareDraft={prepareVoiceDraft}
+                    onSaved={acceptSaved}
+                    onActive={setVoiceActive}
+                  />
+                  {completed && !voiceActive && (
+                    <div className="voice-download">
+                      <Button
+                        className="voice-button"
+                        onClick={() => download()}
                       >
-                        {definitions
-                          .filter(
-                            (field) =>
-                              field.section === section.id &&
-                              applicable(field.key, fields),
-                          )
-                          .map((field) => {
-                            const issue = showIssues
-                              ? validation.issues.find(
-                                  (item) => item.field === field.key,
-                                )
-                              : undefined;
-                            const options =
-                              field.key === "incidents"
-                                ? incidentOptions
-                                : followUpOptions;
-                            return (
-                              <div
-                                className={`field-wrap ${field.key === "participant" ? "full-width" : ""}`}
-                                key={field.key}
-                              >
-                                <label htmlFor={field.key}>{field.label}</label>
-                                {field.key === "participant" ? (
-                                  <Select
-                                    value={fields.participant}
-                                    onValueChange={(value) =>
-                                      update("participant", value)
-                                    }
-                                    disabled={Boolean(busy) || voiceActive}
-                                  >
-                                    <SelectTrigger
-                                      id="participant"
-                                      className="w-full"
-                                    >
-                                      <SelectValue placeholder="Choose a participant" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {participants.map((profile) => (
-                                        <SelectItem
-                                          key={profile.id}
-                                          value={profile.name}
-                                        >
-                                          {profile.name} · {profile.id}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                ) : field.type === "select" ? (
-                                  <Select
-                                    value={fields[field.key]}
-                                    onValueChange={(value) =>
-                                      update(field.key, value)
-                                    }
-                                    disabled={Boolean(busy) || voiceActive}
-                                  >
-                                    <SelectTrigger
-                                      id={field.key}
-                                      className="w-full"
-                                      aria-invalid={Boolean(issue)}
-                                      aria-describedby={
-                                        issue ? `${field.key}-error` : undefined
-                                      }
-                                    >
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {Object.entries(options).map(
-                                        ([value, label]) => (
-                                          <SelectItem key={value} value={value}>
-                                            {label}
-                                          </SelectItem>
-                                        ),
-                                      )}
-                                    </SelectContent>
-                                  </Select>
-                                ) : field.type === "textarea" ? (
-                                  <Textarea
-                                    id={field.key}
-                                    value={fields[field.key]}
-                                    maxLength={6000}
-                                    disabled={Boolean(busy) || voiceActive}
-                                    placeholder={
-                                      "placeholder" in field
-                                        ? String(field.placeholder)
-                                        : undefined
-                                    }
-                                    onChange={(e) =>
-                                      update(field.key, e.target.value)
-                                    }
-                                    aria-invalid={Boolean(issue)}
-                                    aria-describedby={
-                                      issue ? `${field.key}-error` : undefined
-                                    }
-                                  />
-                                ) : (
-                                  <Input
-                                    id={field.key}
-                                    type={field.type}
-                                    value={fields[field.key]}
-                                    maxLength={200}
-                                    disabled={Boolean(busy) || voiceActive}
-                                    placeholder={
-                                      "placeholder" in field
-                                        ? String(field.placeholder)
-                                        : undefined
-                                    }
-                                    onChange={(e) =>
-                                      update(field.key, e.target.value)
-                                    }
-                                    aria-invalid={Boolean(issue)}
-                                    aria-describedby={
-                                      issue ? `${field.key}-error` : undefined
-                                    }
-                                  />
-                                )}{" "}
-                                {issue && (
-                                  <p
-                                    className="field-error"
-                                    id={`${field.key}-error`}
-                                  >
-                                    {issue.message}
-                                  </p>
-                                )}
-                              </div>
-                            );
-                          })}
+                        <Download size={18} />
+                        Download note
+                      </Button>
+                    </div>
+                  )}
+                  <div className="coverage">
+                    <div>
+                      <span>
+                        {completed ? "Record complete" : "Details covered"}
+                      </span>
+                      <strong>
+                        {validation.answered}
+                        <span> / {validation.total}</span>
+                      </strong>
+                    </div>
+                    <Progress
+                      value={Math.max(
+                        0,
+                        (validation.answered / validation.total) * 100,
+                      )}
+                      aria-label="Details covered"
+                      className="coverage-bar"
+                    />
+                    {!completed && validation.issues.length > 0 && (
+                      <p>
+                        {Array.from(
+                          new Set(
+                            validation.issues.map((issue) =>
+                              labelFor(issue.field),
+                            ),
+                          ),
+                        )
+                          .slice(0, 3)
+                          .join(" · ")}
+                        {validation.issues.length > 3 ? " …" : ""}
+                      </p>
+                    )}
+                    {!completed && validation.ready && (
+                      <p>
+                        All required details have an answer. Ready for your
+                        review.
+                      </p>
+                    )}
+                  </div>
+                  <div className="conversation-footer">
+                    <ShieldCheck size={17} />
+                    <span>
+                      {completed
+                        ? "Confirmed by you. Review flags remain visible below."
+                        : "You review and confirm before a note is completed."}
+                    </span>
+                  </div>
+                </aside>
+                <section className="form-card" aria-label="Shift note form">
+                  <div className="form-title">
+                    <div>
+                      <h2>Shift note</h2>
+                      <p>
+                        {note
+                          ? `Updated ${formatDate(note.updatedAt)}`
+                          : "Start with what you remember."}
+                      </p>
+                    </div>
+                    <span
+                      className={`status-badge ${completed ? "complete" : ""}`}
+                    >
+                      {completed ? (
+                        <>
+                          <Check size={13} /> Complete
+                        </>
+                      ) : (
+                        "Draft"
+                      )}
+                    </span>
+                  </div>
+                  {!completed && showIssues && validation.issues.length > 0 && (
+                    <div
+                      className="error-banner error-summary"
+                      role="alert"
+                      tabIndex={-1}
+                      ref={errorSummary}
+                      aria-labelledby="error-summary-title"
+                    >
+                      <AlertCircle size={18} aria-hidden="true" />
+                      <div>
+                        <p id="error-summary-title">
+                          <strong>
+                            {validation.issues.length === 1
+                              ? "1 detail still needs an answer"
+                              : `${validation.issues.length} details still need an answer`}
+                          </strong>
+                        </p>
+                        <ul>
+                          {validation.issues.map((issue) => (
+                            <li key={issue.field}>
+                              <a href={`#${issue.field}`}>
+                                {labelFor(issue.field)}
+                              </a>
+                              {" — "}
+                              {issue.message}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     </div>
-                  ))}
-                </>
-              )}
-              <SafetyPanel
-                key={`${note?.id ?? "new"}:${note?.revision ?? 0}:${fields.participant}`}
-                note={note}
-                participant={fields.participant}
-                disabled={Boolean(busy) || voiceActive || completed || !user}
-                onSave={savePractice}
-              />
-              {validation.reviewReasons.length > 0 && (
-                <div className="review-flags">
-                  <h3>
-                    <AlertCircle size={16} /> For review
-                  </h3>
-                  <ul>
-                    {validation.reviewReasons.map((reason) => (
-                      <li key={reason}>{reason}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <div className="form-bottom">
-                <span aria-live="polite">
-                  {busy === "save"
-                    ? "Saving…"
-                    : completed
-                      ? `Confirmed ${formatDate(note.confirmedAt!)}`
-                      : dirty
-                        ? "Changes not saved"
-                        : note
-                          ? "Draft saved"
-                          : "No note saved yet"}
-                </span>
-                <div>
+                  )}
                   {completed ? (
-                    <Button
-                      variant="outline"
-                      disabled={voiceActive}
-                      onClick={() => setView("history")}
-                    >
-                      <ArrowLeft size={15} /> My notes
-                    </Button>
+                    <div className="record-body">
+                      {definitions
+                        .filter(({ key }) => applicable(key, fields))
+                        .map(({ key, label }) => (
+                          <div className="record-field" key={key}>
+                            <h3>{label}</h3>
+                            <p>
+                              {note
+                                ? noteAnswer(note, key)
+                                : answerText(key, fields[key])}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
                   ) : (
                     <>
-                      <Button
-                        variant="outline"
-                        disabled={
-                          Boolean(busy) ||
-                          voiceActive ||
-                          !user ||
-                          (!dirty && Boolean(note)) ||
-                          (!note && !hasContent(fields))
-                        }
-                        onClick={save}
-                      >
-                        {busy === "save" ? (
-                          <LoaderCircle className="spin" size={16} />
-                        ) : (
-                          <Save size={16} />
-                        )}{" "}
-                        Save draft
-                      </Button>
-                      <Button
-                        disabled={Boolean(busy) || voiceActive || !user}
-                        onClick={prepareReview}
-                      >
-                        {busy === "review" ? (
-                          <LoaderCircle className="spin" size={16} />
-                        ) : null}
-                        Review & confirm
-                      </Button>
+                      {[
+                        { id: 1, title: "The essentials" },
+                        { id: 2, title: "During the shift" },
+                        { id: 3, title: "Concerns & next steps" },
+                      ].map((section) => (
+                        <div className="form-section" key={section.id}>
+                          <h3>
+                            <span>0{section.id}</span>
+                            {section.title}
+                          </h3>
+                          {section.id === 1 && (
+                            <p className="section-help">
+                              Times are in Melbourne. Include both dates for
+                              overnight shifts.
+                            </p>
+                          )}
+                          <div
+                            className={
+                              section.id === 1 ? "essentials-fields" : ""
+                            }
+                          >
+                            {definitions
+                              .filter(
+                                (field) =>
+                                  field.section === section.id &&
+                                  applicable(field.key, fields),
+                              )
+                              .map((field) => {
+                                const issue = showIssues
+                                  ? validation.issues.find(
+                                      (item) => item.field === field.key,
+                                    )
+                                  : undefined;
+                                const options =
+                                  field.key === "incidents"
+                                    ? incidentOptions
+                                    : followUpOptions;
+                                return (
+                                  <div
+                                    className={`field-wrap ${field.key === "participant" ? "full-width" : ""}`}
+                                    key={field.key}
+                                  >
+                                    <label htmlFor={field.key}>
+                                      {note.shiftId &&
+                                      (field.key === "shiftStart" ||
+                                        field.key === "shiftEnd")
+                                        ? `Actual ${field.label.toLowerCase()}`
+                                        : field.label}
+                                    </label>
+                                    {field.key === "participant" &&
+                                    note.shiftId ? (
+                                      <Input
+                                        id="participant"
+                                        value={fields.participant}
+                                        readOnly
+                                        aria-describedby="scheduled-participant-help"
+                                      />
+                                    ) : field.key === "participant" ? (
+                                      <Select
+                                        value={fields.participant}
+                                        onValueChange={(value) =>
+                                          update("participant", value)
+                                        }
+                                        disabled={Boolean(busy) || voiceActive}
+                                      >
+                                        <SelectTrigger
+                                          id="participant"
+                                          className="w-full"
+                                        >
+                                          <SelectValue placeholder="Choose a participant" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {participants.map((profile) => (
+                                            <SelectItem
+                                              key={profile.id}
+                                              value={profile.name}
+                                            >
+                                              {profile.name} · {profile.id}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    ) : field.type === "select" ? (
+                                      <Select
+                                        value={fields[field.key]}
+                                        onValueChange={(value) =>
+                                          update(field.key, value)
+                                        }
+                                        disabled={Boolean(busy) || voiceActive}
+                                      >
+                                        <SelectTrigger
+                                          id={field.key}
+                                          className="w-full"
+                                          aria-invalid={Boolean(issue)}
+                                          aria-describedby={
+                                            issue
+                                              ? `${field.key}-error`
+                                              : undefined
+                                          }
+                                        >
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {Object.entries(options).map(
+                                            ([value, label]) => (
+                                              <SelectItem
+                                                key={value}
+                                                value={value}
+                                              >
+                                                {label}
+                                              </SelectItem>
+                                            ),
+                                          )}
+                                        </SelectContent>
+                                      </Select>
+                                    ) : field.type === "textarea" ? (
+                                      <Textarea
+                                        id={field.key}
+                                        value={fields[field.key]}
+                                        maxLength={6000}
+                                        disabled={Boolean(busy) || voiceActive}
+                                        placeholder={
+                                          "placeholder" in field
+                                            ? String(field.placeholder)
+                                            : undefined
+                                        }
+                                        onChange={(e) =>
+                                          update(field.key, e.target.value)
+                                        }
+                                        aria-invalid={Boolean(issue)}
+                                        aria-describedby={
+                                          issue
+                                            ? `${field.key}-error`
+                                            : undefined
+                                        }
+                                      />
+                                    ) : (
+                                      <Input
+                                        id={field.key}
+                                        type={field.type}
+                                        value={fields[field.key]}
+                                        maxLength={200}
+                                        disabled={Boolean(busy) || voiceActive}
+                                        placeholder={
+                                          "placeholder" in field
+                                            ? String(field.placeholder)
+                                            : undefined
+                                        }
+                                        onChange={(e) =>
+                                          update(field.key, e.target.value)
+                                        }
+                                        aria-invalid={Boolean(issue)}
+                                        aria-describedby={
+                                          issue
+                                            ? `${field.key}-error`
+                                            : undefined
+                                        }
+                                      />
+                                    )}{" "}
+                                    {issue && (
+                                      <p
+                                        className="field-error"
+                                        id={`${field.key}-error`}
+                                      >
+                                        {issue.message}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      ))}
                     </>
                   )}
-                </div>
+                  <SafetyPanel
+                    key={`${note?.id ?? "new"}:${note?.revision ?? 0}:${fields.participant}`}
+                    note={note}
+                    participant={fields.participant}
+                    disabled={
+                      Boolean(busy) || voiceActive || completed || !user
+                    }
+                    onSave={savePractice}
+                  />
+                  {validation.reviewReasons.length > 0 && (
+                    <div className="review-flags">
+                      <h3>
+                        <AlertCircle size={16} /> For review
+                      </h3>
+                      <ul>
+                        {validation.reviewReasons.map((reason) => (
+                          <li key={reason}>{reason}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div className="form-bottom">
+                    <span aria-live="polite">
+                      {busy === "save"
+                        ? "Saving…"
+                        : completed
+                          ? `Confirmed ${formatDate(note.confirmedAt!)}`
+                          : dirty
+                            ? "Changes not saved"
+                            : note
+                              ? "Draft saved"
+                              : "No note saved yet"}
+                    </span>
+                    <div>
+                      {completed ? (
+                        <Button
+                          variant="outline"
+                          disabled={voiceActive}
+                          onClick={() => setView("history")}
+                        >
+                          <ArrowLeft size={15} /> My notes
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            variant="outline"
+                            disabled={
+                              Boolean(busy) ||
+                              voiceActive ||
+                              !user ||
+                              (!dirty && Boolean(note)) ||
+                              (!note && !hasContent(fields))
+                            }
+                            onClick={save}
+                          >
+                            {busy === "save" ? (
+                              <LoaderCircle className="spin" size={16} />
+                            ) : (
+                              <Save size={16} />
+                            )}{" "}
+                            Save draft
+                          </Button>
+                          <Button
+                            disabled={Boolean(busy) || voiceActive || !user}
+                            onClick={prepareReview}
+                          >
+                            {busy === "review" ? (
+                              <LoaderCircle className="spin" size={16} />
+                            ) : null}
+                            Review & confirm
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </section>
               </div>
-            </section>
-          </div>
+            </>
+          )}
         </TabsContent>
         <TabsContent value="history">
           <div className="page-heading">
@@ -853,7 +902,7 @@ export default function Workspace({
               <p>Saved records and anything that needs a closer look.</p>
             </div>
             <Button disabled={Boolean(busy) || voiceActive} onClick={startNew}>
-              <Plus size={17} /> New shift note
+              <Plus size={17} /> Choose a shift
             </Button>
           </div>
           <div className="list-toolbar">

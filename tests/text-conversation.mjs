@@ -1,7 +1,7 @@
 // Optional live test: runs one real text conversation using fictional details.
 // Requires the local preview and a configured ElevenLabs key; uses Agent credits.
 import assert from "node:assert/strict";
-import { loadTestSession } from "./session-fixture.mjs";
+import { loadAssignedTestShift, loadTestSession } from "./session-fixture.mjs";
 import { randomUUID } from "node:crypto";
 import { Conversation } from "@elevenlabs/client";
 import {
@@ -13,6 +13,10 @@ import {
 import { hasConfirmationPrompt } from "../lib/voice-state.ts";
 const origin = process.env.LEGALMATE_TEST_ORIGIN || "http://localhost:5173";
 const cookie = await loadTestSession(origin);
+const shift = await loadAssignedTestShift(origin, cookie, {
+  environment: "LEGALMATE_TEST_TEXT_SHIFT_ID",
+  participantName: "Sarah Doyle",
+});
 async function api(path, body, method = body === undefined ? "GET" : "POST") {
   const response = await fetch(origin + path, {
     method,
@@ -27,16 +31,10 @@ async function api(path, body, method = body === undefined ? "GET" : "POST") {
   if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
 }
-let note = (await api("/api/notes", { id: randomUUID() })).note;
+let note = (await api("/api/notes", { id: randomUUID(), shiftId: shift.id }))
+  .note;
 console.log(JSON.stringify({ testNoteId: note.id }));
-// Sessions require one of the fictional profiles to be selected before starting.
-note = (
-  await api(
-    `/api/notes/${note.id}`,
-    { revision: note.revision, fields: { participant: "Sarah Doyle" } },
-    "PATCH",
-  )
-).note;
+assert.equal(note.fields.participant, "Sarah Doyle");
 const session = await api("/api/voice/sessions", {
   noteId: note.id,
   mode: "text",

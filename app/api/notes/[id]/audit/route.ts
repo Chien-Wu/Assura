@@ -43,9 +43,10 @@ export async function GET(
       draftV0CreatedAt: snapshot?.created_at ?? null,
       retention: {
         minimumUntil: note.retentionUntil,
-        dateOfBirthKnown: false,
-        extendedRetention:
-          "Participant date of birth not supplied; longer retention applicability must be reviewed. No deletion endpoint is provided.",
+        dateOfBirthKnown: Boolean(note.participantSnapshot?.dateOfBirth),
+        extendedRetention: note.participantSnapshot?.dateOfBirth
+          ? "The recorded participant profile includes a date of birth. Longer retention applicability must be reviewed. No deletion endpoint is provided."
+          : "Participant date of birth not supplied; longer retention applicability must be reviewed. No deletion endpoint is provided.",
       },
     });
   } catch (error) {

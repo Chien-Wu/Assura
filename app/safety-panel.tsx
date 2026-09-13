@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { emptyRP, type RestrictivePractice } from "@/lib/safety";
-import { participantFor } from "@/lib/participants";
+import { participantFor, participantForNote } from "@/lib/participants";
 import { definitions, type ShiftNote } from "@/lib/shift-form";
 export default function SafetyPanel({
   note,
@@ -27,7 +27,7 @@ export default function SafetyPanel({
   const [rp, setRP] = useState<RestrictivePractice>(
     note?.safety?.restrictivePractice ?? emptyRP(),
   );
-  const profile = participantFor(participant);
+  const profile = note ? participantForNote(note) : participantFor(participant);
   const update = (key: keyof RestrictivePractice, value: string) =>
     setRP((old) => ({ ...old, [key]: value }));
   const choices: Partial<
@@ -85,7 +85,10 @@ export default function SafetyPanel({
       {profile && (
         <details className="profile-summary">
           <summary>
-            {profile.name} · Fictional profile {profile.id}
+            {profile.name} ·{" "}
+            {note?.shiftId
+              ? "Recorded participant profile"
+              : `Fictional profile ${profile.id}`}
           </summary>
           <p>
             {profile.setting} · {profile.communication}
@@ -103,7 +106,9 @@ export default function SafetyPanel({
           <p>
             <strong>Medication:</strong>{" "}
             {profile.medications.map((m) => m.description).join("; ") ||
-              "None behaviour-related recorded"}
+              (note?.shiftId
+                ? "Not provided"
+                : "None behaviour-related recorded")}
           </p>
           <p>
             <strong>Goals:</strong> {profile.goals.join("; ")}
@@ -125,8 +130,9 @@ export default function SafetyPanel({
             </p>
           ))}
           <p className="section-help">
-            Demo profiles and question bank; clinical sign-off is required
-            before real use. Birth dates are not supplied.
+            {note?.shiftId
+              ? "Profile recorded when this note was started. Describe what you observed during this shift."
+              : "Demo profiles and question bank; clinical sign-off is required before real use. Birth dates are not supplied."}
           </p>
         </details>
       )}

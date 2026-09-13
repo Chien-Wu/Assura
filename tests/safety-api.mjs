@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { loadTestSession } from "./session-fixture.mjs";
+import { loadAssignedTestShift, loadTestSession } from "./session-fixture.mjs";
 import { randomUUID } from "node:crypto";
 const origin = process.env.LEGALMATE_TEST_ORIGIN || "http://localhost:5173";
 let cookie = "",
@@ -28,14 +28,18 @@ async function api(
   return d;
 }
 await api("/api/management", undefined, 401);
-const session = await loadTestSession(origin, {
+const testSession = await loadTestSession(origin, {
   manager: true,
   withProfile: true,
 });
-cookie = session.cookie;
-providerId = session.profile.providerId;
+cookie = testSession.cookie;
+providerId = testSession.profile.providerId;
+const shift = await loadAssignedTestShift(origin, cookie, {
+  environment: "LEGALMATE_TEST_SAFETY_SHIFT_ID",
+  participantName: "Minh Pham",
+});
 const id = randomUUID();
-await api("/api/notes", { id }, 201);
+await api("/api/notes", { id, shiftId: shift.id }, 201);
 await api(
   `/api/notes/${id}`,
   {

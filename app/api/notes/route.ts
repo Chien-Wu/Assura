@@ -25,8 +25,8 @@ export async function POST(request: Request) {
         note: await createNote(
           body.id,
           user.userId,
-          worker.fullName,
           worker.providerId,
+          body.shiftId,
         ),
       },
       201,

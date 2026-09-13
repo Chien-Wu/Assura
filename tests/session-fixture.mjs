@@ -44,3 +44,40 @@ export async function loadTestSession(
     );
   return withProfile ? { cookie, profile: onboarding.profile } : cookie;
 }
+
+// Optional HTTP tests consume an explicitly prepared, unused assignment. This
+// helper only reads; it never creates participants, shifts or manager grants.
+export async function loadAssignedTestShift(
+  origin,
+  cookie,
+  { environment, participantName },
+) {
+  const shiftId =
+    process.env[environment] || process.env.LEGALMATE_TEST_SHIFT_ID;
+  if (!shiftId)
+    throw new Error(
+      `Set ${environment} to an unused fictional shift assigned to this worker (LEGALMATE_TEST_SHIFT_ID also works for a single test). Have a test provider manager prepare the ${participantName} profile and assignment first.`,
+    );
+  const response = await fetch(`${origin}/api/shifts`, {
+    headers: { Cookie: cookie },
+  });
+  if (!response.ok)
+    throw new Error(
+      "Cannot read assigned test shifts. Check the signed-in worker session and completed onboarding.",
+    );
+  const { shifts } = await response.json();
+  const shift = shifts?.find((item) => item.id === shiftId);
+  if (!shift)
+    throw new Error(
+      `${environment} does not identify a shift assigned to this signed-in worker. Prepare a fresh assignment through the test provider manager.`,
+    );
+  if (shift.participantName !== participantName)
+    throw new Error(
+      `${environment} must use the fictional ${participantName} profile matching the test sample, including its clinical and behaviour-plan details.`,
+    );
+  if (shift.noteId)
+    throw new Error(
+      `${environment} already has a note. Prepare a new unused test shift; these tests must not edit an existing record.`,
+    );
+  return shift;
+}

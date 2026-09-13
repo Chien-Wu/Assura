@@ -33,7 +33,8 @@ The first manager signs in with the provisioned email address. Once that email i
 - Managers see their provider's notes, risk queue, monthly summary and preserved evidence, and can append management assessments. They cannot change workers' observations, start their conversations or confirm their notes.
 - For people managing more than one provider, management requests select `?providerId=...`; otherwise the first managed provider is selected. Every request checks the authenticated person's current grant.
 - Original note ownership and append-only transcripts, drafts and changes are preserved. Legacy ChatGPT identities are not automatically merged into new accounts by matching email, and legacy notes are not automatically shared with a provider.
-- The four participant profiles remain fictional demonstration data. Provider-specific participant directories and care-plan access are not part of this onboarding change.
+- Managers maintain provider-specific participant profiles and schedule one participant with one active worker. Workers see their assigned shifts and receive the selected participant's profile when opening a note. The original fictional profiles are retained only for legacy notes and tests.
+- Expected start/end times belong to the schedule; workers record actual times separately. One note is allowed per shift. A note preserves its participant profile snapshot, shift link and planned times even after a participant profile is edited.
 
 ## API contracts
 
@@ -41,3 +42,9 @@ The first manager signs in with the provisioned email address. Once that email i
 - `GET /api/onboarding` requires verified sign-in and returns `{ user, profile: { fullName, providerId } | null, providers, managedProviders }`.
 - `POST /api/onboarding` accepts `{ fullName, providerId }`, immediately saves the worker profile and affiliation, and returns `{ ok: true }`.
 - `GET /api/management?providerId=...` returns that authorised provider's board. Posting a management assessment accepts the same provider query parameter.
+- `GET /api/participants?providerId=...` lists the manager's provider participants; `POST` accepts `{ profile: { name, ... } }`, with optional care context. `PATCH /api/participants/:id?providerId=...` updates that profile. Workers cannot browse this directory.
+- `GET /api/provider-workers?providerId=...` lists active workers whose current affiliation matches the manager's provider.
+- `GET /api/shifts?providerId=...` lists the manager's schedule. `POST` accepts `{ participantId, workerId, expectedStart, expectedEnd, timezone: "Australia/Melbourne" }`. Times use `YYYY-MM-DDTHH:mm`; overnight shifts use the next date for the end.
+- `GET /api/shifts` lists only the authenticated worker's assignments at their current provider, including note status. `POST /api/notes` requires `{ id, shiftId }`; repeated starts for the same shift return its existing note.
+
+Apply the new `0005_scheduled_shifts.sql` migration after backing up an existing database. It preserves all historical notes and does not automatically create patient records or assignments from the old demo directory. The first version supports creating schedules; rescheduling, cancellation and recurring shifts are not implemented.

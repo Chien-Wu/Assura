@@ -6,8 +6,8 @@ An English web app for disability support workers to capture a shift in one conv
 
 - `/` — mobile-first Service provider / Support worker selection, expanding Google sign-in and the optional fixed Email/password test-account form in place.
 - `/onboarding` — workers confirm their name and select an existing service provider; no manager invitation or approval is required.
-- `/worker` — select a fictional participant, type or speak through the shift, edit a draft, review and confirm, and export the note.
-- `/manager` — review captured candidates, inspect transcripts and changes, record supervisor assessments and awareness times, and prepare restrictive-practice reporting follow-up.
+- `/worker` — choose an assigned shift, type or speak through the shift, edit a draft, review and confirm, and export the note.
+- `/manager` — set up participants, schedule a participant and worker with expected start/end times, and review notes, alerts and evidence.
 
 Text test mode is the default. Voice remains available through the same ElevenLabs Agent and form tools. Workers access their own notes; provisioned managers can review their provider's notes and evidence. Providers and their first manager accounts are provisioned by the LegalMate team, with no public organisation sign-up. Each note retains the provider it was created for when a worker changes affiliation.
 
@@ -27,21 +27,23 @@ Configure Google sign-in using [authentication setup](docs/authentication.md), t
 
 Set `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` in `.env.local` to enable text/voice interviews. Authenticated workers can draft manually without ElevenLabs credentials. All keys stay on the server. See [Agent configuration](docs/elevenlabs-agent.md).
 
-For a **fresh local database only**, apply all five SQL migrations in order:
+For a **fresh local database only**, apply all six SQL migrations in order:
 
 ```sh
-for migration in drizzle/0000_confused_green_goblin.sql drizzle/0001_eminent_lilandra.sql drizzle/0002_amazing_spectrum.sql drizzle/0003_auth.sql drizzle/0004_organisations.sql; do
+for migration in drizzle/0000_confused_green_goblin.sql drizzle/0001_eminent_lilandra.sql drizzle/0002_amazing_spectrum.sql drizzle/0003_auth.sql drizzle/0004_organisations.sql drizzle/0005_scheduled_shifts.sql; do
   node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file "$migration" || break
 done
 ```
 
 Existing local databases should receive only unapplied migrations, after a backup. Do not edit or rerun an applied migration. `npm run db:generate` creates new migrations after schema changes. Existing legacy notes stay with their historical owner IDs and remain unassigned to any provider; a matching email address does not automatically claim them.
 
+Migration `0005_scheduled_shifts.sql` adds provider-owned participants, scheduled shifts and immutable note links without changing existing notes. Managers first add a participant under **Participants**, then use **Schedule shift** to choose that participant, an active worker and expected Melbourne start/end times. Workers become available after completing onboarding for that provider. Workers open their assigned shifts under **My shifts**; each shift has one note, and retries resume it. Actual note times are entered separately from the expected schedule. Participant details are snapshotted when a note starts so later profile edits do not rewrite its context.
+
 ```sh
 npm run dev
 ```
 
-Open `http://localhost:5173/`. Google sign-in uses the same application authentication locally and on the standalone VM. An optional Email/password form accepts only the two operator-provisioned shared TestProvider accounts; it does not enable general email registration. Configure its password through the private `LEGALMATE_TEST_PASSWORD` server setting. Email-code sign-in remains deferred. Dummy ChatGPT and HTTP Basic sign-in are retired. Set `LEGALMATE_CONTACT_URL` to an HTTPS or mailto link for new provider enquiries; when unset, the entry page only directs visitors to contact the LegalMate team.
+Open `http://localhost:5173/`. Google sign-in uses the same application authentication locally and on the standalone VM. An optional Email/password form accepts only the two operator-provisioned shared TestProvider accounts; it does not enable general email registration. Configure its password through the private `LEGALMATE_TEST_PASSWORD` server setting. When enabled, the role's email and shared password are intentionally prefilled for all signed-out visitors to test the app. Email-code sign-in remains deferred. Dummy ChatGPT and HTTP Basic sign-in are retired. Set `LEGALMATE_CONTACT_URL` to an HTTPS or mailto link for new provider enquiries; when unset, the entry page only directs visitors to contact the LegalMate team.
 
 ## Checks
 

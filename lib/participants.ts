@@ -157,3 +157,16 @@ export const participantFor = (value: string) =>
   participants.find(
     (p) => p.id === value || p.name.toLowerCase() === value.toLowerCase(),
   );
+
+// Scheduled notes retain the profile used when the note was created. Only
+// legacy notes use the original demonstration directory.
+export function participantForNote(note: {
+  fields: { participant: string };
+  shiftId?: string | null;
+  participantSnapshot?: Participant | null;
+}) {
+  return (
+    note.participantSnapshot ??
+    (note.shiftId ? undefined : participantFor(note.fields.participant))
+  );
+}

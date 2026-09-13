@@ -1,20 +1,24 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
-export default function SignOutButton({
-  disabled = false,
-  beforeSignOut,
-  onBusyChange,
-}: {
+export type SignOutOptions = {
   disabled?: boolean;
   beforeSignOut?: () => Promise<void>;
   onBusyChange?: (busy: boolean) => void;
-}) {
+};
+
+export function useSignOut({
+  disabled = false,
+  beforeSignOut,
+  onBusyChange,
+}: SignOutOptions) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const pending = useRef(false);
   async function signOut() {
-    if (disabled || busy) return;
+    if (disabled || pending.current) return;
+    pending.current = true;
     setBusy(true);
     onBusyChange?.(true);
     setError("");
@@ -31,16 +35,22 @@ export default function SignOutButton({
           ? cause.message
           : "Couldn’t sign out. Please try again.",
       );
+      pending.current = false;
       setBusy(false);
       onBusyChange?.(false);
     }
   }
+  return { busy, error, signOut };
+}
+
+export default function SignOutButton(options: SignOutOptions) {
+  const { busy, error, signOut } = useSignOut(options);
   return (
     <span className="sign-out-control">
       <button
         type="button"
         className="entry-text-button"
-        disabled={disabled || busy}
+        disabled={options.disabled || busy}
         onClick={() => void signOut()}
       >
         {busy ? "Signing out…" : "Sign out"}
