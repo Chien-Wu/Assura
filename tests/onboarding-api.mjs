@@ -1,12 +1,13 @@
 // Built-Worker integration tests: isolated D1 and real signed session fixtures.
 // No application dev server, personal data, or external service is used.
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { Miniflare, Log, LogLevel } from "miniflare";
 import { testAccountStatements } from "../scripts/provision-test-accounts.mjs";
 import { TEST_ACCOUNTS, TEST_PROVIDER_ID } from "../lib/test-accounts.ts";
+import { applyMigrations } from "./migration-fixture.mjs";
 import {
   createAuthFixture,
   signInFixture,
@@ -52,20 +53,7 @@ const fixtures = [];
 try {
   let db = await mf.getD1Database("DB");
   await request("/api/health", { expected: 503 });
-  const migrationRoot = new URL("../drizzle/", import.meta.url);
-  for (const migration of (await readdir(migrationRoot))
-    .filter((name) => name.endsWith(".sql"))
-    .sort()) {
-    const sql = await readFile(new URL(migration, migrationRoot), "utf8");
-    // D1 exec splits by line. Our migrations contain CREATE/ALTER statements
-    // and trigger bodies; keep each complete trigger intact when batching.
-    const statements = sql
-      .replace(/--[^\n]*/g, "")
-      .split(/;\s*(?=(?:CREATE|ALTER)\b)/i)
-      .map((statement) => statement.trim())
-      .filter(Boolean);
-    await db.batch(statements.map((statement) => db.prepare(statement)));
-  }
+  await applyMigrations(db);
   async function insert(table, row) {
     const columns = Object.keys(row);
     await db

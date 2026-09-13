@@ -24,6 +24,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { noteText, type ShiftNote } from "@/lib/shift-form";
+import InterviewReferences from "./interview-references";
 type Incident = {
   id: string;
   noteId: string;
@@ -452,6 +453,7 @@ export default function ManagementBoard({
                     ? noteText(audit.draftV0)
                     : "Not prepared for review yet. The captured transcript is already retained."}
                 </pre>
+                <InterviewReferences note={audit.note} />
                 <h3>Append-only transcript</h3>
                 {audit.transcript.length ? (
                   audit.transcript.map((turn) => (

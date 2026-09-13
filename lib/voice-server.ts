@@ -36,14 +36,18 @@ export async function getVoiceSession(
     );
   return row;
 }
-export async function saveVoiceState(row: VoiceSessionRow, state: VoiceState) {
-  const result = await database()
+export async function saveVoiceState(
+  row: VoiceSessionRow,
+  state: VoiceState,
+  extraStatements: D1PreparedStatement[] = [],
+) {
+  const statement = database()
     .prepare(
       "UPDATE voice_sessions SET state_json=?,revision=revision+1 WHERE id=? AND owner_id=? AND revision=?",
     )
-    .bind(JSON.stringify(state), row.id, row.owner_id, row.revision)
-    .run();
-  if (!result.meta.changes)
+    .bind(JSON.stringify(state), row.id, row.owner_id, row.revision);
+  const result = await database().batch([statement, ...extraStatements]);
+  if (!result[0].meta.changes)
     throw new RequestError(
       "The voice session changed. Please end the call and resume the saved draft.",
       409,

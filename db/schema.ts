@@ -11,6 +11,8 @@ import { scheduledShifts } from "./shift-schema";
 export * from "./organisation-schema";
 export * from "./roster-schema";
 export * from "./shift-schema";
+export * from "./knowledge-schema";
+export * from "./interview-schema";
 export {
   authUser,
   authSession,

@@ -20,6 +20,10 @@ const requiredTables = [
   "provider_manager_grants",
   "provider_participants",
   "scheduled_shifts",
+  "knowledge_fts",
+  "retrieval_runs",
+  "interview_questions",
+  "interview_question_events",
 ];
 
 // Public readiness only: never accepts identity headers, creates a session,

@@ -19,7 +19,8 @@
     "format": "prettier --write app lib db tests docs README.md package.json tsconfig.json eslint.config.mjs",
     "format:check": "prettier --check app lib db tests docs README.md package.json tsconfig.json eslint.config.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
-    "test:onboarding": "node --experimental-strip-types tests/onboarding-api.mjs"
+    "test:onboarding": "node --experimental-strip-types tests/onboarding-api.mjs",
+    "test:knowledge": "node --experimental-strip-types tests/knowledge-api.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

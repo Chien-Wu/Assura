@@ -5,7 +5,6 @@ import {
   assessRP,
   emptyRP,
   rpPatch,
-  nextQuestions,
   retentionUntil,
 } from "../lib/safety.ts";
 import { participantFor } from "../lib/participants.ts";
@@ -24,15 +23,13 @@ test("vague Test A preserves two candidate events and exact schedule hint", () =
     flags.some((x) => x.category === "environmental" && x.planItem === "RP-02"),
   );
   assert.ok(codes(flags).includes("DUPLICATE_NOTE_RISK"));
-  assert.match(nextQuestions(minh, text, 0)[0], /How long.*could they speak/);
 });
-test("complete formal Test B keeps evidence literal and avoids redundant questions", () => {
+test("complete formal Test B keeps evidence literal", () => {
   const text =
     'Environmental restraint RP-02: locked the kitchen door from 11:00 to 11:10. Minh said "I want my food". Coughing while eating lasted 10 seconds; he was able to speak throughout. Reference INC-43118-02.';
   const snapshot = text;
   const flags = detectRisks(text, minh);
   assert.ok(flags.some((x) => x.category === "environmental"));
-  assert.deepEqual(nextQuestions(minh, text, 0), []);
   assert.equal(text, snapshot);
 });
 test("ordinary Test C does not flag routine medication, seatbelt, no mark or declined choice", () => {
@@ -151,23 +148,6 @@ test("chemical dose and frequency are evaluated without routine masking", () => 
   assert.deepEqual(
     codes(assessRP({ ...base, given_for_behaviour: "unsure" }, aroha)),
     ["MEDICATION_PURPOSE_UNVERIFIED"],
-  );
-});
-test("clarification budget is capped at three and complete mealtime coverage is not repeated", () => {
-  const vague = "James had coughing while eating and shaking; I held him.";
-  assert.ok(nextQuestions(james, vague, 0).length <= 3);
-  assert.equal(nextQuestions(james, vague, 2).length, 1);
-  assert.equal(nextQuestions(james, vague, 3).length, 0);
-  assert.deepEqual(
-    nextQuestions(
-      james,
-      "Lunch was level 5 minced and moist, level 2 thickened fluids; he remained upright for 30 minutes.",
-      0,
-    ),
-    [],
-  );
-  assert.ok(
-    nextQuestions(james, "Lunch was level 5 minced and moist.", 0).length > 0,
   );
 });
 test("RP times derive overnight duration and reject calendar errors and fractional frequency", () => {

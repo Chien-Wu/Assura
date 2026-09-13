@@ -6,6 +6,7 @@ import {
   json,
   toNote,
 } from "@/lib/notes-server";
+import { interviewAudit } from "@/lib/interview-server";
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },
@@ -39,6 +40,7 @@ export async function GET(
       note,
       transcript: transcript.results,
       changes: changes.results,
+      interviewQuestions: await interviewAudit(id, row.owner_id, user.userId),
       draftV0: snapshot ? JSON.parse(snapshot.snapshot_json) : null,
       draftV0CreatedAt: snapshot?.created_at ?? null,
       retention: {

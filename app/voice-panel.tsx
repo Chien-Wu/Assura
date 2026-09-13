@@ -26,6 +26,14 @@ import {
   type VoiceEvent,
   type ConversationMode,
 } from "@/lib/voice-state";
+import {
+  agentFormResult,
+  agentKnowledgeResult,
+  agentNote,
+  knowledgeFailure,
+  parseAgentUpdate,
+  toolSnapshotMatches,
+} from "@/lib/agent-tools";
 
 type Props = {
   signedIn: boolean;
@@ -40,6 +48,8 @@ type Session = {
   conversationId: string;
   note: ShiftNote;
   sequence: number;
+  workerSequence: number;
+  interruptionGeneration: number;
   generation: number;
 };
 type Pending = {
@@ -51,6 +61,7 @@ type Pending = {
   confirmedSequence: number | null;
 };
 type ApiReview = { note: ShiftNote; confirmationId: string; summary: string };
+type FormResult = { note: ShiftNote } & Record<string, unknown>;
 async function request<T>(
   path: string,
   body?: unknown,
@@ -271,6 +282,7 @@ function VoiceControls({
   function invalidate() {
     const session = active.current;
     if (!session || closing.current) return;
+    session.interruptionGeneration++;
     clearPending();
     const event: VoiceEvent = {
       sequence: ++session.sequence,
@@ -336,6 +348,7 @@ function VoiceControls({
       text: message,
       eventId,
     };
+    if (role === "user") session.workerSequence = event.sequence;
     history.current = [...history.current, event];
     setMessages(history.current);
     const review = pending.current;
@@ -352,9 +365,10 @@ function VoiceControls({
       const result = await sessionRequest<{
         note?: ShiftNote;
         remainingClarifications?: number;
-        nextObservationalQuestions?: string[];
         riskFlags?: unknown;
         escalation?: unknown;
+        coverage?: unknown;
+        questions?: unknown;
       }>(session, { action: "event", event });
       if (result.note) saved(session, result.note);
       if (active.current === session && !closing.current)
@@ -362,9 +376,10 @@ function VoiceControls({
           JSON.stringify({
             captureSafety: {
               remainingClarifications: result.remainingClarifications,
-              nextObservationalQuestions: result.nextObservationalQuestions,
               riskFlags: result.riskFlags,
               escalation: result.escalation,
+              coverage: result.coverage,
+              questions: result.questions,
             },
           }),
         );
@@ -414,62 +429,120 @@ function VoiceControls({
   ): Promise<string> {
     const session = active.current;
     if (!session || closing.current)
-      throw new Error(
-        "No active LegalMate session. This conversation cannot save a form.",
+      return JSON.stringify(
+        knowledgeFailure(new Error("This conversation has ended."), "stale"),
       );
-    return enqueue(session, async () => {
+    const isCurrent = () =>
+      active.current === session &&
+      !closing.current &&
+      session.generation === generation.current;
+    const snapshot = () => ({
+      revision: session.note.revision,
+      workerSequence: session.workerSequence,
+      interruptionGeneration: session.interruptionGeneration,
+    });
+    const stale = () =>
+      JSON.stringify(
+        knowledgeFailure(
+          new Error(
+            "The conversation or saved note changed. Refresh context before using historical evidence.",
+          ),
+          "stale",
+        ),
+      );
+
+    if (name === "get_form_context") {
       try {
-        if (name === "get_form_context") {
-          const result = await request<{ note: ShiftNote }>(
+        const result = await enqueue(session, async () => {
+          const value = await request<FormResult>(
             `/api/notes/${session.note.id}`,
           );
-          saved(session, result.note);
-          return JSON.stringify({
-            ok: true,
-            ...result,
-            definitions,
-            incidentOptions,
-            followUpOptions,
-            validation: checkForm(result.note.fields),
-            currentLocalTime: new Date().toLocaleString("en-AU", {
-              timeZone: "Australia/Melbourne",
-            }),
-          });
+          if (isCurrent()) saved(session, value.note);
+          return value;
+        });
+        if (!isCurrent()) return stale();
+        const bound = snapshot();
+        let participantContext: unknown;
+        try {
+          // Historical reads must not occupy the transcript/save queue. A new
+          // worker turn can persist while this request is in flight.
+          participantContext = agentKnowledgeResult(
+            await request<Record<string, unknown>>(
+              `/api/notes/${session.note.id}/knowledge/context`,
+            ),
+          );
+        } catch (e) {
+          participantContext = knowledgeFailure(e);
         }
+        if (!isCurrent() || !toolSnapshotMatches(bound, snapshot()))
+          return stale();
+        return JSON.stringify({
+          ok: true,
+          ...agentFormResult(result),
+          participantContext,
+          definitions,
+          incidentOptions,
+          followUpOptions,
+          validation: checkForm(result.note.fields),
+          currentLocalTime: new Date().toLocaleString("en-AU", {
+            timeZone: result.note.timezone,
+          }),
+        });
+      } catch (e) {
+        return isCurrent() ? JSON.stringify(knowledgeFailure(e)) : stale();
+      }
+    }
+    if (name === "search_participant_records" || name === "register_followup") {
+      try {
+        // The barrier includes all previously admitted transcript/form saves;
+        // the slower lookup runs outside that serial queue.
+        const bound = await enqueue(session, async () => snapshot());
+        if (!isCurrent()) return stale();
+        const result = await request<Record<string, unknown>>(
+          name === "search_participant_records"
+            ? `/api/notes/${session.note.id}/knowledge/search`
+            : `/api/notes/${session.note.id}/interview/questions`,
+          name === "search_participant_records"
+            ? {
+                query: params.query,
+                currentTurnQuote: params.current_turn_quote,
+                revision: bound.revision,
+                voiceSessionId: session.id,
+              }
+            : {
+                retrievalId: params.retrieval_id,
+                sourceIds: params.source_ids,
+                purposeKey: params.purpose_key,
+                question: params.question,
+                revision: bound.revision,
+                voiceSessionId: session.id,
+              },
+        );
+        if (!isCurrent() || !toolSnapshotMatches(bound, snapshot()))
+          return stale();
+        return JSON.stringify({
+          ok:
+            (name === "register_followup" ||
+              ["ok", "partial", "no_match"].includes(String(result.status))) &&
+            result.ok !== false,
+          ...agentKnowledgeResult(result),
+        });
+      } catch (e) {
+        // Retrieval errors do not invalidate a readback or discard saved work.
+        return isCurrent() ? JSON.stringify(knowledgeFailure(e)) : stale();
+      }
+    }
+    const result = await enqueue(session, async () => {
+      try {
         if (name === "update_and_check_form") {
           clearPending();
           await sessionRequest(session, { action: "invalidate" });
-          if (typeof params.fields_json !== "string")
-            throw new Error(
-              "fields_json must be a JSON object encoded as a string.",
-            );
-          let payload: Record<string, unknown>;
-          try {
-            payload = JSON.parse(params.fields_json);
-            if (
-              !payload ||
-              typeof payload !== "object" ||
-              Array.isArray(payload)
-            )
-              throw new Error();
-          } catch {
-            throw new Error(
-              "fields_json is not a JSON object. Correct it and retry.",
-            );
-          }
-          const {
-            field_states,
-            restrictive_practice,
-            fields: wrappedFields,
-            ...plainFields
-          } = payload;
-          const result = await request<{ note: ShiftNote }>(
+          const update = parseAgentUpdate(params.fields_json);
+          const result = await request<FormResult>(
             `/api/notes/${session.note.id}`,
             {
               revision: session.note.revision,
-              fields: wrappedFields ?? plainFields,
-              fieldStates: field_states,
-              restrictivePractice: restrictive_practice,
+              ...update,
               voiceSessionId: session.id,
             },
             "PATCH",
@@ -477,7 +550,7 @@ function VoiceControls({
           saved(session, result.note);
           return JSON.stringify({
             ok: true,
-            ...result,
+            ...agentFormResult(result),
             validation: checkForm(result.note.fields),
           });
         }
@@ -503,7 +576,7 @@ function VoiceControls({
           };
           return JSON.stringify({
             ok: true,
-            ...result,
+            ...agentFormResult(result),
             instruction:
               "Read back every saved field, uncertainty, restrictive practice and supervisor flag in the summary. Not yet reviewed is not an absence. Do not ask the worker to classify events. Finish by saying: To save this note, say I confirm this shift note, or tell me what to change. Wait for a new answer before calling finalize_form.",
           });
@@ -533,13 +606,14 @@ function VoiceControls({
           clearPending();
           return JSON.stringify({
             ok: true,
-            note: result.note,
+            note: agentNote(result.note),
             message:
               "The confirmed note is saved. Tell the worker it is complete; they can end this call.",
           });
         }
         throw new Error("Unknown LegalMate tool.");
       } catch (e) {
+        if (!isCurrent()) return stale();
         const message =
           e instanceof Error ? e.message : "Could not save the note.";
         // A lost PATCH response may still have saved. Refresh before another tool can write.
@@ -559,11 +633,17 @@ function VoiceControls({
             "Do not claim success. Address the problem, then prepare a fresh review before confirmation.",
         });
       }
-    });
+    }).catch((e: unknown) =>
+      isCurrent() ? JSON.stringify(knowledgeFailure(e)) : stale(),
+    );
+    return isCurrent() ? result : stale();
   }
   const conversation = useConversation({
     clientTools: {
       get_form_context: (params) => tool("get_form_context", params),
+      search_participant_records: (params) =>
+        tool("search_participant_records", params),
+      register_followup: (params) => tool("register_followup", params),
       update_and_check_form: (params) => tool("update_and_check_form", params),
       prepare_confirmation: (params) => tool("prepare_confirmation", params),
       finalize_form: (params) => tool("finalize_form", params),
@@ -673,6 +753,8 @@ function VoiceControls({
           conversationId: data.conversationId,
           note: draft,
           sequence: 0,
+          workerSequence: 0,
+          interruptionGeneration: 0,
           generation: run,
         };
         queue.current = Promise.resolve();

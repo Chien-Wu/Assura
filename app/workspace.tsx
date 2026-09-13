@@ -65,6 +65,7 @@ import {
 import AccountMenu from "./account-menu";
 import VoicePanel from "./voice-panel";
 import SafetyPanel from "./safety-panel";
+import InterviewReferences from "./interview-references";
 import { participants, participantForNote } from "@/lib/participants";
 import { displayShiftTime, type ScheduledShift } from "@/lib/shifts";
 import WorkerShifts from "./worker-shifts";
@@ -814,6 +815,7 @@ export default function Workspace({
                       ))}
                     </>
                   )}
+                  <InterviewReferences note={note} />
                   <SafetyPanel
                     key={`${note?.id ?? "new"}:${note?.revision ?? 0}:${fields.participant}`}
                     note={note}

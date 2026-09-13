@@ -1,17 +1,17 @@
 import { database, getRow, toNote, type Row } from "./notes-server";
 import { participantForNote } from "./participants";
-import {
-  detectRisks,
-  nextQuestions,
-  reportingGuidance,
-  type RiskFlag,
-} from "./safety";
+import { detectRisks, reportingGuidance, type RiskFlag } from "./safety";
 import { type VoiceSessionRow } from "./voice-server";
 import {
   type VoiceEvent,
   type VoiceState,
   hasConfirmationPrompt,
 } from "./voice-state";
+import {
+  listInterviewQuestions,
+  questionCaptureStatements,
+  remainingClarifications,
+} from "./interview-server";
 
 export function riskStatements(
   noteId: string,
@@ -115,12 +115,12 @@ export async function captureEvent(
         ...guard.bindings,
       ),
     ...riskStatements(row.note_id, row.owner_id, flags, guard),
+    ...questionCaptureStatements(row, event, guard),
   ]);
   return Boolean(result[0].meta.changes);
 }
 export async function safetyContext(noteId: string, ownerId: string) {
   const note = toNote(await getRow(noteId, ownerId));
-  const transcript = await workerTranscript(noteId, ownerId);
   const profile = participantForNote(note);
   return {
     note,
@@ -135,12 +135,8 @@ export async function safetyContext(noteId: string, ownerId: string) {
             "Expected times are the manager's plan. Ask the worker for actual start and end times; do not treat the schedule as evidence of attendance.",
         }
       : null,
-    remainingClarifications: Math.max(0, 3 - (note.clarificationCount ?? 0)),
-    nextObservationalQuestions: nextQuestions(
-      profile,
-      transcript,
-      note.clarificationCount ?? 0,
-    ),
+    remainingClarifications: await remainingClarifications(noteId, ownerId),
+    questions: await listInterviewQuestions(noteId, ownerId),
     riskFlags: note.riskFlags,
     reportingGuidance,
     escalation: note.riskFlags?.some((f) => f.severity === "urgent")

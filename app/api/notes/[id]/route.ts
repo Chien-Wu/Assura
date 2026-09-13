@@ -26,6 +26,7 @@ import {
   workerTranscript,
 } from "@/lib/audit-server";
 import { getVoiceSession } from "@/lib/voice-server";
+import { questionAnswerStatements } from "@/lib/interview-server";
 type Context = { params: Promise<{ id: string }> };
 export async function GET(request: Request, context: Context) {
   try {
@@ -194,6 +195,12 @@ export async function PATCH(request: Request, context: Context) {
         quote: JSON.stringify(body.fields),
         severity: "review",
       });
+    const questionStatements = await questionAnswerStatements(
+      row,
+      body.voiceSessionId,
+      body.questionUpdates,
+      mutationId,
+    );
     const result = await database().batch([
       database()
         .prepare(
@@ -209,6 +216,7 @@ export async function PATCH(request: Request, context: Context) {
           row.revision,
         ),
       ...auditStatements(row, { ...fields, safety }, source, mutationId),
+      ...questionStatements,
       ...riskStatements(id, user.userId, newFlags, {
         sql: "EXISTS (SELECT 1 FROM shift_notes WHERE id=? AND mutation_id=?)",
         bindings: [id, mutationId],

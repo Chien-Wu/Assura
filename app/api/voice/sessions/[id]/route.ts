@@ -15,6 +15,7 @@ import {
   type VoiceState,
 } from "@/lib/voice-state";
 import { captureEvent, safetyContext } from "@/lib/audit-server";
+import { cancelProposedStatements } from "@/lib/interview-server";
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
@@ -73,7 +74,25 @@ export async function POST(
         Number(body.sequence),
       );
     else throw new RequestError("Invalid voice session action.");
-    await saveVoiceState(row, state);
+    const cancellations =
+      body.action === "close"
+        ? cancelProposedStatements(
+            row.note_id,
+            user.userId,
+            "Interview closed before question emission",
+            {
+              sql: "EXISTS (SELECT 1 FROM voice_sessions WHERE id=? AND owner_id=? AND revision=? AND state_json=?)",
+              bindings: [
+                row.id,
+                user.userId,
+                row.revision + 1,
+                JSON.stringify(state),
+              ],
+            },
+            row.id,
+          )
+        : [];
+    await saveVoiceState(row, state, cancellations);
     return json({ ok: true });
   } catch (error) {
     return failure(

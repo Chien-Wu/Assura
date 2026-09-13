@@ -9,6 +9,10 @@ import {
   toNote,
   readBody,
 } from "@/lib/notes-server";
+import {
+  cancelProposedStatements,
+  listInterviewQuestions,
+} from "@/lib/interview-server";
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
@@ -48,13 +52,28 @@ export async function POST(
           id,
           confirmationId,
         ),
+      ...cancelProposedStatements(
+        id,
+        user.userId,
+        "Review started before question emission",
+        {
+          sql: "EXISTS (SELECT 1 FROM shift_notes WHERE id=? AND owner_id=? AND confirmation_id=?)",
+          bindings: [id, user.userId, confirmationId],
+        },
+      ),
     ]);
     if (!result[0].meta.changes)
       throw new RequestError(
         "The note changed. Review the latest version.",
         409,
       );
-    return json({ note, confirmationId, summary: noteText(note), validation });
+    return json({
+      note,
+      confirmationId,
+      summary: noteText(note),
+      validation,
+      interviewQuestions: await listInterviewQuestions(id, user.userId),
+    });
   } catch (error) {
     return failure(error);
   }

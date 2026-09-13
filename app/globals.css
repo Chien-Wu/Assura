@@ -1893,6 +1893,32 @@ h1 {
 .evidence-grid,
 .incident-timeline dd,
 .monthly-grid strong,
+.interview-references {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+.interview-references h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+.interview-references p {
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.interview-references details {
+  margin-top: 0.75rem;
+}
+.interview-references summary {
+  cursor: pointer;
+  line-height: 1.5;
+}
+.interview-source {
+  padding: 0.75rem;
+  border-left: 2px solid var(--border);
+}
 .audit-scroll small,
 .record-field p,
 .notes-table small {
