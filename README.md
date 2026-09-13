@@ -47,7 +47,7 @@ npm run check
 npm run build
 ```
 
-`check` runs formatting checks, ESLint, TypeScript, and the 26 unit tests. Use `npm run format` to format application source, tests and docs. Generated migrations, vendored UI components, and platform build support are kept intact.
+`check` runs formatting checks, ESLint, TypeScript, and the 30 unit tests. Use `npm run format` to format application source, tests and docs. Generated migrations, vendored UI components, and platform build support are kept intact.
 
 With the local preview running and ElevenLabs configured:
 
@@ -87,3 +87,5 @@ The implementation and current limitations are recorded in [requirements](docs/r
 Never commit `.env.local`, `.secrets/`, tokens, local database files or conversation exports. `.env.example` contains variable names and a non-secret Agent identifier only. GitHub credentials are local development credentials and must not be added to the app's runtime environment or deployed assets.
 
 `.openai/hosting.json` retains the existing private Sites project and storage bindings. GitHub stores the source; pushing here does not automatically deploy the app. Configure ElevenLabs values as server secrets when deploying through Sites. No GitHub Actions workflow is configured in this repository.
+
+For the standalone VM runtime, protected HTTPS access, persistent data and hourly updates from `main`, see [VM deployment](docs/vm-deployment.md).

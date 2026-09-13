@@ -1,0 +1,27 @@
+[Unit]
+Description=LegalMate web application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=legalmate
+Group=legalmate
+WorkingDirectory=/opt/legalmate/current
+Environment=PATH=/opt/legalmate/runtime/node/bin:/usr/local/bin:/usr/bin:/bin
+Environment=SITES_RUNTIME_ROOT=/var/lib/legalmate/runtime
+Environment=WRANGLER_SEND_METRICS=false
+Environment=CLOUDFLARE_CF_FETCH_ENABLED=false
+ExecStart=/opt/legalmate/runtime/node/bin/node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to /var/lib/legalmate/state --env-file /etc/legalmate/runtime.env --ip 127.0.0.1 --port 8787 --inspector-port 0
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=control-group
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

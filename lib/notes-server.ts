@@ -7,6 +7,7 @@ import {
   type ShiftFields,
 } from "./shift-form";
 import { readSafety, retentionUntil } from "./safety";
+import { isAllowedRequestOrigin } from "./request-origin";
 
 export class RequestError extends Error {
   status: number;
@@ -28,8 +29,20 @@ export async function identity(request: Request) {
   if (!user)
     throw new RequestError("Sign in to create and save your notes.", 401);
   if (request.method !== "GET") {
-    const origin = request.headers.get("origin");
-    if (origin && origin !== new URL(request.url).origin)
+    let allowedOrigin: boolean;
+    try {
+      allowedOrigin = isAllowedRequestOrigin(
+        request.url,
+        request.headers.get("origin"),
+        env.LEGALMATE_PUBLIC_ORIGIN ?? process.env.LEGALMATE_PUBLIC_ORIGIN,
+      );
+    } catch {
+      throw new RequestError(
+        "Application origin is not configured correctly.",
+        503,
+      );
+    }
+    if (!allowedOrigin)
       throw new RequestError("This request could not be verified.", 403);
     if (!request.headers.get("content-type")?.includes("application/json"))
       throw new RequestError("Expected a JSON request.", 415);

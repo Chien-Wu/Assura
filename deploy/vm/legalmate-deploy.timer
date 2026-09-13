@@ -1,0 +1,11 @@
+[Unit]
+Description=Check LegalMate main every hour
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=30
+Unit=legalmate-deploy.service
+
+[Install]
+WantedBy=timers.target
