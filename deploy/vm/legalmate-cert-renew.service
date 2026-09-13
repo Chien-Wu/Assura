@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew LegalMate HTTPS certificate
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/certbot renew --quiet --config-dir /etc/legalmate/letsencrypt --work-dir /var/lib/legalmate/certbot --logs-dir /var/log/legalmate-certbot --deploy-hook /usr/local/lib/legalmate/reload-nginx.sh

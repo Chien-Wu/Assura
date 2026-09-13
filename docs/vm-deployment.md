@@ -36,4 +36,4 @@ systemctl disable --now legalmate-deploy.timer
 
 GitHub pushes do not deploy to the existing Sites website. The hourly timer affects only this VM. Prompt changes published in ElevenLabs apply to new conversations and do not require a code deployment.
 
-Run `nginx -t` before reloading Nginx. HTTPS certificate renewals use the VM's existing Certbot timer and a LegalMate-specific Nginx reload hook. Keep secrets out of Git and deployment logs.
+Run `nginx -t` before reloading Nginx. HTTPS certificates live in `/etc/legalmate/letsencrypt`; the `legalmate-cert-renew.timer` checks twice daily and reloads Nginx after renewal. The VM's other Certbot accounts, certificates and timers are unchanged. Keep secrets out of Git and deployment logs.
