@@ -1,16 +1,14 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import {
   AudioLines,
   Building2,
   ChevronDown,
   ArrowRight,
-  Mail,
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 import SignOutButton from "./sign-out-button";
 
@@ -25,7 +23,7 @@ export default function Entry({
   contact,
 }: {
   user: { name: string; email: string } | null;
-  methods: { google: boolean; email: boolean };
+  methods: { google: boolean };
   initialRole: Role | null;
   initialError: string;
   contact: string | null;
@@ -182,7 +180,7 @@ export default function Entry({
                       </a>
                     </div>
                   ) : (
-                    <SignInForm
+                    <GoogleSignIn
                       role={item}
                       methods={methods}
                       providerId={providerId}
@@ -219,7 +217,7 @@ export default function Entry({
   );
 }
 
-function SignInForm({
+function GoogleSignIn({
   role,
   providerId,
   methods,
@@ -228,24 +226,12 @@ function SignInForm({
 }: {
   role: Role;
   providerId: string;
-  methods: { google: boolean; email: boolean };
+  methods: { google: boolean };
   disabled: boolean;
   initialError: string;
 }) {
-  const [emailOpen, setEmailOpen] = useState(false);
-  const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(initialError);
-  const [resendAt, setResendAt] = useState(0);
-  const [now, setNow] = useState(0);
-  useEffect(() => {
-    if (!sent) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [sent]);
-  const remaining = Math.max(0, Math.ceil((resendAt - now) / 1000));
   const destination =
     role === "manager"
       ? "/manager"
@@ -266,54 +252,6 @@ function SignInForm({
       setBusy(false);
     }
   }
-  async function sendCode() {
-    const result = await authClient.emailOtp.sendVerificationOtp({
-      email: email.trim(),
-      type: "sign-in",
-    });
-    if (result.error)
-      throw new Error(
-        "We couldn’t send your code. Check your email address and try again shortly.",
-      );
-    setSent(true);
-    setOtp("");
-    setNow(Date.now());
-    setResendAt(Date.now() + 60000);
-  }
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      if (!sent) await sendCode();
-      else {
-        const result = await authClient.signIn.emailOtp({
-          email: email.trim(),
-          otp: otp.trim(),
-        });
-        if (result.error)
-          throw new Error(
-            "That code is invalid or has expired. Please try again or request a new code.",
-          );
-        window.location.assign(destination);
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function resend() {
-    setBusy(true);
-    setError("");
-    try {
-      await sendCode();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
   return (
     <div className="entry-signin">
       <Button
@@ -328,103 +266,9 @@ function SignInForm({
         </span>
         Continue with Google
       </Button>
-      {!emailOpen ? (
-        <Button
-          type="button"
-          variant="outline"
-          className="entry-auth-button"
-          disabled={disabled || busy || !methods.email}
-          onClick={() => setEmailOpen(true)}
-        >
-          <Mail size={19} aria-hidden="true" />
-          Continue with email
-        </Button>
-      ) : (
-        <form className="entry-form" onSubmit={submit}>
-          <div className="entry-field">
-            <label htmlFor={`${role}-email`}>Email address</label>
-            <Input
-              id={`${role}-email`}
-              type="email"
-              autoComplete="email"
-              inputMode="email"
-              maxLength={254}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              readOnly={sent}
-              disabled={busy}
-              autoFocus
-            />
-          </div>
-          {sent && (
-            <>
-              <p className="entry-caption" role="status">
-                Enter the six-digit code sent to {email}.
-              </p>
-              <div className="entry-field">
-                <label htmlFor={`${role}-otp`}>Verification code</label>
-                <Input
-                  id={`${role}-otp`}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(event) =>
-                    setOtp(event.target.value.replace(/\D/g, ""))
-                  }
-                  required
-                  disabled={busy}
-                  autoFocus
-                />
-              </div>
-            </>
-          )}
-          <Button
-            type="submit"
-            className="entry-auth-button"
-            disabled={disabled || busy || !methods.email}
-          >
-            {busy
-              ? "Please wait…"
-              : sent
-                ? "Verify and continue"
-                : "Send verification code"}
-          </Button>
-          {sent && (
-            <div className="entry-form-links">
-              <button
-                className="entry-text-button"
-                type="button"
-                disabled={busy || remaining > 0}
-                onClick={() => void resend()}
-              >
-                {remaining > 0 ? `Resend in ${remaining}s` : "Resend code"}
-              </button>
-              <button
-                className="entry-text-button"
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  setSent(false);
-                  setOtp("");
-                  setError("");
-                }}
-              >
-                Change email
-              </button>
-            </div>
-          )}
-        </form>
-      )}
-      {(!methods.google || !methods.email) && (
+      {!methods.google && (
         <p className="entry-caption">
-          {!methods.google && !methods.email
-            ? "Sign-in is being set up. Please check back shortly."
-            : !methods.google
-              ? "Google sign-in is being set up. You can use email."
-              : "Email sign-in is being set up. You can use Google."}
+          Google sign-in is being set up. Please check back shortly.
         </p>
       )}
       {error && (

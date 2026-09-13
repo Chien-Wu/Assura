@@ -2,7 +2,7 @@
 
 A **service provider** is an organisation. A **manager** is an authenticated person with an administrator-provisioned grant for that organisation. There is no public provider registration or manager-role upgrade endpoint.
 
-Support workers choose an existing provider, sign in with Google or email, and save their full name. This immediately creates their worker affiliation; no invitation or manager approval is required. The public provider list exposes only active provider IDs and names.
+Support workers choose an existing provider, sign in with Google, and save their full name. This immediately creates their worker affiliation; no invitation or manager approval is required. The public provider list exposes only active provider IDs and names.
 
 ## Provisioning a provider and first manager
 

@@ -43,7 +43,7 @@ export async function GET() {
   } catch {
     // Do not expose database errors or environment values to public callers.
   }
-  const ready = databaseReady && auth.google && auth.email;
+  const ready = databaseReady && auth.google;
   return Response.json(
     {
       status: ready ? "ready" : "unavailable",

@@ -27,7 +27,7 @@ This is browser SDK transcript evidence, not an independent audio audit or ident
 
 ## Temporary text test
 
-1. Open the app, choose **Support worker**, select an existing provider and sign in with Google or email. Confirm your name and provider on first use, then select a fictional participant profile, keep **Text · Test mode** selected and press **Start text note**.
+1. Open the app, choose **Support worker**, select an existing provider and sign in with Google. Confirm your name and provider on first use, then select a fictional participant profile, keep **Text · Test mode** selected and press **Start text note**.
 2. Type the fictional shift below. Press Enter or Send; Shift + Enter adds a line.
 3. Check the same automatic form updates, follow-up questions and corrections. Read the assistant's review and type **I confirm this shift note.** when ready.
 4. Wait for **Complete**, then end the conversation. Ending before confirmation must leave a draft.

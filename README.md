@@ -4,7 +4,7 @@ An English web app for disability support workers to capture a shift in one conv
 
 ## Workspaces
 
-- `/` — mobile-first Service provider / Support worker selection, expanding Google and email sign-in in place.
+- `/` — mobile-first Service provider / Support worker selection, expanding Google sign-in in place.
 - `/onboarding` — workers confirm their name and select an existing service provider; no manager invitation or approval is required.
 - `/worker` — select a fictional participant, type or speak through the shift, edit a draft, review and confirm, and export the note.
 - `/manager` — review captured candidates, inspect transcripts and changes, record supervisor assessments and awareness times, and prepare restrictive-practice reporting follow-up.
@@ -23,7 +23,7 @@ cp .env.example .env.local
 npm run build
 ```
 
-Configure Google and email sign-in using [authentication setup](docs/authentication.md), then create the provider and first manager using [provider setup](docs/provider-setup.md). A missing auth configuration shows a clear setup state and cannot sign users in. Existing `.env.local` files should be extended with the new variables from `.env.example`, not overwritten.
+Configure Google sign-in using [authentication setup](docs/authentication.md), then create the provider and first manager using [provider setup](docs/provider-setup.md). A missing auth configuration shows a clear setup state and cannot sign users in. Existing `.env.local` files should be extended with the new variables from `.env.example`, not overwritten.
 
 Set `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` in `.env.local` to enable text/voice interviews. Authenticated workers can draft manually without ElevenLabs credentials. All keys stay on the server. See [Agent configuration](docs/elevenlabs-agent.md).
 
@@ -35,13 +35,13 @@ for migration in drizzle/0000_confused_green_goblin.sql drizzle/0001_eminent_lil
 done
 ```
 
-Existing local databases should receive only unapplied migrations, after a backup. Do not edit or rerun an applied migration. `npm run db:generate` creates new migrations after schema changes. Existing legacy notes stay with their historical owner IDs and remain unassigned to any provider; email sign-in does not automatically claim them.
+Existing local databases should receive only unapplied migrations, after a backup. Do not edit or rerun an applied migration. `npm run db:generate` creates new migrations after schema changes. Existing legacy notes stay with their historical owner IDs and remain unassigned to any provider; a matching email address does not automatically claim them.
 
 ```sh
 npm run dev
 ```
 
-Open `http://localhost:5173/`. Google and email-code sign-in use the same application authentication locally and on the standalone VM. Dummy ChatGPT and HTTP Basic sign-in are retired. Set `LEGALMATE_CONTACT_URL` to an HTTPS or mailto link for new provider enquiries; when unset, the entry page only directs visitors to contact the LegalMate team.
+Open `http://localhost:5173/`. Google sign-in uses the same application authentication locally and on the standalone VM. Email-code sign-in is deferred and has no entry button in this release. Dummy ChatGPT and HTTP Basic sign-in are retired. Set `LEGALMATE_CONTACT_URL` to an HTTPS or mailto link for new provider enquiries; when unset, the entry page only directs visitors to contact the LegalMate team.
 
 ## Checks
 
@@ -70,7 +70,7 @@ The HTTP checks create fictional records in the local database and request conne
 | `app/worker`, `app/workspace.tsx`, `app/voice-panel.tsx`                   | Worker workspace and text/voice lifecycle                    |
 | `app/manager`, `app/management-board.tsx`                                  | Manager review queue, timelines and evidence views           |
 | `app/api`                                                                  | Authenticated note, session, audit and manager operations    |
-| `lib/auth.ts`, `lib/auth-config.ts`, `app/entry.tsx`                       | Google/email sign-in, session verification and entry UI      |
+| `lib/auth.ts`, `lib/auth-config.ts`, `app/entry.tsx`                       | Google sign-in, session verification and entry UI            |
 | `lib/organisations.ts`, `app/onboarding`, `scripts/provision-provider.mjs` | Worker affiliation, provider roles and staff provisioning    |
 | `lib/shift-form.ts`, `lib/voice-state.ts`                                  | Form validation and revision-bound confirmation              |
 | `lib/participants.ts`, `lib/safety.ts`                                     | Four fictional profiles, candidate detection and plan checks |

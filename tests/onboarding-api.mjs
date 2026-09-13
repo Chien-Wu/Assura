@@ -19,7 +19,7 @@ const modules = [
   ...files.filter((name) => name.endsWith(".js") && name !== "index.js"),
 ].map((name) => ({ type: "ESModule", path: `${root}${name}` }));
 let outboundRequests = 0;
-const mf = new Miniflare({
+const runtimeOptions = {
   modules,
   modulesRoot: root,
   compatibilityDate: "2026-05-15",
@@ -41,11 +41,12 @@ const mf = new Miniflare({
       status: 503,
     });
   },
-});
+};
+const mf = new Miniflare(runtimeOptions);
 let checks = 0;
 const fixtures = [];
 try {
-  const db = await mf.getD1Database("DB");
+  let db = await mf.getD1Database("DB");
   await request("/api/health", { expected: 503 });
   const migrationRoot = new URL("../drizzle/", import.meta.url);
   for (const migration of (await readdir(migrationRoot))
@@ -109,7 +110,35 @@ try {
     const text = await response.text();
     return text ? JSON.parse(text) : null;
   }
-  await request("/api/health");
+  // The released UI offers Google only. An email-only backend configuration
+  // must not pass readiness; the full schema remains required in every case.
+  for (const [google, email] of [
+    [false, false],
+    [true, false],
+    [false, true],
+    [true, true],
+  ]) {
+    await mf.setOptions({
+      ...runtimeOptions,
+      bindings: {
+        ...runtimeOptions.bindings,
+        GOOGLE_CLIENT_ID: google ? "test-only-google-client" : "",
+        GOOGLE_CLIENT_SECRET: google ? "test-only-google-secret" : "",
+        RESEND_API_KEY: email ? testAuthEnvironment.RESEND_API_KEY : "",
+        LEGALMATE_EMAIL_FROM: email
+          ? testAuthEnvironment.LEGALMATE_EMAIL_FROM
+          : "",
+      },
+    });
+    const health = await request("/api/health", {
+      expected: google ? 200 : 503,
+    });
+    assert.equal(health.database, true);
+    assert.deepEqual(health.authentication, { google, email });
+    assert.equal(health.status, google ? "ready" : "unavailable");
+  }
+  // Runtime reconfiguration invalidates Miniflare proxy handles, not D1 data.
+  db = await mf.getD1Database("DB");
   await request("/api/onboarding", { expected: 401 });
   await request("/api/notes", {
     expected: 401,

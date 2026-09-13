@@ -1,6 +1,6 @@
-# Google and email sign-in
+# Google sign-in
 
-LegalMate uses Better Auth 1.7.4 with the Drizzle D1 adapter. People sign in with Google or a six-digit email code; passwords and other social providers are disabled. Managers use the same sign-in methods as workers. Manager access is assigned through provisioned provider grants, not through a public sign-up field. See [Provider setup](provider-setup.md).
+LegalMate uses Better Auth 1.7.4 with the Drizzle D1 adapter. This release offers Google sign-in only. Email-code sign-in is deferred; passwords and other social providers are disabled. Managers and workers use the same Google sign-in flow. Manager access is assigned through provisioned provider grants, not through a public sign-up field. See [Provider setup](provider-setup.md).
 
 ## Required server configuration
 
@@ -12,12 +12,12 @@ Set these values in the ignored `web/.env.local` for development and in the host
 | `BETTER_AUTH_SECRET`      | A cryptographically random secret of at least 32 characters; generate a separate value for each environment.                          |
 | `GOOGLE_CLIENT_ID`        | Google OAuth client ID for a Web application.                                                                                         |
 | `GOOGLE_CLIENT_SECRET`    | Secret belonging to that Google client.                                                                                               |
-| `RESEND_API_KEY`          | Resend key authorized to send sign-in emails.                                                                                         |
-| `LEGALMATE_EMAIL_FROM`    | Verified sender, e.g. `LegalMate <signin@your-verified-domain.example>`.                                                              |
 
 Authentication also requires the D1 `DB` binding and migrations `0003_auth.sql` and `0004_organisations.sql`, following the existing migrations. These create new tables and preserve existing shift-note evidence. Do not reset the database to add sign-in.
 
-The origin must use HTTPS except for localhost, `127.0.0.1`, and `::1` development addresses. `GET /api/auth/status` reports which configured sign-in methods are available without revealing secrets. Missing configuration disables the corresponding sign-in button; a missing origin, short/missing authentication secret, or missing DB binding disables both. There is no development identity bypass. Health checks additionally verify schema readiness.
+The origin must use HTTPS except for localhost, `127.0.0.1`, and `::1` development addresses. `GET /api/auth/status` reports configured authentication capabilities without revealing secrets. Missing Google credentials, a missing origin, a short/missing authentication secret, or a missing DB binding disables the Google button. There is no development identity bypass. This release needs Google configured; no Resend configuration is required.
+
+Deployment readiness requires the complete application schema and Google sign-in configuration. An email-only backend configuration does not make this release ready because the UI offers Google only. No Resend configuration is required. A ready response does not verify external credential validity; complete a real Google sign-in before making the app available.
 
 ## Google setup
 
@@ -32,15 +32,11 @@ Only Google's fresh verified-email identity is accepted, including on returning 
 
 References: [Better Auth Google configuration](https://better-auth.com/docs/authentication/google), [Google web-server OAuth setup](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred).
 
-## Email setup
+## Deferred email sign-in
 
-1. Create a Resend API key and verify a sending domain in Resend.
-2. Set `LEGALMATE_EMAIL_FROM` to a sender on that verified domain and store `RESEND_API_KEY` on the server.
-3. Sign in with an email you control, enter the code, and confirm the onboarding page opens. Development tests use an in-memory captured sender and do not send real mail.
+Email sign-in was implemented during the initial onboarding work and removed from the entry UI by product decision on 2026-09-13. The dormant OTP backend and captured-email test fixtures remain for future use; this release does not configure Resend or offer email-code sign-in. Restoring the feature would require both a UI change and the `RESEND_API_KEY` / `LEGALMATE_EMAIL_FROM` server configuration.
 
-Codes expire after five minutes and allow three incorrect attempts. Stored codes and verification identifiers are hashed. Resending rotates the code, and a successful code cannot be reused. The database enforces persistent request rate limits; the app returns a clear retry message if email delivery fails. The email provider processes the recipient address and the sign-in code to deliver the message.
-
-References: [Resend domain verification](https://resend.com/docs/dashboard/domains/introduction), [Resend sending API](https://resend.com/docs/api-reference/emails/send-email), [Better Auth email OTP](https://better-auth.com/docs/plugins/email-otp).
+The retained backend hashes codes and verification identifiers, expires codes after five minutes, limits incorrect attempts, rejects replay, and rate-limits requests. Isolated tests capture messages in memory and never send real email. See [Better Auth email OTP](https://better-auth.com/docs/plugins/email-otp) for the underlying implementation.
 
 ## Sessions and existing evidence
 
@@ -48,7 +44,7 @@ Sessions last up to eight hours and use signed, HttpOnly, SameSite=Lax cookies, 
 
 New authentication user IDs have an `auth_` prefix. Neither ChatGPT identity headers nor email matches attach a new user to an existing legacy evidence owner. Older notes, transcripts, and audit records retain their original owner IDs. Any future legacy ownership migration requires an explicit, reviewed mapping.
 
-Run `node --experimental-strip-types --test tests/auth.test.mjs` for isolated authentication checks. These cover real OTP sign-in, signed sessions, replay/expiry/attempt rejection, logout, persistent rate limiting, cross-origin denial, failed email delivery, and verified Google identity rules. Live Google redirects and real email deliverability still require the external credentials above.
+Run `node --experimental-strip-types --test tests/auth.test.mjs` for isolated authentication checks. These cover real OTP sign-in, signed sessions, replay/expiry/attempt rejection, logout, persistent rate limiting, cross-origin denial, failed email delivery, and verified Google identity rules. Live Google sign-in still requires the configured OAuth client. OTP tests validate the retained backend, not a currently offered sign-in option.
 
 ## HTTP test sessions
 

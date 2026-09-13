@@ -1,6 +1,6 @@
 # VM deployment
 
-The VM runs a separate LegalMate instance from the Sites deployment. It uses the built Worker through Wrangler/Miniflare, local persistent D1, and an HTTPS Nginx proxy. Google and email verification-code sign-in are handled by the application. The VM is still an MVP deployment with a single local database.
+The VM runs a separate LegalMate instance from the Sites deployment. It uses the built Worker through Wrangler/Miniflare, local persistent D1, and an HTTPS Nginx proxy. Google sign-in is handled by the application. Email-code sign-in is deferred in the current release. The VM is still an MVP deployment with a single local database.
 
 ## Runtime and access
 
@@ -14,22 +14,20 @@ The VM runs a separate LegalMate instance from the Sites deployment. It uses the
 
 The service runs as the unprivileged `legalmate` account on `127.0.0.1:8787`. Only Nginx is exposed externally. Nginx forwards application cookies, supplies the public HTTPS host and protocol, strips the old identity headers, and does not use Basic authentication. The app ignores `oai-authenticated-user-*` headers in every environment. The old development cookie, ChatGPT sign-in endpoints, and VM test passwords do not establish an application session.
 
-Set these server-only values in `/etc/legalmate/runtime.env` before activating the authentication release:
+Set the shared origin, authentication secret and Google credentials in `/etc/legalmate/runtime.env` before activating this Google-only release. No Resend configuration is required:
 
 | Variable                                       | Purpose                                                                                                                                 |
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `LEGALMATE_PUBLIC_ORIGIN`                      | Exact public HTTPS origin, without a path; also used for request-origin validation.                                                     |
 | `BETTER_AUTH_SECRET`                           | Stable random secret with at least 32 characters. Keep the same value across releases.                                                  |
 | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`  | Google OAuth web application credentials. Register `<LEGALMATE_PUBLIC_ORIGIN>/api/auth/callback/google` as its authorised redirect URI. |
-| `RESEND_API_KEY`                               | Email delivery credential.                                                                                                              |
-| `LEGALMATE_EMAIL_FROM`                         | Sender address on a verified email domain, for verification codes.                                                                      |
 | `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` | Existing server-side Agent connection configuration.                                                                                    |
 
 Use separate localhost Google redirect configuration for local testing. The app reads runtime Worker bindings with a server-side process environment fallback; none of these credentials belong in a browser bundle. Keep secrets out of Git and deployment logs. Do not print the runtime environment file during validation.
 
-Google and email must both be configured for deployment readiness. `/api/health` is a public, read-only endpoint returning only readiness booleans. It returns `503` if authentication configuration or the required auth/provider/application schema is missing. It does not create an account, issue a session, read notes, or call Google, email delivery, or ElevenLabs. A `200` confirms configuration and schema readiness, not external credential validity: complete a real Google and email sign-in smoke test before opening access.
+Google must be configured for deployment readiness because this release offers Google sign-in only. Email configuration alone does not satisfy readiness, and the current UI has no email sign-in button. `/api/health` is a public, read-only endpoint returning only readiness booleans. It returns `503` if authentication configuration or the required auth/provider/application schema is missing. It does not create an account, issue a session, read notes, or call Google, email delivery, or ElevenLabs. A `200` confirms configuration and schema readiness, not external credential validity: complete a real Google sign-in smoke test before opening access.
 
-## One-time activation of Google/email authentication
+## One-time activation of Google authentication
 
 This change needs coordinated application, database and root-owned proxy/deployment-helper updates. Repository edits alone do not alter installed VM files. Do not let the hourly timer activate this release before the credentials and migration plan are ready.
 
@@ -38,7 +36,7 @@ This change needs coordinated application, database and root-owned proxy/deploym
 3. Install the updated deployment helper as root-owned configuration. It checks `/api/health` without authentication or fabricated user headers. Stage the updated Nginx template and validate it with `nginx -t` as part of the maintenance window.
 4. Activate the tested application revision with the helper's stopped-service backup and migration process. The additive auth and organisation migrations create the new account/provider tables and add nullable `shift_notes.provider_id`. They do not create providers, managers or test accounts.
 5. Provision the agreed service providers and first manager access using the operator-only provisioning script. There is no public provider creation endpoint. Confirm the intended manager's verified email address before granting access.
-6. Activate the corresponding Nginx configuration during the same maintenance window, then verify Google sign-in, email sign-in, worker onboarding, manager access, sign-out, and denial of worker access to another worker's records. Resume the timer only after these checks pass.
+6. Activate the corresponding Nginx configuration during the same maintenance window, then verify Google sign-in, worker onboarding, manager access, sign-out, and denial of worker access to another worker's records. Confirm the entry page offers Google only. Resume the timer only after these checks pass.
 
 Existing `owner_id` values, record IDs and append-only evidence are preserved. New authenticated account IDs are not matched to legacy ChatGPT or `vm_<username>` identities by email or display name. Existing notes retain a null provider and are not automatically exposed to a new account or organisation. Any later legacy-record access/migration must use an explicit, reviewed identity mapping and preserve the original audit evidence; onboarding is not an ownership-transfer mechanism. Keep the backup available until legacy access requirements have been resolved.
 
