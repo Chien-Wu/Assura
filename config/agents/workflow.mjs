@@ -8,7 +8,7 @@ import {
   workflowRiskTypes,
   workflowSharedFieldDefinitions,
   workflowFormDefinitions,
-} from "../../lib/workflow/case.ts";
+} from "../../src/lib/workflow/case.ts";
 
 // The backend is the only source of field names and schemas. The six domain
 // interview profiles below add routing/follow-up intent, never a second schema.

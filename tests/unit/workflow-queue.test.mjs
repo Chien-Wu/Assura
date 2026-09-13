@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createWorkflowQueue } from "../../lib/workflow/queue.ts";
+import { createWorkflowQueue } from "../../src/lib/workflow/queue.ts";
 test("client tool waits for durable transcript source before saving", async () => {
   const queue = createWorkflowQueue();
   let release;

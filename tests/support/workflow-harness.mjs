@@ -9,7 +9,7 @@ import {
   signInFixture,
   testAuthEnvironment,
 } from "./auth-fixture.mjs";
-import { emptyFields, FORM_VERSION } from "../../lib/notes/form.ts";
+import { emptyFields, FORM_VERSION } from "../../src/lib/notes/form.ts";
 
 export async function startHarness({
   provider,

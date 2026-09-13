@@ -13,7 +13,7 @@ import {
 import {
   TEST_ACCOUNTS,
   TEST_PROVIDER_ID,
-} from "../../lib/auth/test-accounts.ts";
+} from "../../src/lib/auth/test-accounts.ts";
 import {
   testAuthEnvironment,
   createAuthFixture,

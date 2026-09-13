@@ -4,7 +4,7 @@ import {
   cleanQuestionInput,
   cleanQuestionUpdates,
   normalizeQuestion,
-} from "../../lib/knowledge/interview.ts";
+} from "../../src/lib/knowledge/interview.ts";
 
 const input = {
   retrievalId: "retrieval-1",

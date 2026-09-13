@@ -8,13 +8,13 @@ import {
   createScheduledShiftQuery,
   shiftSelect,
   validLocalTime,
-} from "../../lib/roster/shifts.ts";
+} from "../../src/lib/roster/shifts.ts";
 import {
   cleanParticipantInput,
   createProviderParticipantQuery,
   providerParticipantUsesQuery,
-} from "../../lib/roster/participants.ts";
-import { emptyFields, FORM_VERSION } from "../../lib/notes/form.ts";
+} from "../../src/lib/roster/participants.ts";
+import { emptyFields, FORM_VERSION } from "../../src/lib/notes/form.ts";
 
 const now = "2026-09-13T00:00:00.000Z";
 const expectedStart = "2026-09-13T08:00";
@@ -30,7 +30,10 @@ function fixture() {
     "0004_organisations.sql",
   ])
     db.exec(
-      readFileSync(new URL(`../../drizzle/${file}`, import.meta.url), "utf8"),
+      readFileSync(
+        new URL(`../../database/migrations/${file}`, import.meta.url),
+        "utf8",
+      ),
     );
   // Keep an existing record through the migration to verify historical notes.
   db.prepare(
@@ -44,7 +47,10 @@ function fixture() {
   );
   db.exec(
     readFileSync(
-      new URL("../../drizzle/0005_scheduled_shifts.sql", import.meta.url),
+      new URL(
+        "../../database/migrations/0005_scheduled_shifts.sql",
+        import.meta.url,
+      ),
       "utf8",
     ),
   );

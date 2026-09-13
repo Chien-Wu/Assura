@@ -57,7 +57,10 @@ function database() {
     "0005_scheduled_shifts.sql",
   ])
     sqlite.exec(
-      readFileSync(new URL(`../../drizzle/${file}`, import.meta.url), "utf8"),
+      readFileSync(
+        new URL(`../../database/migrations/${file}`, import.meta.url),
+        "utf8",
+      ),
     );
   for (const statement of testAccountStatements(importedAt)) {
     sqlite.prepare(statement.sql).run(...statement.params);

@@ -11,7 +11,7 @@ import {
   melbourneInstant,
   minimizedProfile,
   sourceIsHistorical,
-} from "../../lib/knowledge/records.ts";
+} from "../../src/lib/knowledge/records.ts";
 import {
   buildHistoryRows,
   readHistory,
@@ -28,7 +28,10 @@ const cutoff = knowledgeCutoff(
   Date.parse("2026-09-14T00:00:00Z"),
 ).cutoff;
 const migration = (name) =>
-  readFileSync(new URL(`../../drizzle/${name}`, import.meta.url), "utf8");
+  readFileSync(
+    new URL(`../../database/migrations/${name}`, import.meta.url),
+    "utf8",
+  );
 function insert(db, table, row) {
   const keys = Object.keys(row);
   db.prepare(

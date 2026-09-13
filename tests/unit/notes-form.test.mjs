@@ -5,7 +5,7 @@ import {
   applyFieldPatch,
   checkForm,
   noteText,
-} from "../../lib/notes/form.ts";
+} from "../../src/lib/notes/form.ts";
 
 const complete = () => ({
   ...emptyFields(),

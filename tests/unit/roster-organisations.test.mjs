@@ -11,7 +11,7 @@ import {
   providerActionsQuery,
   providerRisksQuery,
   readableNoteAccess,
-} from "../../lib/roster/access.ts";
+} from "../../src/lib/roster/access.ts";
 import {
   boundSql,
   provisioningStatements,
@@ -27,7 +27,10 @@ function fixture() {
     "0002_amazing_spectrum.sql",
   ])
     db.exec(
-      readFileSync(new URL(`../../drizzle/${file}`, import.meta.url), "utf8"),
+      readFileSync(
+        new URL(`../../database/migrations/${file}`, import.meta.url),
+        "utf8",
+      ),
     );
   db.prepare(
     `INSERT INTO shift_notes (id,owner_id,worker_name,fields_json,form_version,timezone,created_at,updated_at)
@@ -35,7 +38,10 @@ function fixture() {
   ).run(now, now);
   db.exec(
     readFileSync(
-      new URL("../../drizzle/0004_organisations.sql", import.meta.url),
+      new URL(
+        "../../database/migrations/0004_organisations.sql",
+        import.meta.url,
+      ),
       "utf8",
     ),
   );

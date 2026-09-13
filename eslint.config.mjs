@@ -10,7 +10,7 @@ const eslintConfig = defineConfig([
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
-    "build/**",
+    "deploy/sites/**",
     "next-env.d.ts",
     // Local tooling, not application source.
     ".npm-cache/**",

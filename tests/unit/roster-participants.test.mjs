@@ -10,8 +10,8 @@ import {
   providerParticipantsQuery,
   providerWorkersQuery,
   updateProviderParticipantQuery,
-} from "../../lib/roster/participants.ts";
-import { participants } from "../../lib/roster/participant-profiles.ts";
+} from "../../src/lib/roster/participants.ts";
+import { participants } from "../../src/lib/roster/participant-profiles.ts";
 
 const now = "2026-09-13T00:00:00.000Z";
 
@@ -26,7 +26,10 @@ function fixture() {
     "0005_scheduled_shifts.sql",
   ])
     db.exec(
-      readFileSync(new URL(`../../drizzle/${file}`, import.meta.url), "utf8"),
+      readFileSync(
+        new URL(`../../database/migrations/${file}`, import.meta.url),
+        "utf8",
+      ),
     );
   for (const id of ["provider-a", "provider-b"]) {
     db.prepare("INSERT INTO providers VALUES (?,?,1,?)").run(id, id, now);

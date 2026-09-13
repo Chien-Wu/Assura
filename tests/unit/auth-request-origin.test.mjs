@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isAllowedRequestOrigin } from "../../lib/auth/request-origin.ts";
+import { isAllowedRequestOrigin } from "../../src/lib/auth/request-origin.ts";
 
 test("HTTPS deployment origin is accepted behind an HTTP loopback proxy", () => {
   assert.equal(

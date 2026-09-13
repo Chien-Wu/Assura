@@ -13,7 +13,7 @@ Start with the [architecture](architecture.md). Current setup instructions are i
 ## Configuration sources
 
 - [Main prompt](../config/agents/main/system-prompt.txt), [two client tools](../config/agents/main/client-tools.json) and [first message](../config/agents/main/first-message.txt). `scripts/sync-elevenlabs-agent.mjs` reads the prompt/tools; editing files alone does not publish agent settings.
-- [Silent AI2 prompt artifact](../config/agents/ai2/system-prompt.txt), checked against `lib/assessment/prompt.ts` by the unit suite.
+- [Silent AI2 prompt artifact](../config/agents/ai2/system-prompt.txt), checked against `src/lib/assessment/prompt.ts` by the unit suite.
 - [Native Workflow configuration](../config/agents/workflow.mjs), applied by `scripts/configure-workflow-test.mjs`.
 
 ## Supplied material and history

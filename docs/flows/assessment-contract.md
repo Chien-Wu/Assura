@@ -2,7 +2,7 @@
 
 User-authorized replacement of the interview: AI2 never asks questions or speaks. It checks the saved final form and recorder transcript only, once per saved note revision when Review & confirm is pressed. Prior saved AI2 answers may be retained as legacy current-shift evidence, but no new answers are requested. No profile/history retrieval for the new check.
 
-## Shared pure types — lib/assessment/result.ts
+## Shared pure types — src/lib/assessment/result.ts
 
 `RiskType = incident_safeguarding | health_medication | behaviour_restrictive_practice | complaint | service_exception`.
 `RiskLevel = P0 | P1 | P2 | P3 | P4`, ascending urgency.
@@ -10,8 +10,8 @@ User-authorized replacement of the interview: AI2 never asks questions or speaks
 One result entry per type; P1–P4 only in risks; empty risks implies P0. Evidence is internal provenance, displayed to managers as supporting quotes. Summary concise and never contains a follow-up question or instruction to interview the worker. Unknowns are stated, never invented negative answers.
 `RiskAssessment = { id:string; noteId:string; sourceRevision:number; revision:number; schemaVersion:number; status:'running'|'ready'|'failed'|'stale'; result:RiskResult|null; error:string|null; createdAt:string; updatedAt:string }`.
 `RiskModelInput = { note:unknown; sources:Array<{id:string;text:string}> }`.
-`runRiskAssessmentModel(input,{apiKey,model?,signal?}): Promise<RiskResult>` in lib/assessment/model.ts.
-Export `riskTypes`, `riskLevelLabels`, `riskTypeLabels`, `overallRiskLevel(result)`, and `normalizeRiskResult(unknown):RiskResult|null` for historical result display. Keep legacy lib/assessment/legacy-types.ts definitions for old audit/history readers; new code uses RiskResult. Normalization must not modify stored legacy JSON or treat malformed data as a successful P0 result.
+`runRiskAssessmentModel(input,{apiKey,model?,signal?}): Promise<RiskResult>` in src/lib/assessment/model.ts.
+Export `riskTypes`, `riskLevelLabels`, `riskTypeLabels`, `overallRiskLevel(result)`, and `normalizeRiskResult(unknown):RiskResult|null` for historical result display. Keep legacy src/lib/assessment/legacy-types.ts definitions for old audit/history readers; new code uses RiskResult. Normalization must not modify stored legacy JSON or treat malformed data as a successful P0 result.
 
 ## Worker API / UI
 

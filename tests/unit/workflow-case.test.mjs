@@ -10,7 +10,7 @@ import {
   applyWorkflowCasePatch,
   validateWorkflowCase,
   workflowCaseContext,
-} from "../../lib/workflow/case.ts";
+} from "../../src/lib/workflow/case.ts";
 
 const known = (value, source = "worker:1") => ({
   value,

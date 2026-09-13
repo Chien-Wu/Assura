@@ -23,7 +23,7 @@ Open findings remain visible across later note edits and are labelled as earlier
 
 ## Setup and validation
 
-Apply `drizzle/0008_shift_assessments.sql` and `drizzle/0009_silent_risk_findings.sql` in sequence to the intended database. Back up local data before migration. Set server-only `OPENAI_API_KEY`; `LEGALMATE_AI2_MODEL` optionally overrides the existing default `gpt-5.6-terra`.
+Apply `database/migrations/0008_shift_assessments.sql` and `database/migrations/0009_silent_risk_findings.sql` in sequence to the intended database. Back up local data before migration. Set server-only `OPENAI_API_KEY`; `LEGALMATE_AI2_MODEL` optionally overrides the existing default `gpt-5.6-terra`.
 
 The model uses strict structured output, low reasoning, a compact output budget, `store:false`, and no external tools. `store:false` does not promise zero provider retention. No historical records or participant profile are fetched for a current check. Exact evidence quotes are validated against supplied sources. Oversized input fails visibly rather than silently omitting events.
 

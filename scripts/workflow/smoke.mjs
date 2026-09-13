@@ -5,7 +5,7 @@ import { parseEnv } from "node:util";
 import { once } from "node:events";
 import { setTimeout as pause } from "node:timers/promises";
 import { startHarness } from "../../tests/support/workflow-harness.mjs";
-import { createWorkflowQueue } from "../../lib/workflow/queue.ts";
+import { createWorkflowQueue } from "../../src/lib/workflow/queue.ts";
 const env = parseEnv(
   await readFile(new URL("../../.env.local", import.meta.url), "utf8"),
 );

@@ -31,7 +31,8 @@ export function sites(): Plugin {
 
       const outputDirectory = resolve(root, "dist", ".openai");
       const hostingConfig = resolve(root, ".openai", "hosting.json");
-      const drizzleSource = resolve(root, "drizzle");
+      // Source layout is local; the hosted archive still requires .openai/drizzle.
+      const drizzleSource = resolve(root, "database", "migrations");
 
       await rm(outputDirectory, { recursive: true, force: true });
       await mkdir(outputDirectory, { recursive: true });

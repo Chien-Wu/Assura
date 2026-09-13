@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   readAuthConfiguration,
   allowedAuthRoutes,
-} from "../../lib/auth/config.ts";
+} from "../../src/lib/auth/config.ts";
 import {
   createAuthFixture as fixture,
   testAuthEnvironment as input,
@@ -267,7 +267,7 @@ async function provisionedTestFixture() {
   ]) {
     f.sqlite.exec(
       readFileSync(
-        new URL(`../../drizzle/${name}.sql`, import.meta.url),
+        new URL(`../../database/migrations/${name}.sql`, import.meta.url),
         "utf8",
       ),
     );

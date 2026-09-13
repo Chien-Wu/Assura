@@ -10,7 +10,7 @@ export function migrationStatements(sql) {
 }
 
 export async function applyMigrations(db, { from, before } = {}) {
-  const directory = new URL("../../drizzle/", import.meta.url);
+  const directory = new URL("../../database/migrations/", import.meta.url);
   const files = (await readdir(directory))
     .filter(
       (name) =>

@@ -9,14 +9,14 @@ import {
   validateRiskResult,
   normalizeRiskResult,
   overallRiskLevel,
-} from "../../lib/assessment/result.ts";
-import { riskAssessmentSystemPrompt } from "../../lib/assessment/prompt.ts";
+} from "../../src/lib/assessment/result.ts";
+import { riskAssessmentSystemPrompt } from "../../src/lib/assessment/prompt.ts";
 import {
   runRiskAssessmentModel,
   RiskAssessmentModelError,
   riskAssessmentInputByteLimit,
   riskAssessmentResponseByteLimit,
-} from "../../lib/assessment/model.ts";
+} from "../../src/lib/assessment/model.ts";
 
 const evidence = { sourceId: "transcript:1", quote: "Support arrived late." };
 const input = (patch = {}) => ({

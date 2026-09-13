@@ -2,7 +2,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { env } from "cloudflare:workers";
 import { drizzle } from "drizzle-orm/d1";
 import { headers } from "next/headers";
-import { authSchema } from "../../db/schema/auth";
+import { authSchema } from "../../../database/schema/auth";
 import {
   allowedAuthRoutes,
   createAppAuth,

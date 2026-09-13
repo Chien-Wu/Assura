@@ -4,7 +4,7 @@ import {
   emptyVoiceState,
   appendVoiceEvent,
   isVoiceConfirmation,
-} from "../../lib/recorder/state.ts";
+} from "../../src/lib/recorder/state.ts";
 
 const prepared = (readbackSequence = null) => ({
   ...emptyVoiceState(),

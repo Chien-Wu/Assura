@@ -2,26 +2,26 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cleanParticipantInput } from "../lib/roster/participants.ts";
+import { cleanParticipantInput } from "../src/lib/roster/participants.ts";
 import {
   applyFieldPatch,
   checkForm,
   definitions,
   emptyFields,
   FORM_VERSION,
-} from "../lib/notes/form.ts";
-import { emptySafety, retentionUntil } from "../lib/notes/safety.ts";
-import { validLocalTime } from "../lib/roster/shifts.ts";
+} from "../src/lib/notes/form.ts";
+import { emptySafety, retentionUntil } from "../src/lib/notes/safety.ts";
+import { validLocalTime } from "../src/lib/roster/shifts.ts";
 import {
   TEST_ACCOUNTS,
   TEST_PROVIDER_ID,
   TEST_PROVIDER_NAME,
-} from "../lib/auth/test-accounts.ts";
+} from "../src/lib/auth/test-accounts.ts";
 
 export const DATASET_ID = "sarah-doyle-history-v1";
 export const PARTICIPANT_ID = "829d744b-71e8-4c82-9ca4-3c999004982c";
 const FIXTURE_URL = new URL(
-  "../fixtures/sarah-doyle-history.json",
+  "../tests/fixtures/sarah-doyle-history.json",
   import.meta.url,
 );
 const WEB_ROOT = fileURLToPath(new URL("../", import.meta.url));
@@ -269,6 +269,7 @@ export function buildHistoryRows(
         datasetId: dataset.datasetId,
         importedAt,
         simulatedConfirmedAt: note.simulatedConfirmedAt,
+        // Stable evidence identifier: existing imports retain this original name.
         source: "fixtures/sarah-doyle-history.json",
         notice:
           "Authored demo history; no real worker confirmation, transcript, or manager review occurred.",

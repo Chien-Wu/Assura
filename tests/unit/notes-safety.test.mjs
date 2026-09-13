@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { emptyRP, rpPatch, retentionUntil } from "../../lib/notes/safety.ts";
+import {
+  emptyRP,
+  rpPatch,
+  retentionUntil,
+} from "../../src/lib/notes/safety.ts";
 
 test("RP times derive overnight duration and reject calendar errors and fractional frequency", () => {
   assert.equal(

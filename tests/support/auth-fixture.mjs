@@ -3,12 +3,12 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { authSchema } from "../../db/schema/auth.ts";
-import { createAppAuth } from "../../lib/auth/config.ts";
+import { authSchema } from "../../database/schema/auth.ts";
+import { createAppAuth } from "../../src/lib/auth/config.ts";
 import {
   testAccountScopeQuery,
   testAccountScopeParams,
-} from "../../lib/auth/test-accounts.ts";
+} from "../../src/lib/auth/test-accounts.ts";
 
 // This isolated test helper has no network sender and is never imported by the app.
 export const testAuthEnvironment = {
@@ -32,7 +32,7 @@ export function createAuthFixture({
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(
     readFileSync(
-      new URL("../../drizzle/0003_auth.sql", import.meta.url),
+      new URL("../../database/migrations/0003_auth.sql", import.meta.url),
       "utf8",
     ),
   );

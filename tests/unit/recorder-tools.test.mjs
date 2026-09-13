@@ -5,7 +5,7 @@ import {
   recorderFormResult,
   parseRecorderUpdate,
   recorderToolFailure,
-} from "../../lib/recorder/tools.ts";
+} from "../../src/lib/recorder/tools.ts";
 
 test("Agent tool artifact uses vendor response waiting and excludes model-selected patient identities", async () => {
   const tools = JSON.parse(

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createRecorderHandoff } from "../../lib/recorder/handoff.ts";
+import { createRecorderHandoff } from "../../src/lib/recorder/handoff.ts";
 
 function deferred() {
   let resolve;

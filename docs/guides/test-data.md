@@ -6,7 +6,7 @@
 - Provider：TestProvider；worker：Test Support Worker。
 - 期間：2026-09-01 至 2026-09-12；時區：Australia/Melbourne，這些日期為 UTC+10。
 - 病人識別碼：`829d744b-71e8-4c82-9ca4-3c999004982c`。NDIS 與生日留空。
-- 原始資料：[sarah-doyle-history.json](../../fixtures/sarah-doyle-history.json)。下方紀錄保留英文，對應現有 app 欄位。
+- 原始資料：[sarah-doyle-history.json](../../tests/fixtures/sarah-doyle-history.json)。下方紀錄保留英文，對應現有 app 欄位。
 
 ## 總覽
 

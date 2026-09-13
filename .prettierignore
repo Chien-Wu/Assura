@@ -3,9 +3,9 @@ dist/
 .next/
 .wrangler/
 .sites-runtime/
-drizzle/
-vendor/
-build/
+database/migrations/
+src/styles/vendor/
+deploy/sites/
 .env*
 .secrets/
 package-lock.json

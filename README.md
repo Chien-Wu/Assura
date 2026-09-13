@@ -2,6 +2,21 @@
 
 Support workers record a shift, review the saved account and AI risk check, then explicitly confirm it. Managers schedule shifts and review their provider's notes and findings.
 
+## Repository
+
+```text
+src/          Application routes, components, domain logic, styles and types
+config/       Agent definitions and database generation settings
+database/     Table schemas and immutable migrations
+tests/        Unit/API suites, harnesses and synthetic fixtures
+scripts/      Development and operator commands
+deploy/       VM operations and Sites build support
+docs/         Architecture, setup guides and flow contracts
+public/       Public static assets
+```
+
+Start in `src/` to change the product. See the [architecture map](docs/architecture.md) for a specific feature and the [documentation index](docs/README.md) for setup. Package, Vite, TypeScript and ESLint entrypoints stay at the root for normal tool discovery; PostCSS is configured inside Vite. `.openai/` identifies the existing private hosting project.
+
 ## Current flows
 
 | Entry                         | Behaviour                                                                                                                                                                                                |
@@ -28,7 +43,7 @@ Configure [application authentication](docs/guides/authentication.md) and [provi
 For a **fresh, empty local database only**, apply every SQL migration in filename order:
 
 ```sh
-for migration in drizzle/*.sql; do
+for migration in database/migrations/*.sql; do
   node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file "$migration" || break
 done
 npm run dev
@@ -52,30 +67,12 @@ npm run test:api
 
 `npm run format` formats maintained code, UI primitives and documentation. Generated migrations, platform support and licensed vendor CSS remain unchanged. Retired protocols and experiments are available in Git history at `c5c5021`; they are not shipped in the current tree. Source-file reorganisation does not change API URLs, existing data or agent settings.
 
-## Source layout
-
-| Path                                                       | Responsibility                                                                                                                                                    |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/`                                                     | Pages and API routes. URLs stay here; shared request validation comes from `lib/shared/server.ts`.                                                                |
-| `components/worker/`                                       | `notes/`, `recorder/`, `workflow/`, and `shifts/`. Each screen keeps its state controller beside its views.                                                       |
-| `components/manager/`                                      | `roster/` for participant/shift editors; `review/` for findings, incident decisions and audit evidence.                                                           |
-| `components/auth/`, `components/layout/`, `components/ui/` | Sign-in, shared page controls, and the ten used UI primitives.                                                                                                    |
-| `lib/`                                                     | Eight domains: `auth`, `roster`, `notes`, `recorder`, `assessment`, `workflow`, `knowledge`, `shared`. See the [domain map](docs/architecture.md).                |
-| `styles/`                                                  | Theme, workspace, form, recorder, review and interaction styles, imported in fixed order by `app/globals.css`. Component-specific CSS stays beside its component. |
-| `db/schema/`                                               | Domain tables; `db/schema.ts` is the Drizzle export entrypoint.                                                                                                   |
-| `drizzle/`                                                 | Immutable SQL migrations and generator metadata.                                                                                                                  |
-| `config/agents/`                                           | Recorder prompt/tools, silent AI2 prompt artifact, and native Workflow configuration.                                                                             |
-| `tests/`                                                   | `unit/` for domain tests, `api/` for built-Worker HTTP suites, `support/` for shared harnesses.                                                                   |
-| `scripts/`, `deploy/vm/`                                   | Operator commands, fixture imports, agent configuration and VM operations.                                                                                        |
-| `build/`, `vendor/`                                        | Sites build integration and licensed CSS support.                                                                                                                 |
-| `docs/`                                                    | Architecture, `guides/` for setup/operations, `flows/` for current behaviour, `sources/` for original requests.                                                   |
-
-The containing local workspace has one separate `reference/` directory for original documents, research and official form samples. These materials are not application source and are not included in this Git repository. Generated `dist/`, caches and test reports are ignored; credentials and local D1 persistence keep their existing locations.
-
 ## Evidence and deployment
 
 Source transcripts and audit actions are append-only. Facts, explicit negatives, unknowns and undiscussed fields remain distinct. Note confirmation is bound to a current revision and successful AI2 check. Existing assessment history and compatibility endpoints remain readable even where new writes have been retired. The app does not submit external reports or send external risk notifications.
 
-GitHub `main` is the source for the standalone VM's configured updater. [VM deployment](docs/guides/deployment.md) documents backups, migration and release handling. `.openai/hosting.json` identifies the separate private Sites deployment and D1 binding; Sites publication requires its own build/version/deployment flow. Pushing GitHub alone does not publish Sites or change an ElevenLabs agent.
+GitHub `main` is the source for the standalone VM's configured updater. [VM deployment](docs/guides/deployment.md) documents backups, migration and release handling. `.openai/hosting.json` identifies the separate private Sites deployment and D1 binding; Sites publication requires its own build, version and deployment flow. Pushing GitHub alone does not publish Sites or change an ElevenLabs agent.
 
 Keep `.env.local`, `.secrets/`, local databases and test exports out of Git. `.env.example` documents server settings. Never put source repository credentials into deployed assets or runtime environment variables.
+
+The containing local workspace has one separate `reference/` directory for original documents, research and official form samples. These materials are not application source and are not included in this Git repository. Generated `dist/`, caches and test reports are ignored; credentials and local D1 persistence keep their existing locations.
