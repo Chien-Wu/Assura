@@ -44,7 +44,10 @@
         },
         "source_ids": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string",
+            "description": "An exact sourceId returned by the current search."
+          },
           "description": "One to four exact sourceId values from that retrieval supporting the question."
         },
         "purpose_key": {
