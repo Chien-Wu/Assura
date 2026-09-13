@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Lexend, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
+import "./entry.css";
 import Theme from "./theme-provider";
 
 const heading = Lexend({
@@ -18,7 +19,7 @@ const body = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "LegalMate — Shift notes",
+  title: "LegalMate — better note, less burden",
   description:
     "Complete your shift note, review the details, and keep your handover in one place.",
   other: {

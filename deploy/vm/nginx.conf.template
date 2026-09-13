@@ -14,13 +14,8 @@ server {
     ssl_certificate_key /etc/legalmate/letsencrypt/live/__HOST__/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     client_max_body_size 128k;
-    auth_basic "LegalMate testing";
-    auth_basic_user_file /etc/legalmate/users.htpasswd;
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy same-origin always;
-
-    location = /signin-with-chatgpt { return 302 /worker; }
-    location = /signout-with-chatgpt { return 401; }
 
     location / {
         if (-f /var/lib/legalmate/maintenance) { return 503; }
@@ -30,11 +25,14 @@ server {
         proxy_set_header X-Forwarded-Host __HOST__;
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-For $remote_addr;
+        # Rate limiting trusts only this proxy-supplied client address.
+        proxy_set_header CF-Connecting-IP $remote_addr;
         proxy_set_header Authorization "";
-        proxy_set_header oai-authenticated-user-id "vm_$remote_user";
-        proxy_set_header oai-authenticated-user-email "$remote_user@legalmate.local";
-        proxy_set_header oai-authenticated-user-full-name "$remote_user";
-        proxy_set_header oai-authenticated-user-full-name-encoding "percent-encoded-utf-8";
+        # Identity comes only from the application session cookie.
+        proxy_set_header oai-authenticated-user-id "";
+        proxy_set_header oai-authenticated-user-email "";
+        proxy_set_header oai-authenticated-user-full-name "";
+        proxy_set_header oai-authenticated-user-full-name-encoding "";
         proxy_buffering off;
         proxy_read_timeout 120s;
     }

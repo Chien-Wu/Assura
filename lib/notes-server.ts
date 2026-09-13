@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { getAppUser } from "@/lib/auth";
 import {
   FORM_VERSION,
   emptyFields,
@@ -8,6 +8,11 @@ import {
 } from "./shift-form";
 import { readSafety, retentionUntil } from "./safety";
 import { isAllowedRequestOrigin } from "./request-origin";
+import {
+  createWorkerNoteQuery,
+  readableNoteAccess,
+} from "./organisation-access";
+import { claimManagerGrants, type OrganisationUser } from "./organisations";
 
 export class RequestError extends Error {
   status: number;
@@ -25,7 +30,7 @@ export function database() {
   return env.DB;
 }
 export async function identity(request: Request) {
-  const user = await getChatGPTUser();
+  const user = await getAppUser(new Headers(request.headers));
   if (!user)
     throw new RequestError("Sign in to create and save your notes.", 401);
   if (request.method !== "GET") {
@@ -83,6 +88,8 @@ export function failure(error: unknown) {
 export type Row = {
   id: string;
   owner_id: string;
+  provider_id: string | null;
+  provider_name?: string | null;
   worker_name: string;
   fields_json: string;
   revision: number;
@@ -117,6 +124,8 @@ export function toNote(row: Row): ShiftNote {
     formVersion: row.form_version,
     timezone: row.timezone,
     workerName: row.worker_name,
+    providerId: row.provider_id ?? null,
+    providerName: row.provider_name ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     confirmedAt: row.confirmed_at,
@@ -127,11 +136,20 @@ export function toNote(row: Row): ShiftNote {
   };
 }
 const noteSelect =
-  "SELECT shift_notes.*, (SELECT COALESCE(json_group_array(json(data_json)),'[]') FROM risk_events WHERE note_id=shift_notes.id) AS risk_flags_json, (SELECT COALESCE(SUM(question_count),0) FROM transcript_events WHERE note_id=shift_notes.id) AS question_count FROM shift_notes";
+  "SELECT shift_notes.*, (SELECT COALESCE(json_group_array(json(data_json)),'[]') FROM risk_events WHERE note_id=shift_notes.id) AS risk_flags_json, (SELECT COALESCE(SUM(question_count),0) FROM transcript_events WHERE note_id=shift_notes.id) AS question_count, (SELECT name FROM providers WHERE providers.id=shift_notes.provider_id) AS provider_name FROM shift_notes";
 export async function getRow(id: string, ownerId: string) {
   const row = await database()
     .prepare(noteSelect + " WHERE id = ? AND owner_id = ?")
     .bind(id, ownerId)
+    .first<Row>();
+  if (!row) throw new RequestError("This note could not be found.", 404);
+  return row;
+}
+export async function getReadableRow(id: string, user: OrganisationUser) {
+  await claimManagerGrants(user);
+  const row = await database()
+    .prepare(noteSelect + " WHERE shift_notes.id=? AND " + readableNoteAccess)
+    .bind(id, user.userId, user.userId)
     .first<Row>();
   if (!row) throw new RequestError("This note could not be found.", 404);
   return row;
@@ -145,18 +163,26 @@ export async function listNotes(ownerId: string) {
     .all<Row>();
   return result.results.map(toNote);
 }
+export async function listProviderNotes(providerId: string) {
+  const result = await database()
+    .prepare(
+      noteSelect + " WHERE provider_id=? ORDER BY updated_at DESC LIMIT 100",
+    )
+    .bind(providerId)
+    .all<Row>();
+  return result.results.map(toNote);
+}
 export async function createNote(
   id: unknown,
   ownerId: string,
   workerName: string,
+  providerId: string,
 ) {
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id))
     throw new RequestError("Invalid note identifier.");
   const now = new Date().toISOString();
   await database()
-    .prepare(
-      "INSERT OR IGNORE INTO shift_notes (id,owner_id,worker_name,fields_json,revision,status,form_version,timezone,created_at,updated_at,retention_until) VALUES (?,?,?,?,0,'draft',?,?,?,?,?)",
-    )
+    .prepare(createWorkerNoteQuery)
     .bind(
       id,
       ownerId,
@@ -167,6 +193,9 @@ export async function createNote(
       now,
       now,
       retentionUntil(now),
+      providerId,
+      ownerId,
+      providerId,
     )
     .run();
   return toNote(await getRow(id, ownerId));

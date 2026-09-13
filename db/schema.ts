@@ -1,9 +1,19 @@
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { providers } from "./organisation-schema";
+export * from "./organisation-schema";
+export {
+  authUser,
+  authSession,
+  authAccount,
+  authVerification,
+  authRateLimit,
+} from "./auth-schema";
 export const shiftNotes = sqliteTable(
   "shift_notes",
   {
     id: text("id").primaryKey(),
     ownerId: text("owner_id").notNull(),
+    providerId: text("provider_id").references(() => providers.id),
     workerName: text("worker_name").notNull(),
     fields: text("fields_json").notNull(),
     revision: integer("revision").notNull().default(0),
@@ -22,6 +32,10 @@ export const shiftNotes = sqliteTable(
   },
   (table) => [
     index("idx_shift_notes_owner_updated").on(table.ownerId, table.updatedAt),
+    index("idx_shift_notes_provider_updated").on(
+      table.providerId,
+      table.updatedAt,
+    ),
   ],
 );
 

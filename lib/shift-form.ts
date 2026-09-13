@@ -82,6 +82,8 @@ export type ShiftNote = {
   updatedAt: string;
   confirmedAt: string | null;
   workerName: string;
+  providerId?: string | null;
+  providerName?: string | null;
   formVersion: string;
   timezone: string;
   safety?: Safety;

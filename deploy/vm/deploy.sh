@@ -68,12 +68,20 @@ activate() {
 }
 
 health() {
-  local attempt
+  local allow_legacy=${1:-0}
+  local attempt status page_status
   for attempt in $(seq 1 30); do
-    if curl --fail --silent --max-time 3 http://127.0.0.1:8787/api/notes \
-      -H 'oai-authenticated-user-id: vm_deployment_health' \
-      -H 'oai-authenticated-user-email: deployment-health@legalmate.local' >/dev/null; then
+    status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+      --max-time 3 http://127.0.0.1:8787/api/health) || status=000
+    if [[ "$status" == 200 ]]; then
       return 0
+    fi
+    # Only an older release without the new endpoint may use the basic page
+    # check during rollback. A failing readiness check must never be bypassed.
+    if [[ "$allow_legacy" == 1 && "$status" == 404 ]]; then
+      page_status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+        --max-time 3 http://127.0.0.1:8787/) || page_status=000
+      if [[ "$page_status" == 200 ]]; then return 0; fi
     fi
     sleep 2
   done
@@ -95,7 +103,7 @@ rollback() {
     if [[ -n "$PREVIOUS" && -d "$PREVIOUS" ]]; then
       activate "$PREVIOUS"
       systemctl start legalmate.service
-      if health; then rm -f "$MAINTENANCE"; fi
+      if health 1; then rm -f "$MAINTENANCE"; fi
     elif [[ -L "$ROOT/current" ]]; then
       rm "$ROOT/current"
     fi

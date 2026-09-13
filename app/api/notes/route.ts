@@ -6,6 +6,7 @@ import {
   listNotes,
   readBody,
 } from "@/lib/notes-server";
+import { requireWorker } from "@/lib/organisations";
 export async function GET(request: Request) {
   try {
     const user = await identity(request);
@@ -18,8 +19,16 @@ export async function POST(request: Request) {
   try {
     const user = await identity(request);
     const body = await readBody(request);
+    const worker = await requireWorker(user);
     return json(
-      { note: await createNote(body.id, user.userId, user.displayName) },
+      {
+        note: await createNote(
+          body.id,
+          user.userId,
+          worker.fullName,
+          worker.providerId,
+        ),
+      },
       201,
     );
   } catch (error) {

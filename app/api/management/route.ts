@@ -3,51 +3,49 @@ import {
   failure,
   identity,
   json,
-  listNotes,
+  listProviderNotes,
   RequestError,
 } from "@/lib/notes-server";
 import { participants } from "@/lib/participants";
 import { reportingGuidance } from "@/lib/safety";
+import { requireManager } from "@/lib/organisations";
+import {
+  providerRisksQuery,
+  providerActionsQuery,
+  providerUsesQuery,
+} from "@/lib/organisation-access";
 export async function GET(request: Request) {
   try {
     const user = await identity(request);
+    const manager = await requireManager(
+      user,
+      new URL(request.url).searchParams.get("providerId"),
+    );
     const month =
       new URL(request.url).searchParams.get("month") ??
       new Date().toISOString().slice(0, 7);
     if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month))
       throw new RequestError("Choose a valid reporting month.");
     const [notes, risks, actions, uses] = await Promise.all([
-      listNotes(user.userId),
+      listProviderNotes(manager.providerId),
+      database().prepare(providerRisksQuery).bind(manager.providerId).all<{
+        id: string;
+        note_id: string;
+        data_json: string;
+        captured_at: string;
+        inbox_at: string | null;
+      }>(),
+      database().prepare(providerActionsQuery).bind(manager.providerId).all<{
+        id: string;
+        risk_id: string;
+        action: string;
+        details_json: string;
+        actor: string;
+        created_at: string;
+      }>(),
       database()
-        .prepare(
-          "SELECT * FROM risk_events WHERE owner_id=? ORDER BY captured_at DESC",
-        )
-        .bind(user.userId)
-        .all<{
-          id: string;
-          note_id: string;
-          data_json: string;
-          captured_at: string;
-          inbox_at: string | null;
-        }>(),
-      database()
-        .prepare(
-          "SELECT * FROM risk_actions WHERE owner_id=? ORDER BY created_at ASC",
-        )
-        .bind(user.userId)
-        .all<{
-          id: string;
-          risk_id: string;
-          action: string;
-          details_json: string;
-          actor: string;
-          created_at: string;
-        }>(),
-      database()
-        .prepare(
-          "SELECT json_extract(fields_json,'$.participant') AS participant,json_extract(safety_json,'$.restrictivePractice.schedule_item') AS item,COUNT(*) AS count FROM shift_notes WHERE owner_id=? AND substr(json_extract(fields_json,'$.shiftStart'),1,7)=? AND json_extract(safety_json,'$.restrictivePractice.used')='yes' GROUP BY participant,item",
-        )
-        .bind(user.userId, month)
+        .prepare(providerUsesQuery)
+        .bind(manager.providerId, month)
         .all<{ participant: string; item: string; count: number }>(),
     ]);
     const incidents = risks.results.map((risk) => {
@@ -107,9 +105,9 @@ export async function GET(request: Request) {
       incidents,
       monthly,
       month,
+      provider: { id: manager.providerId, name: manager.providerName },
       reportingGuidance,
-      audience:
-        "Private demo supervisor view — this signed-in workspace's records",
+      audience: `${manager.providerName} — service provider records`,
       delivery:
         "In-app inbox only. No external message or Commission submission is sent.",
     });

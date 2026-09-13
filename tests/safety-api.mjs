@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { loadTestSession } from "./session-fixture.mjs";
 import { randomUUID } from "node:crypto";
-const origin = "http://localhost:5173";
+const origin = process.env.LEGALMATE_TEST_ORIGIN || "http://localhost:5173";
 let cookie = "",
+  providerId,
   checks = 0;
 async function api(
   path,
@@ -9,6 +11,8 @@ async function api(
   expected = 200,
   method = body === undefined ? "GET" : "POST",
 ) {
+  if (providerId && path.startsWith("/api/management"))
+    path += `${path.includes("?") ? "&" : "?"}providerId=${encodeURIComponent(providerId)}`;
   const r = await fetch(origin + path, {
     method,
     headers: {
@@ -24,13 +28,12 @@ async function api(
   return d;
 }
 await api("/api/management", undefined, 401);
-const login = await fetch(origin + "/signin-with-chatgpt?return_to=/", {
-  redirect: "manual",
+const session = await loadTestSession(origin, {
+  manager: true,
+  withProfile: true,
 });
-cookie = login.headers
-  .getSetCookie()
-  .map((x) => x.split(";")[0])
-  .join("; ");
+cookie = session.cookie;
+providerId = session.profile.providerId;
 const id = randomUUID();
 await api("/api/notes", { id }, 201);
 await api(

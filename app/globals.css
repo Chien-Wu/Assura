@@ -309,7 +309,7 @@ a {
   font-size: 14px;
   max-width: 220px;
 }
-.profile > span:last-child {
+.profile > .profile-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -986,7 +986,7 @@ h1 {
   .essentials-fields {
     grid-template-columns: 1fr;
   }
-  .profile > span:last-child {
+  .profile > .profile-name {
     display: none;
   }
   .heading-actions {
@@ -1009,6 +1009,9 @@ h1 {
   }
   .profile {
     margin-left: auto;
+  }
+  .profile .avatar {
+    display: none;
   }
   .main-tabs {
     order: 3;

@@ -1,6 +1,7 @@
 // Optional live test: runs one real text conversation using fictional details.
 // Requires the local preview and a configured ElevenLabs key; uses Agent credits.
 import assert from "node:assert/strict";
+import { loadTestSession } from "./session-fixture.mjs";
 import { randomUUID } from "node:crypto";
 import { Conversation } from "@elevenlabs/client";
 import {
@@ -10,14 +11,8 @@ import {
   followUpOptions,
 } from "../lib/shift-form.ts";
 import { hasConfirmationPrompt } from "../lib/voice-state.ts";
-const origin = "http://localhost:5173";
-const signIn = await fetch(origin + "/signin-with-chatgpt?return_to=/", {
-  redirect: "manual",
-});
-const cookie = signIn.headers
-  .getSetCookie()
-  .map((value) => value.split(";")[0])
-  .join("; ");
+const origin = process.env.LEGALMATE_TEST_ORIGIN || "http://localhost:5173";
+const cookie = await loadTestSession(origin);
 async function api(path, body, method = body === undefined ? "GET" : "POST") {
   const response = await fetch(origin + path, {
     method,

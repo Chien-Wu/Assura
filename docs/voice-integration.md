@@ -4,13 +4,13 @@ The English MVP connects a private ElevenLabs Agent using `@elevenlabs/react` 1.
 
 ## Configuration
 
-Set `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` in the ignored `.env.local` for development and in Sites runtime environment variables for the hosted app. Store the key as a secret. Agent configuration is documented in the [Agent configuration](elevenlabs-agent.md).
+Set `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` in the ignored `.env.local` for development and in the server environment for the hosted app. Store the key as a secret. Agent configuration is documented in the [Agent configuration](elevenlabs-agent.md).
 
 `POST /api/voice/sessions` requires a signed-in owner and a saved draft. For voice it obtains a short-lived ElevenLabs WebRTC token. For text it obtains a signed WebSocket URL with `include_conversation_id=true`, parses the returned conversation ID from that URL, and stores the provider conversation ID and note ID, expires older app sessions for the same note, and returns the connection credential to that browser. No API key is returned. App sessions expire after 15 minutes; the Agent's configured call limit is 10 minutes.
 
 ## Conversation and persistence
 
-Four client tools forward to the app's authenticated APIs. This allows tools to use the private Site's signed-in browser session without an unauthenticated external webhook.
+Four client tools forward to the app's authenticated APIs. This allows tools to use the app's signed-in browser session without an unauthenticated external webhook.
 
 | Client tool             | Action                                                                                                                                       |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -27,7 +27,7 @@ This is browser SDK transcript evidence, not an independent audio audit or ident
 
 ## Temporary text test
 
-1. Open the app, sign in, select a fictional participant profile, keep **Text · Test mode** selected and press **Start text note**.
+1. Open the app, choose **Support worker**, select an existing provider and sign in with Google or email. Confirm your name and provider on first use, then select a fictional participant profile, keep **Text · Test mode** selected and press **Start text note**.
 2. Type the fictional shift below. Press Enter or Send; Shift + Enter adds a line.
 3. Check the same automatic form updates, follow-up questions and corrections. Read the assistant's review and type **I confirm this shift note.** when ready.
 4. Wait for **Complete**, then end the conversation. Ending before confirmation must leave a draft.
@@ -35,7 +35,7 @@ This is browser SDK transcript evidence, not an independent audio audit or ident
 
 ## Voice acceptance test
 
-1. Open the private hosted app, sign in, choose a new note, select **Sarah Doyle**, switch to **Voice**, and press **Start voice note**. Allow microphone access.
+1. Open the app, sign in as a support worker and complete your profile, choose a new note, select **Sarah Doyle**, switch to **Voice**, and press **Start voice note**. Allow microphone access.
 2. Use fictional details: “Today I supported Sarah from nine a.m. to three p.m. We went grocery shopping. I gave verbal prompts at checkout. Sarah chose items independently and practised budgeting. There were no incidents and no follow-up needed.”
 3. Answer any missing questions. Confirm the saved fields appear on screen.
 4. Say “Actually, the shift ended at three thirty.” Check the end time changes and a fresh review follows.
@@ -47,8 +47,8 @@ This is browser SDK transcript evidence, not an independent audio audit or ident
 
 - `npm test`
 - `npx tsc --noEmit`
-- Build with the Sites build helper.
-- Against the local server: `npm run test:api`. The voice API test requests a connection token but opens no audio connection and sends no participant fields to ElevenLabs.
+- `npm run build`
+- Against the local server with an authenticated test cookie: `npm run test:api` (see [authentication setup](authentication.md)). The voice API test requests a connection token but opens no audio connection and sends no participant fields to ElevenLabs.
 
 References: [React SDK](https://elevenlabs.io/docs/eleven-agents/libraries/react), [Client tools](https://elevenlabs.io/docs/eleven-agents/customization/tools/client-tools).
 

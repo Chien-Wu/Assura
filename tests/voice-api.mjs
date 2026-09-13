@@ -1,8 +1,9 @@
 // Requires local preview and a configured ElevenLabs key. Issues a connection
 // token but never opens audio or sends test participant details to ElevenLabs.
 import assert from "node:assert/strict";
+import { loadTestSession } from "./session-fixture.mjs";
 import { randomUUID } from "node:crypto";
-const origin = "http://localhost:5173";
+const origin = process.env.LEGALMATE_TEST_ORIGIN || "http://localhost:5173";
 let cookie = "",
   checks = 0;
 async function api(
@@ -30,13 +31,7 @@ async function api(
   return data;
 }
 await api("/api/voice/sessions", { noteId: randomUUID() }, 401);
-const signIn = await fetch(origin + "/signin-with-chatgpt?return_to=/", {
-  redirect: "manual",
-});
-cookie = signIn.headers
-  .getSetCookie()
-  .map((item) => item.split(";")[0])
-  .join("; ");
+cookie = await loadTestSession(origin);
 assert.equal((await api("/api/voice/status")).enabled, true);
 const id = randomUUID();
 await api("/api/notes", { id }, 201);

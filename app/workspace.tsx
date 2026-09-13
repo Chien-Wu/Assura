@@ -1,4 +1,6 @@
 "use client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -61,6 +63,7 @@ import {
 } from "@/lib/shift-form";
 
 import ThemeToggle from "./theme-toggle";
+import SignOutButton from "./sign-out-button";
 import VoicePanel from "./voice-panel";
 import SafetyPanel from "./safety-panel";
 import { participants, participantFor } from "@/lib/participants";
@@ -96,7 +99,12 @@ const hasContent = (fields: ShiftFields) =>
       !((key === "incidents" || key === "followUp") && value === "unanswered"),
   );
 
-export default function Workspace({ user }: { user: { name: string } | null }) {
+export default function Workspace({
+  user,
+}: {
+  user: { name: string; providerName?: string } | null;
+}) {
+  const router = useRouter();
   const [view, setView] = useState("worker");
   const [fields, setFields] = useState<ShiftFields>(emptyFields);
   const [note, setNote] = useState<ShiftNote | null>(null);
@@ -116,6 +124,7 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
   const errorSummary = useRef<HTMLDivElement>(null);
   const newId = useRef<string | null>(null);
   const mutationLock = useRef(false);
+  const leavingAfterSave = useRef(false);
   const dirty =
     JSON.stringify(fields) !== JSON.stringify(note?.fields ?? emptyFields());
   const validation = checkForm(fields);
@@ -139,6 +148,7 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
   useEffect(() => {
     if (!dirty && !voiceActive) return;
     const warn = (event: BeforeUnloadEvent) => {
+      if (leavingAfterSave.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -232,6 +242,18 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
       await persist();
       setNotice("Draft saved.");
     });
+  }
+  function openDetails() {
+    return action("details", async () => {
+      if (dirty && (note || hasContent(fields))) await persist();
+      router.push("/onboarding?edit=1");
+    });
+  }
+  async function saveBeforeSignOut() {
+    if (dirty && (note || hasContent(fields))) await persist();
+    // The unload handler may still hold the prior render's dirty state. It is
+    // safe to leave only after persistence succeeds; the editor stays locked.
+    leavingAfterSave.current = true;
   }
   useEffect(() => {
     if (submitAttempt > 0) errorSummary.current?.focus();
@@ -351,12 +373,23 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
           {user ? (
             <>
               <span className="avatar">{user.name[0].toUpperCase()}</span>
-              <span title={user.name}>{user.name}</span>
+              <span className="profile-name" title={user.name}>
+                {user.name}
+              </span>
+              <SignOutButton
+                disabled={voiceActive || Boolean(busy)}
+                beforeSignOut={saveBeforeSignOut}
+                onBusyChange={(signingOut) => {
+                  mutationLock.current = signingOut;
+                  setBusy(signingOut ? "signOut" : "");
+                  if (!signingOut) leavingAfterSave.current = false;
+                }}
+              />
             </>
           ) : (
-            <a href="/signin-with-chatgpt?return_to=/worker" target="_top">
+            <Link href="/?role=worker">
               Sign in <ArrowUpRight size={15} />
-            </a>
+            </Link>
           )}
         </div>
       </header>
@@ -364,7 +397,19 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
         <TabsContent value="worker">
           <div className="page-heading">
             <div>
-              <p className="eyebrow">SHIFT RECORD</p>
+              <p className="eyebrow">
+                {note
+                  ? (note.providerName ?? "Unassigned provider")
+                  : (user?.providerName ?? "SHIFT RECORD")}
+              </p>
+              <button
+                type="button"
+                className="workspace-provider entry-text-button"
+                disabled={voiceActive || Boolean(busy)}
+                onClick={() => void openDetails()}
+              >
+                Your details
+              </button>
               <h1>
                 {completed
                   ? "One shift, all wrapped up."
@@ -393,9 +438,7 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
             <div className="info-banner">
               <ShieldCheck size={18} />
               <p>
-                <a href="/signin-with-chatgpt?return_to=/worker" target="_top">
-                  Sign in to save your notes.
-                </a>{" "}
+                <Link href="/?role=worker">Sign in to save your notes.</Link>{" "}
                 This preview uses your own workspace records. Use fictional
                 participant details.
               </p>
@@ -869,12 +912,9 @@ export default function Workspace({ user }: { user: { name: string } | null }) {
               </p>
               {!user ? (
                 <Button asChild>
-                  <a
-                    href="/signin-with-chatgpt?return_to=/worker"
-                    target="_top"
-                  >
+                  <Link href="/?role=worker" target="_top">
                     Sign in
-                  </a>
+                  </Link>
                 </Button>
               ) : (
                 <Button variant="outline" onClick={() => setView("worker")}>

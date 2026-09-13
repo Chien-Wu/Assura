@@ -22,6 +22,20 @@
       "when": 1789205881361,
       "tag": "0002_amazing_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789267118679,
+      "tag": "0003_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789267207272,
+      "tag": "0004_organisations",
+      "breakpoints": true
     }
   ]
 }

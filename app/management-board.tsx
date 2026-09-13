@@ -114,9 +114,11 @@ function download(value: unknown, name: string) {
 export default function ManagementBoard({
   signedIn,
   onOpenNote,
+  providerId,
 }: {
   signedIn: boolean;
   onOpenNote?: (id: string) => void;
+  providerId?: string;
 }) {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [board, setBoard] = useState<Board | null>(null);
@@ -130,14 +132,18 @@ export default function ManagementBoard({
     if (!signedIn || inflight.current) return;
     inflight.current = true;
     try {
-      setBoard(await api<Board>(`/api/management?month=${month}`));
+      setBoard(
+        await api<Board>(
+          `/api/management?month=${month}${providerId ? `&providerId=${encodeURIComponent(providerId)}` : ""}`,
+        ),
+      );
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load.");
     } finally {
       inflight.current = false;
     }
-  }, [signedIn, month]);
+  }, [signedIn, month, providerId]);
   useEffect(() => {
     const initial = setTimeout(() => void load(), 0);
     const timer = setInterval(() => void load(), 5000);
@@ -399,7 +405,7 @@ export default function ManagementBoard({
               item={selected}
               onSave={async (body) => {
                 await api(
-                  `/api/management/${encodeURIComponent(selected.id)}`,
+                  `/api/management/${encodeURIComponent(selected.id)}${providerId ? `?providerId=${encodeURIComponent(providerId)}` : ""}`,
                   body,
                 );
                 setSelected(null);

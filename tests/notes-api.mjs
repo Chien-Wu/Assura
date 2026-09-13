@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { loadTestSession } from "./session-fixture.mjs";
 import { randomUUID } from "node:crypto";
-const origin = "http://localhost:5173";
+const origin = process.env.LEGALMATE_TEST_ORIGIN || "http://localhost:5173";
 let cookie = "";
 let assertions = 0;
 async function request(
@@ -37,14 +38,7 @@ async function request(
   return result;
 }
 await request("/api/notes", "GET", undefined, 401);
-const signIn = await fetch(origin + "/signin-with-chatgpt?return_to=/", {
-  redirect: "manual",
-});
-cookie = signIn.headers
-  .getSetCookie()
-  .map((value) => value.split(";")[0])
-  .join("; ");
-assert.ok(cookie, "Local sign-in must issue a development cookie");
+cookie = await loadTestSession(origin);
 const id = randomUUID();
 const first = await request("/api/notes", "POST", { id }, 201);
 assert.equal(first.note.revision, 0);

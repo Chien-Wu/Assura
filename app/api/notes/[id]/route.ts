@@ -3,6 +3,7 @@ import {
   database,
   failure,
   getRow,
+  getReadableRow,
   identity,
   json,
   RequestError,
@@ -30,7 +31,8 @@ export async function GET(request: Request, context: Context) {
   try {
     const user = await identity(request);
     const { id } = await context.params;
-    return json(await safetyContext(id, user.userId));
+    const row = await getReadableRow(id, user);
+    return json(await safetyContext(id, row.owner_id));
   } catch (error) {
     return failure(error);
   }

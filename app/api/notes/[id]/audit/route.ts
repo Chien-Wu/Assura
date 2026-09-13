@@ -1,7 +1,7 @@
 import {
   database,
   failure,
-  getRow,
+  getReadableRow,
   identity,
   json,
   toNote,
@@ -13,25 +13,26 @@ export async function GET(
   try {
     const user = await identity(request);
     const { id } = await context.params;
-    const note = toNote(await getRow(id, user.userId));
+    const row = await getReadableRow(id, user);
+    const note = toNote(row);
     const [transcript, changes, snapshot] = await Promise.all([
       database()
         .prepare(
           "SELECT session_id,sequence,role,content,received_at FROM transcript_events WHERE note_id=? AND owner_id=? ORDER BY received_at,sequence",
         )
-        .bind(id, user.userId)
+        .bind(id, row.owner_id)
         .all(),
       database()
         .prepare(
           "SELECT revision,field,before_value,after_value,actor,source,created_at FROM note_changes WHERE note_id=? AND owner_id=? ORDER BY revision,created_at",
         )
-        .bind(id, user.userId)
+        .bind(id, row.owner_id)
         .all(),
       database()
         .prepare(
           "SELECT snapshot_json,created_at FROM note_snapshots WHERE note_id=? AND owner_id=?",
         )
-        .bind(id, user.userId)
+        .bind(id, row.owner_id)
         .first<{ snapshot_json: string; created_at: string }>(),
     ]);
     return json({

@@ -6,18 +6,26 @@ import {
   readBody,
   RequestError,
 } from "@/lib/notes-server";
+import { requireManager } from "@/lib/organisations";
+import { appendManagerActionQuery } from "@/lib/organisation-access";
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
     const user = await identity(request);
+    const manager = await requireManager(
+      user,
+      new URL(request.url).searchParams.get("providerId"),
+    );
     const { id } = await context.params;
     const body = await readBody(request);
     const risk = await database()
-      .prepare("SELECT id FROM risk_events WHERE id=? AND owner_id=?")
-      .bind(id, user.userId)
-      .first();
+      .prepare(
+        "SELECT risk_events.id,risk_events.owner_id FROM risk_events JOIN shift_notes ON shift_notes.id=risk_events.note_id WHERE risk_events.id=? AND shift_notes.provider_id=?",
+      )
+      .bind(id, manager.providerId)
+      .first<{ id: string; owner_id: string }>();
     if (!risk) throw new RequestError("Review item not found.", 404);
     const details: Record<string, string> = {};
     for (const key of [
@@ -70,20 +78,23 @@ export async function POST(
       );
     if (!Object.keys(details).length)
       throw new RequestError("Add an acknowledgement, facts, or assessment.");
-    await database()
-      .prepare(
-        "INSERT INTO risk_actions (id,risk_id,owner_id,action,details_json,actor,created_at) VALUES (?,?,?,?,?,?,?)",
-      )
+    const saved = await database()
+      .prepare(appendManagerActionQuery)
       .bind(
         crypto.randomUUID(),
-        id,
-        user.userId,
-        "supervisor_review",
         JSON.stringify(details),
         user.userId,
         new Date().toISOString(),
+        id,
+        manager.providerId,
+        user.userId,
       )
       .run();
+    if (saved.meta.changes !== 1)
+      throw new RequestError(
+        "Your management access has changed. Reload before reviewing this item.",
+        403,
+      );
     return json({
       ok: true,
       message:

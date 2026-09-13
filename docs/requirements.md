@@ -1,6 +1,6 @@
 # LegalMate — MVP 需求
 
-更新日期：2026-09-12。
+更新日期：2026-09-13。
 
 GitHub 版本包含可執行的 Web app 與需求文件。文中的原始 `web/` 路徑對應本 repository 根目錄；`sample_form/` 與研究資料仍保留在原工作區，未隨程式碼上傳。
 
@@ -9,10 +9,10 @@ GitHub 版本包含可執行的 Web app 與需求文件。文中的原始 `web/`
 ## 1. 已確認的產品範圍
 
 - **只做 Web。** 使用者透過瀏覽器操作，不開發原生 iOS／Android app。
-- **主要使用者是剛下班的 support worker。** 開始時，這次班次的表單內容是空白的。
+- **產品同時協助 support workers 與 service providers。** Worker 的核心情境是剛下班、從空白班次表單開始；Provider 透過 managers 管理團隊紀錄與覆核。最新帳號與入口決定見第 9 節。
 - **核心體驗是一次完整語音對話完成紀錄。** AI 在同一段對話中聽取敘述、填表、追問缺項、接受更正及確認內容。
 - worker 不需要先寫好 shift note，也不需要每答一題就停止錄音或切換到另一個填表步驟。
-- **Worker 與 Manager 使用不同視窗。** Worker 在 `/worker` 訪談及填寫紀錄；Manager 在 `/manager` 操作管理看板。根目錄提供兩個入口，可各自開啟獨立瀏覽器分頁／視窗；worker 畫面不放主管控制項。
+- **Worker 與 Manager 使用不同工作介面。** Worker 在 `/worker` 訪談及填寫紀錄；Manager 在 `/manager` 操作管理看板。新版根目錄改為手機優先的身分選擇與原頁展開入口（見第 9 節）；worker 畫面不放主管控制項。
 - **主管端先做實用的簡單版本。** 本次新增事件覆核、通知時間線、原始對話與編輯紀錄、限制性措施及月報／nil-return 提醒；進階趨勢分析仍非本次範圍。
 - **正式表單仍由使用者準備。** 尚未確認欄位、必填條件、條件式問題、版面及輸出格式。專案內的 `sample_form/` 是參考材料，不代表已選定正式模板。
 - **全部英文。** 介面、語音對話及產出紀錄均使用英文。
@@ -199,3 +199,45 @@ sequenceDiagram
 - 未授權限制性措施一般為 provider 知悉後五個工作天；造成 harm 或屬其他 24 小時通報類別時，可能適用 24 小時。未知 harm 或授權狀態應保留不確定性，交負責人評估，不能由模型作最終法律判斷。[NDIS Commission guidance](https://www.ndiscommission.gov.au/rules-and-standards/reportable-incidents-and-incident-management/reportable-incidents)
 - 月報與 incident reporting 可同時適用；當月沒有 app 記錄不等於實際零使用，因此只能提醒核對 nil return。使用超出計畫的限制仍需事件覆核。[Implementing providers](https://www.ndiscommission.gov.au/rules-and-standards/behaviour-support-and-restrictive-practices/rules-implementing-providers)
 - 新 Agent prompt 的可複用原文放在 `docs/elevenlabs-system-prompt.txt`；開場放在 `docs/elevenlabs-first-message.txt`。正式表單、真實個資使用、clinical sign-off 及正式組織權限不由此次 demo 自動完成。
+
+## 9. Provider／Manager／Worker 與登入改版（2026-09-13）
+
+本節記錄最新產品決定，優先於前述初始入口及帳號方案；第 8 節仍是歷史實作紀錄。本次分支的實作狀態見 9.4；外部登入服務設定與正式部署另行完成。
+
+### 9.1 已確認的產品方向與入口
+
+- 產品同時協助 support workers 與 service providers：worker 端減輕班後紀錄負擔；provider 端支援團隊紀錄管理、覆核與跟進。兩端均為核心使用情境。
+- **Provider 是服務機構；Manager 是獲授權操作該機構管理端的個人帳號；Worker 是撰寫班次紀錄的個人帳號。** 不把 provider 與 manager 當成同一種資料實體。
+- 保持英文 Web app，優先手機使用。首頁只保留品牌、slogan 與清楚的身分入口，移除額外功能清單及冗長展示說明。
+- Slogan 精確使用 **better note, less burden**。
+- 入口使用清晰的社福用語 **Service provider**、**Support worker**；點擊後在原頁展開相應登入／開始使用內容，worker 與管理端保留各自工作介面。
+- 正式登入只提供 **Continue with Google** 與 **Continue with email**，不提供其他登入選項。本次 MVP 採六位數 Email 一次性驗證碼，無需另外設定密碼。
+
+### 9.2 已確認的開通方式
+
+- **不開放線上自行新增 provider。** 新機構先與我們洽談，再由我們建立 provider 並開通第一個 manager account。
+- Provider 入口供已開通的 managers 登入；新機構可看到聯絡洽談入口，不提供公開建立機構或自行取得 manager 權限的流程。
+- **Worker 第一版可自行選取已存在的 provider 並登入使用。** 首次使用需完成基本資料與所屬 provider 選擇；不要求 manager 預先建立 worker、先發邀請或先審批。
+- 上述 worker 直接開始使用的決定，取代先前提出的「加入需 manager 確認」建議。
+- 新機構開通及第一位 manager 的身分配置由我們處理；不得因使用者點選 Service provider 入口，就自動授予管理權限。
+
+### 9.3 資料與權限設計
+
+- 新增穩定的 app user、worker profile、provider、worker membership 與 manager grant 資料，替換先前同 owner 的展示授權。
+- Worker 自選 provider 後即可建立自己的紀錄；只看自己的紀錄。Manager 依正式授權查看與覆核所屬 provider 的紀錄及必要證據。
+- 自選 provider 不自動取得 manager 權限、其他 workers 的紀錄，或整個機構的完整個案與照護資料；共享個案背景的可見範圍另行設計，不以此阻擋 worker 直接註冊。
+- 在 worker 選擇 provider 的步驟，簡短說明紀錄會分享給該機構 managers。一般草稿、已確認紀錄與既有風險 inbox 的可見時點須分別定義，不把所有草稿或既有即時風險提示一概改成同一規則。
+- 每份紀錄保存建立時的 provider 歸屬與原作者；worker 更換 provider 不自動搬移舊紀錄。更換登入來源時保留既有作者與 append-only 證據，可透過 identity mapping 銜接。
+- MVP 基本資料採 full name、已驗證 email 與一個目前所屬 provider；多機構 worker、正式個案資料的可見範圍仍留待後續設計。聯絡洽談入口的實際目的地待提供。
+
+### 9.4 本次分支實作
+
+- 分支：`feat/provider-worker-onboarding`；尚未合併 `main` 或部署至 VM。
+- 已加入手機優先的展開式首頁、Google／Email 驗證码登入、worker 基本資料頁，以及依機構授權的 manager 看板。Worker 可以直接加入已開通的 provider；manager grant 由管理員預先配置。
+- 每份新紀錄保存不可變更的 provider 歸屬。Worker 換機構後，歷史紀錄仍由原機構 managers 查看；worker 仍可讀取自己的歷史紀錄。Manager 不能修改、代為確認 worker 的觀察或啟動其對話。
+- Provider managers 可查看所屬機構的草稿及已確認紀錄；既有候選事件仍於捕捉時進入機構 inbox，不等紀錄確認。Worker 選擇機構時會看到紀錄分享說明。
+- 登入只接受已驗證 email 與簽署的資料庫 session。移除本機 dummy ChatGPT 登入；VM 設定改用 app session，舊 Basic auth 上線切換方式另見部署文件。
+- 新 migration 保留舊紀錄與 append-only 證據；舊 ChatGPT owner 不依 email 自動對應新帳號，舊紀錄也不自動指派給機構。既有資料轉移須提供可核對的 identity mapping。
+- 已加入管理員用 provider／第一位 manager 開通工具，沒有公開新增機構或提升管理權限的 API。
+- 本機已加入安全產生的 session secret，保留原有 ElevenLabs 設定。Google OAuth、寄信 API／驗證寄件者、實際 provider 與第一位 manager 尚未配置，因此目前不宣稱可完成真實登入。
+- 43 項單元／隔離資料庫測試、38 項建置後 API 檢查、格式／Lint／型別檢查與正式建置通過；涵蓋登入驗證、OTP 過期與重播、登出、角色隔離、跨機構讀取限制，以及更換機構後歷史紀錄的歸屬。手機首頁已檢查 320px／390px 寬度，沒有水平溢出。

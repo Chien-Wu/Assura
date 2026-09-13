@@ -1,9 +1,24 @@
-import { getChatGPTUser } from "../chatgpt-auth";
+import { redirect } from "next/navigation";
+import { getAppUser } from "@/lib/auth";
+import { getOnboarding } from "@/lib/organisations";
 import Workspace from "../workspace";
 export const dynamic = "force-dynamic";
-export default async function WorkerPage() {
-  const user = await getChatGPTUser();
+export default function WorkerPage() {
+  return <WorkerContent />;
+}
+async function WorkerContent() {
+  const user = await getAppUser();
+  if (!user) redirect("/?role=worker");
+  const data = await getOnboarding(user);
+  if (!data.profile) redirect("/onboarding");
   return (
-    <Workspace user={user ? { name: user.fullName ?? user.email } : null} />
+    <Workspace
+      user={{
+        name: data.profile.fullName,
+        providerName:
+          data.providers.find((p) => p.id === data.profile?.providerId)?.name ??
+          "Your service provider",
+      }}
+    />
   );
 }
