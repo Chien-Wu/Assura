@@ -52,7 +52,7 @@ const cursorSql =
 const budgetSql = `(COALESCE((SELECT SUM(question_count) FROM transcript_events WHERE note_id=? AND owner_id=?),0)
   +(SELECT COUNT(*) FROM interview_questions WHERE note_id=? AND owner_id=? AND status='proposed'))`;
 
-export function questionDto(row: QuestionRow) {
+function questionDto(row: QuestionRow) {
   return {
     id: row.id,
     purposeKey: row.purpose_key,

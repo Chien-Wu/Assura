@@ -11,7 +11,6 @@ import {
   readHistory,
 } from "../../scripts/seed-patient-history.mjs";
 import { TEST_ACCOUNTS, TEST_PROVIDER_ID } from "../../lib/test-accounts.ts";
-import { assessmentTopics } from "../../lib/assessment.ts";
 import {
   testAuthEnvironment,
   createAuthFixture,
@@ -140,7 +139,14 @@ function legacyResult() {
         nextShiftWatchFor: null,
       },
     ],
-    screening: assessmentTopics.map((topic) => ({
+    screening: [
+      "incident_safeguarding",
+      "health_wellbeing",
+      "medication",
+      "behaviour_restriction",
+      "complaint",
+      "service_exception",
+    ].map((topic) => ({
       topic,
       state: topic === "medication" ? "concern" : "not_discussed",
       evidence:

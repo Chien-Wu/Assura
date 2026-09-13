@@ -2,26 +2,15 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { parseEnv } from "node:util";
 import {
   buildWorkflow,
-  buildWebhookToolDefinitions,
+  buildClientToolDefinitions,
   basePrompt,
   configurationVersion,
-} from "./workflow-backend-config.mjs";
+} from "../../config/agents/workflow.mjs";
 
 const root = new URL("../../", import.meta.url);
-export async function configureWorkflowBackend(
-  baseUrl,
-  { model, transport = "webhook" } = {},
-) {
-  if (!["webhook", "client"].includes(transport))
-    throw Error("Unsupported tool transport");
-  const client = transport === "client";
-  const directory = new URL(
-    client ? ".secrets/workflow-app/" : ".secrets/workflow-backend/",
-    root,
-  );
-  const tag = client
-    ? "legalmate-workflow-app-test"
-    : "legalmate-backend-workflow-lab";
+export async function configureWorkflowAgent(baseUrl, { model } = {}) {
+  const directory = new URL(".secrets/workflow-app/", root);
+  const tag = "legalmate-workflow-app-test";
   if (
     model &&
     !["gpt-4.1-mini", "gemini-2.5-flash", "qwen35-397b-a17b"].includes(model)
@@ -36,7 +25,7 @@ export async function configureWorkflowBackend(
     origin.username ||
     origin.password
   )
-    throw Error("Provide a plain HTTPS gateway origin");
+    throw Error("Provide a plain HTTPS application origin");
   const env = parseEnv(await readFile(new URL(".env.local", root), "utf8"));
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const manifestFile = new URL("manifest.json", directory);
@@ -45,14 +34,14 @@ export async function configureWorkflowBackend(
     manifest = JSON.parse(await readFile(manifestFile, "utf8"));
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
-    manifest = { tools: {}, runs: [], configurationVersion };
+    manifest = { tools: {}, configurationVersion };
   }
   const persist = () =>
     writeFile(manifestFile, JSON.stringify(manifest, null, 2), { mode: 0o600 });
   async function api(method, path, body) {
     if (method !== "GET" && path.includes(env.ELEVENLABS_AGENT_ID))
       throw Error(
-        "Configured production agent cannot be mutated by this experiment",
+        "Configured production agent cannot be mutated by workflow setup",
       );
     const response = await fetch(`https://api.elevenlabs.io/v1${path}`, {
       method,
@@ -81,39 +70,14 @@ export async function configureWorkflowBackend(
   if (manifest.agentId) {
     const existing = await api("GET", `/convai/agents/${manifest.agentId}`);
     if (!existing.tags?.includes(tag))
-      throw Error("Refusing to update an agent not owned by this experiment");
+      throw Error("Refusing to update an agent not owned by workflow setup");
   }
-  const webhookDefinitions = buildWebhookToolDefinitions({
-    contextUrl: new URL("/api/workflow/tools/context", origin).href,
-    saveUrl: new URL("/api/workflow/tools/save", origin).href,
-  });
-  const definitions = client
-    ? Object.fromEntries(
-        Object.entries(webhookDefinitions).map(([kind, definition]) => [
-          kind,
-          {
-            type: "client",
-            name: definition.name,
-            description: definition.description,
-            parameters: definition.api_schema.request_body_schema ?? {
-              type: "object",
-              properties: {},
-              required: [],
-            },
-            expects_response: true,
-            response_timeout_secs: 15,
-            pre_tool_speech: "off",
-            interruption_mode: "allow",
-            execution_mode: "immediate",
-          },
-        ]),
-      )
-    : webhookDefinitions;
+  const definitions = buildClientToolDefinitions();
   for (const [kind, tool_config] of Object.entries(definitions)) {
     if (manifest.tools[kind]) {
       const current = await api("GET", `/convai/tools/${manifest.tools[kind]}`);
       if (current.tool_config.name !== tool_config.name)
-        throw Error("Lab tool identity mismatch");
+        throw Error("Workflow tool identity mismatch");
       const deps = await api(
         "GET",
         `/convai/tools/${manifest.tools[kind]}/dependent-agents?page_size=100`,
@@ -123,7 +87,9 @@ export async function configureWorkflowBackend(
         (deps.agents ?? []).some((item) => item.id !== manifest.agentId) ||
         (deps.branches ?? []).some((item) => item.agent_id !== manifest.agentId)
       )
-        throw Error("Lab tool has dependencies outside its isolated agent");
+        throw Error(
+          "Workflow tool has dependencies outside its isolated agent",
+        );
       await api("PATCH", `/convai/tools/${manifest.tools[kind]}`, {
         tool_config,
       });
@@ -142,7 +108,7 @@ export async function configureWorkflowBackend(
       turn: { turn_timeout: 15, silence_end_call_timeout: 120 },
       conversation: {
         text_only: false,
-        max_duration_seconds: client ? 600 : 240,
+        max_duration_seconds: 600,
         client_events: [
           "agent_response",
           "agent_response_complete",
@@ -169,7 +135,7 @@ export async function configureWorkflowBackend(
             manifest.model ??
             source.conversation_config.agent.prompt.llm,
           reasoning_effort: null,
-          thinking_budget: client && model === "gemini-2.5-flash" ? 0 : null,
+          thinking_budget: model === "gemini-2.5-flash" ? 0 : null,
           enable_reasoning_summary: false,
           temperature: 0,
           max_tokens: 2200,
@@ -184,9 +150,7 @@ export async function configureWorkflowBackend(
       contextToolId: manifest.tools.context,
       saveToolId: manifest.tools.save,
     }),
-    name: client
-      ? "LegalMate — Risk conversation test"
-      : "LegalMate — Backend workflow test",
+    name: "LegalMate — Risk conversation test",
     tags: [tag, "synthetic-only"],
     platform_settings: {
       auth: { enable_auth: true },
@@ -223,7 +187,7 @@ export async function configureWorkflowBackend(
   manifest.branchId = actual.branch_id;
   manifest.configurationVersion = configurationVersion;
   manifest.model = actual.conversation_config.agent.prompt.llm;
-  manifest.transport = transport;
+  manifest.transport = "client";
   manifest.baseUrl = origin.origin;
   manifest.updatedAt = new Date().toISOString();
   await persist();
@@ -232,23 +196,5 @@ export async function configureWorkflowBackend(
     JSON.stringify(actual, null, 2),
     { mode: 0o600 },
   );
-  return {
-    manifest,
-    key: env.ELEVENLABS_API_KEY,
-    api,
-    async recordRun(run) {
-      const recorded = {
-        ...run,
-        model: manifest.model,
-        versionId: manifest.versionId,
-        configurationVersion: manifest.configurationVersion,
-      };
-      const existing = manifest.runs.find(
-        (item) => item.conversationId === run.conversationId,
-      );
-      if (existing) Object.assign(existing, recorded);
-      else manifest.runs.push(recorded);
-      await persist();
-    },
-  };
+  return { manifest };
 }

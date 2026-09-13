@@ -5,7 +5,7 @@ export type VoiceEvent = {
   eventId?: number;
   receivedAt?: string;
 };
-export type VoiceReview = {
+type VoiceReview = {
   confirmationId: string;
   revision: number;
   afterSequence: number;
@@ -22,7 +22,7 @@ export class VoiceStateError extends Error {}
 export const emptyVoiceState = (
   mode: ConversationMode = "voice",
 ): VoiceState => ({ events: [], review: null, closed: false, mode });
-export const normalizeConfirmation = (value: string) =>
+const normalizeConfirmation = (value: string) =>
   value
     .toLowerCase()
     .replace(/[.!?,;:]/g, "")
@@ -76,63 +76,5 @@ export function appendVoiceEvent(
       ...state.events,
       { ...event, receivedAt: new Date().toISOString() },
     ],
-  };
-}
-export function markReadback(
-  state: VoiceState,
-  confirmationId: string,
-  sequence: number,
-): VoiceState {
-  const review = state.review;
-  const event = state.events.find((item) => item.sequence === sequence);
-  if (
-    state.closed ||
-    !review ||
-    review.confirmationId !== confirmationId ||
-    sequence <= review.afterSequence ||
-    event?.kind !== "agent" ||
-    !hasConfirmationPrompt(event.text)
-  )
-    throw new VoiceStateError(
-      "Read back the current note and ask for explicit confirmation first.",
-    );
-  if (
-    state.events.some(
-      (item) => item.sequence > sequence && item.kind !== "agent",
-    )
-  )
-    throw new VoiceStateError(
-      "The worker spoke before readback was ready. Prepare a fresh review.",
-    );
-  return { ...state, review: { ...review, readbackSequence: sequence } };
-}
-export function voiceEvidence(
-  state: VoiceState,
-  confirmationId: string,
-  revision: number,
-) {
-  const review = state.review;
-  const user = state.events.findLast((event) => event.kind === "user");
-  if (
-    state.closed ||
-    !review ||
-    review.confirmationId !== confirmationId ||
-    review.revision !== revision ||
-    !review.readbackSequence ||
-    !user ||
-    user.sequence <= review.readbackSequence ||
-    !isVoiceConfirmation(user.text)
-  )
-    throw new VoiceStateError(
-      "Please listen to the current review, then say: I confirm this shift note.",
-    );
-  return {
-    source:
-      state.mode === "text" ? "browser_text_input" : "browser_sdk_transcript",
-    method: state.mode === "text" ? "text" : "voice",
-    confirmationId,
-    revision,
-    readbackSequence: review.readbackSequence,
-    userTurn: user,
   };
 }

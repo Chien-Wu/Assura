@@ -1,4 +1,4 @@
-export type RecorderHandoffOutcome<T> = {
+type RecorderHandoffOutcome<T> = {
   note: T | null;
   error: Error | null;
 };

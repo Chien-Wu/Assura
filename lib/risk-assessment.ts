@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AssessmentArea, AssessmentOutput } from "./assessment.ts";
+import type { AssessmentArea, AssessmentOutput } from "./legacy-assessment.ts";
 
 export const riskTypes = [
   "incident_safeguarding",
@@ -9,8 +9,7 @@ export const riskTypes = [
   "service_exception",
 ] as const;
 export type RiskType = (typeof riskTypes)[number];
-export const riskLevels = ["P0", "P1", "P2", "P3", "P4"] as const;
-export type RiskLevel = (typeof riskLevels)[number];
+export type RiskLevel = "P0" | "P1" | "P2" | "P3" | "P4";
 export const riskLevelLabels: Record<RiskLevel, string> = {
   P0: "Routine",
   P1: "Monitor",

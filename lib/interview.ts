@@ -4,7 +4,7 @@ export type QuestionStatus =
   | "answered"
   | "unknown"
   | "cancelled";
-export type QuestionUpdate = {
+type QuestionUpdate = {
   questionId: string;
   state: "answered" | "unknown";
   quote: string;

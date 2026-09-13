@@ -1,6 +1,6 @@
 import type { Participant, PlanItem } from "./participants";
 
-export type ParticipantInput = Omit<Participant, "id">;
+type ParticipantInput = Omit<Participant, "id">;
 export type ProviderWorker = { userId: string; fullName: string };
 export type RosterManager = { userId: string; providerId: string };
 

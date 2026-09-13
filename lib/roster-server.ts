@@ -28,7 +28,7 @@ export async function listProviderParticipants(
   return result.results.map(participantFromRow);
 }
 
-export async function getProviderParticipant(
+async function getProviderParticipant(
   providerId: string,
   id: string,
 ): Promise<Participant | null> {

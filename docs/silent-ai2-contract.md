@@ -11,7 +11,7 @@ One result entry per type; P1–P4 only in risks; empty risks implies P0. Eviden
 `RiskAssessment = { id:string; noteId:string; sourceRevision:number; revision:number; schemaVersion:number; status:'running'|'ready'|'failed'|'stale'; result:RiskResult|null; error:string|null; createdAt:string; updatedAt:string }`.
 `RiskModelInput = { note:unknown; sources:Array<{id:string;text:string}> }`.
 `runRiskAssessmentModel(input,{apiKey,model?,signal?}): Promise<RiskResult>` in lib/risk-assessment-model.ts.
-Export `riskTypes`, `riskLevelLabels`, `riskTypeLabels`, `overallRiskLevel(result)`, and `normalizeRiskResult(unknown):RiskResult|null` for historical result display. Keep legacy lib/assessment.ts definitions for old audit/history readers; new code uses RiskResult. Normalization must not modify stored legacy JSON or treat malformed data as a successful P0 result.
+Export `riskTypes`, `riskLevelLabels`, `riskTypeLabels`, `overallRiskLevel(result)`, and `normalizeRiskResult(unknown):RiskResult|null` for historical result display. Keep legacy lib/legacy-assessment.ts definitions for old audit/history readers; new code uses RiskResult. Normalization must not modify stored legacy JSON or treat malformed data as a successful P0 result.
 
 ## Worker API / UI
 

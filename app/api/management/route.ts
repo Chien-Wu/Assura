@@ -14,7 +14,10 @@ import {
 } from "@/lib/roster";
 import { reportingGuidance } from "@/lib/safety";
 import { requireManager } from "@/lib/organisations";
-import type { AssessmentOutput, AssessmentStatus } from "@/lib/assessment";
+import type {
+  AssessmentOutput,
+  AssessmentStatus,
+} from "@/lib/legacy-assessment";
 import { readManagerFindings } from "@/lib/finding-review-server";
 import { managerNoteAccess } from "@/lib/organisation-access";
 import {

@@ -18,8 +18,8 @@ export type OrganisationUser = {
   fullName?: string | null;
   displayName: string;
 };
-export type Provider = { id: string; name: string };
-export type WorkerProfile = { fullName: string; providerId: string };
+type Provider = { id: string; name: string };
+type WorkerProfile = { fullName: string; providerId: string };
 
 export async function listProviders(): Promise<Provider[]> {
   const result = await database()

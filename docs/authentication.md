@@ -73,5 +73,3 @@ npm run test:api
 ```
 
 These start temporary Workers with isolated D1 databases and signed synthetic sessions from `tests/support/auth-fixture.mjs`. They test the built route handlers, block external provider calls and dispose each runtime afterwards. They do not read `.env.local`, a live cookie file or the development database. Run `npm run test:onboarding` for the authentication and provider HTTP suite alone.
-
-The old notes, voice, safety and paid text tests used real test-server cookies and assigned synthetic shifts. They are retained under [tests/legacy](../tests/legacy/README.md), require an explicit legacy-protocol opt-in and do not test the current recorder. Do not copy their old setup steps into the current acceptance flow.

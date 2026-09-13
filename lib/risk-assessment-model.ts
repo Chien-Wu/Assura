@@ -12,7 +12,7 @@ export const riskAssessmentInputByteLimit = 180_000;
 export const riskAssessmentResponseByteLimit = 60_000;
 const requestTimeoutMs = 35_000;
 
-export type RiskAssessmentModelErrorCode =
+type RiskAssessmentModelErrorCode =
   | "setup_required"
   | "input_too_large"
   | "invalid_input"
@@ -55,7 +55,7 @@ export class RiskAssessmentModelError extends Error {
   }
 }
 
-export type RiskAssessmentModelOptions = {
+type RiskAssessmentModelOptions = {
   apiKey: string;
   model?: string;
   signal?: AbortSignal;

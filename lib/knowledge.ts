@@ -2,13 +2,13 @@ import { validLocalTime } from "./shifts.ts";
 import type { ShiftFields } from "./shift-form";
 import type { Participant } from "./participants";
 import type { RiskResult } from "./risk-assessment";
-import type { AssessmentOutput } from "./assessment";
+import type { AssessmentOutput } from "./legacy-assessment";
 
-export const KNOWLEDGE_TIMEZONE = "Australia/Melbourne";
+const KNOWLEDGE_TIMEZONE = "Australia/Melbourne";
 export const KNOWLEDGE_CANDIDATE_LIMIT = 100;
 export const KNOWLEDGE_SOURCE_LIMIT = 4;
-export const KNOWLEDGE_CHARACTER_LIMIT = 24000;
-export const KNOWLEDGE_SOURCE_CHARACTER_LIMIT = 12000;
+const KNOWLEDGE_CHARACTER_LIMIT = 24000;
+const KNOWLEDGE_SOURCE_CHARACTER_LIMIT = 12000;
 
 export class KnowledgeError extends Error {
   status: number;
@@ -53,7 +53,7 @@ const clock = new Intl.DateTimeFormat("en-CA", {
   minute: "2-digit",
   hourCycle: "h23",
 });
-export function melbourneLocal(instant: number) {
+function melbourneLocal(instant: number) {
   const parts = Object.fromEntries(
     clock.formatToParts(instant).map((part) => [part.type, part.value]),
   );
@@ -71,7 +71,7 @@ export function melbourneInstant(value: unknown): string | null {
   return matches.length === 1 ? new Date(matches[0]).toISOString() : null;
 }
 
-export function validKnowledgeInstant(value: unknown): value is string {
+function validKnowledgeInstant(value: unknown): value is string {
   return (
     typeof value === "string" &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) &&

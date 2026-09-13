@@ -28,15 +28,6 @@ export const claimManagerGrantsQuery = `UPDATE provider_manager_grants
   WHERE email=? AND active=1 AND (claimed_user_id IS NULL OR claimed_user_id=?)
     AND EXISTS (SELECT 1 FROM providers WHERE id=provider_manager_grants.provider_id AND active=1)`;
 
-export const createWorkerNoteQuery = `INSERT OR IGNORE INTO shift_notes
-  (id,owner_id,worker_name,fields_json,revision,status,form_version,timezone,created_at,updated_at,retention_until,provider_id)
-  SELECT ?,?,?,?,0,'draft',?,?,?,?,?,?
-  WHERE EXISTS (SELECT 1 FROM app_profiles AS profile
-    JOIN provider_memberships AS membership ON membership.user_id=profile.user_id
-      AND membership.provider_id=profile.provider_id AND membership.active=1
-    JOIN providers AS provider ON provider.id=profile.provider_id AND provider.active=1
-    WHERE profile.user_id=? AND profile.provider_id=?)`;
-
 export const providerRisksQuery = `SELECT risk_events.* FROM risk_events
   JOIN shift_notes ON shift_notes.id=risk_events.note_id
   WHERE shift_notes.provider_id=? ORDER BY risk_events.captured_at DESC`;
@@ -44,12 +35,6 @@ export const providerActionsQuery = `SELECT risk_actions.* FROM risk_actions
   JOIN risk_events ON risk_events.id=risk_actions.risk_id
   JOIN shift_notes ON shift_notes.id=risk_events.note_id
   WHERE shift_notes.provider_id=? ORDER BY risk_actions.created_at ASC`;
-export const providerUsesQuery = `SELECT json_extract(fields_json,'$.participant') AS participant,
-  json_extract(safety_json,'$.restrictivePractice.schedule_item') AS item,COUNT(*) AS count
-  FROM shift_notes WHERE provider_id=? AND substr(json_extract(fields_json,'$.shiftStart'),1,7)=?
-    AND json_extract(safety_json,'$.restrictivePractice.used')='yes'
-  GROUP BY participant,item`;
-
 export const appendManagerActionQuery = `INSERT INTO risk_actions
   (id,risk_id,owner_id,action,details_json,actor,created_at)
   SELECT ?,risk_events.id,risk_events.owner_id,'supervisor_review',?,?,?

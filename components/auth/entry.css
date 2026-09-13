@@ -188,12 +188,6 @@
   cursor: default;
   opacity: 0.5;
 }
-.entry-form-links {
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-  flex-wrap: wrap;
-}
 .entry-primary-link {
   display: flex;
   justify-content: center;
@@ -242,25 +236,6 @@
 }
 .onboarding-panel .entry-form {
   gap: 1.25rem;
-}
-.onboarding-email {
-  overflow-wrap: anywhere;
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin: 0;
-}
-.workspace-provider {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-}
-.manager-provider-select {
-  font: inherit;
-  background: var(--surface);
-  color: var(--foreground);
-  border: 1px solid var(--border);
-  border-radius: 0.6rem;
-  padding: 0.6rem;
-  max-width: 100%;
 }
 .entry-shell :is(button, a, input, select):focus-visible {
   outline: 3px solid var(--ring);

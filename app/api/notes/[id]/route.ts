@@ -1,3 +1,4 @@
+import { recorderFields } from "@/lib/shift-form";
 import { applyFieldPatch, checkForm } from "@/lib/shift-form";
 import {
   database,
@@ -21,7 +22,6 @@ import { getVoiceSession } from "@/lib/voice-server";
 import { questionAnswerStatements } from "@/lib/interview-server";
 import {
   noCurrentAssessmentSql,
-  recorderFields,
   rejectRecorderDuringAssessment,
 } from "@/lib/assessment-server";
 type Context = { params: Promise<{ id: string }> };

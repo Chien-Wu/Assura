@@ -6,7 +6,7 @@ import {
   toNote,
   type Row,
 } from "./notes-server";
-import { checkForm, type FieldKey } from "./shift-form";
+import { checkForm, recorderFields } from "./shift-form";
 import {
   normalizeRiskResult,
   type RiskAssessment,
@@ -14,22 +14,14 @@ import {
   type RiskResult,
 } from "./risk-assessment";
 import {
+  defaultRiskAssessmentModel,
   RiskAssessmentModelError,
   runRiskAssessmentModel,
 } from "./risk-assessment-model";
 
-export const ASSESSMENT_SCHEMA_VERSION = 2;
+const ASSESSMENT_SCHEMA_VERSION = 2;
 const LEASE_MS = 120_000;
 const MODEL_TIMEOUT_MS = 90_000;
-export const recorderFields: FieldKey[] = [
-  "participant",
-  "shiftStart",
-  "shiftEnd",
-  "activities",
-  "supportProvided",
-  "participantResponse",
-  "goalProgress",
-];
 export const noCurrentAssessmentSql =
   "NOT EXISTS (SELECT 1 FROM shift_assessments a WHERE a.note_id=shift_notes.id AND a.source_revision=shift_notes.revision AND a.schema_version=2)";
 type AssessmentRow = {
@@ -48,13 +40,13 @@ type AssessmentRow = {
   created_at: string;
   updated_at: string;
 };
-export function assessmentConfig() {
+function assessmentConfig() {
   return {
     apiKey: env.OPENAI_API_KEY || process.env.OPENAI_API_KEY,
     model:
       env.LEGALMATE_AI2_MODEL ||
       process.env.LEGALMATE_AI2_MODEL ||
-      "gpt-5.6-terra",
+      defaultRiskAssessmentModel,
   };
 }
 function configured() {
@@ -68,7 +60,7 @@ function configured() {
 }
 export function validateRecorder(row: Row) {
   const issues = checkForm(toNote(row).fields).issues.filter((issue) =>
-    recorderFields.includes(issue.field),
+    (recorderFields as readonly string[]).includes(issue.field),
   );
   if (issues.length)
     throw new RequestError(issues.map((issue) => issue.message).join(" "), 422);

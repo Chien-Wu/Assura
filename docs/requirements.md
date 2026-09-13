@@ -1,5 +1,7 @@
 # LegalMate — MVP 需求
 
+本文件保存原始需求與各日期的實作紀錄；較早的進度不代表目前功能。現行流程、啟動及驗證請見 [README](../README.md) 與 [架構說明](architecture.md)。
+
 更新日期：2026-09-13。
 
 GitHub 版本包含可執行的 Web app 與需求文件。文中的原始 `web/` 路徑對應本 repository 根目錄；`sample_form/` 與研究資料仍保留在原工作區，未隨程式碼上傳。
@@ -158,7 +160,7 @@ sequenceDiagram
 - 使用者已明確同意 ElevenAgents 條款；已建立並發布 `LegalMate Shift Notes — Demo` Agent 的英文訪談設定。
 - 已建立四個等待回應的 client tools：`get_form_context`、`update_and_check_form`、`prepare_confirmation`、`finalize_form`。
 - Agent 要求驗證，採後端取得短效 token 的接入方式；使用者之後已填入 API key，接線進度見 8.2。
-- Web 保留手動填表及確認流程。Agent 設定詳見 `docs/archive/elevenlabs-agent.md`。
+- Web 保留手動填表及確認流程。Agent 設定詳見 Git `c5c5021` 中的 `docs/archive/elevenlabs-agent.md`。
 
 ### 8.2 語音接線（2026-09-12）
 
@@ -168,7 +170,7 @@ sequenceDiagram
 - 口頭完成要求新一輪明確說出 **I confirm this shift note.** 後端核對最新 note revision、confirmation ID、voice session revision 及 SDK 使用者轉錄；不是只接收模型產生的 confirmed 布林值。
 - 轉錄證據存於 D1，並非獨立音訊驗證；SDK 的 speaking/listening 不能嚴格證明每字均已播放。實際追問、朗讀與辨識品質仍須由使用者用麥克風跑一輪驗收。
 - 前述 webhook／SSE 是初始建議；本次 MVP 採 client tools 與 API 回應同步，未加入 webhook 或 SSE。
-- 正式表單、跨 worker 主管權限、資料保留與正式個資使用仍待後續確認。測試步驟在 `web/docs/archive/voice-integration.md`。
+- 正式表單、跨 worker 主管權限、資料保留與正式個資使用仍待後續確認。測試步驟在 Git `c5c5021` 中的 `docs/archive/voice-integration.md`。
 
 ### 8.3 暫時文字測試模式（2026-09-12）
 

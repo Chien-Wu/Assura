@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { noteText, type ShiftNote } from "@/lib/shift-form";
 import InterviewReferences from "../worker/interview-references";
-import type { AssessmentOutput } from "@/lib/assessment";
+import type { AssessmentOutput } from "@/lib/legacy-assessment";
 import { riskTypeLabels, type RiskAssessment } from "@/lib/risk-assessment";
 import FindingReview, { RiskBadge, type RiskFinding } from "./finding-review";
 type Incident = {

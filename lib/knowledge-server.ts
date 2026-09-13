@@ -18,7 +18,7 @@ import {
 import type { ShiftFields } from "./shift-form";
 
 export { KnowledgeError } from "./knowledge";
-export type KnowledgeScope = {
+type KnowledgeScope = {
   row: Row;
   ownerId: string;
   noteId: string;

@@ -1,6 +1,6 @@
 import { database, getRow, toNote, type Row } from "./notes-server";
 import { participantForNote } from "./participants";
-import { reportingGuidance, type RiskFlag } from "./safety";
+import { reportingGuidance } from "./safety";
 import { type VoiceSessionRow } from "./voice-server";
 import { noCurrentAssessmentSql } from "./assessment-server";
 import {
@@ -14,34 +14,6 @@ import {
   remainingClarifications,
 } from "./interview-server";
 
-export function riskStatements(
-  noteId: string,
-  ownerId: string,
-  flags: RiskFlag[],
-  guard?: { sql: string; bindings: (string | number)[] },
-) {
-  const capturedAt = new Date().toISOString();
-  return flags.map((flag) => {
-    const id = `${noteId}:${flag.code}:${flag.category}`;
-    const data = { ...flag, id, capturedAt };
-    return database()
-      .prepare(
-        "INSERT OR IGNORE INTO risk_events (id,note_id,owner_id,code,category,data_json,captured_at,inbox_at) SELECT ?,?,?,?,?,?,?,?" +
-          (guard ? " WHERE " + guard.sql : ""),
-      )
-      .bind(
-        id,
-        noteId,
-        ownerId,
-        flag.code,
-        flag.category,
-        JSON.stringify(data),
-        capturedAt,
-        flag.severity === "urgent" ? capturedAt : null,
-        ...(guard?.bindings ?? []),
-      );
-  });
-}
 export async function workerTranscript(noteId: string, ownerId: string) {
   const result = await database()
     .prepare(
@@ -125,30 +97,6 @@ export async function safetyContext(noteId: string, ownerId: string) {
         }
       : null,
   };
-}
-export function removalFlags(
-  before: Record<string, unknown>,
-  after: Record<string, unknown>,
-): RiskFlag[] {
-  const flags: RiskFlag[] = [];
-  for (const [field, previous] of Object.entries(before)) {
-    if (typeof previous !== "string" || previous === after[field]) continue;
-    const next = String(after[field] ?? "");
-    const tokens = [
-      ...previous.matchAll(
-        /\b\d{1,2}:\d{2}\b|\b\d+(?:\.\d+)?\s*(?:seconds?|minutes?|hours?)\b|["“][^"”]+["”]|\b(?:chok\w*|cough\w*|fell|fall|seizure|injur\w*|bruis\w*|bleed\w*|locked|held|restrain\w*|disclos\w*)\b/gi,
-      ),
-    ].map((m) => m[0]);
-    if (tokens.some((token) => !next.includes(token)))
-      flags.push({
-        code: "RISK_CONTENT_REMOVED",
-        category: field,
-        reason: `An edit removed or softened a risk detail, time, duration, quote or disclosure in ${field}. Compare the preserved versions and transcript.`,
-        quote: previous,
-        severity: "review",
-      });
-  }
-  return flags;
 }
 export function auditStatements(
   row: Row,

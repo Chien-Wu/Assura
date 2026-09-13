@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { request as httpRequest } from "node:http";
-import { startHarness, startGateway } from "../support/workflow-harness.mjs";
+import { startHarness } from "../support/workflow-harness.mjs";
 import {
   workflowRiskTypes,
   workflowFormDefinitions,
@@ -11,7 +10,6 @@ import {
 
 const directory = await mkdtemp(join(tmpdir(), "legalmate-workflow-test-"));
 let h,
-  gateway,
   checks = 0;
 const expect = async (promise, status = 200) => {
   const value = await promise;
@@ -191,50 +189,6 @@ try {
     }),
     409,
   );
-  gateway = await startGateway(() => h);
-  assert.equal(
-    (
-      await fetch(`http://127.0.0.1:${gateway.port}/api/workflow/sessions`, {
-        method: "POST",
-      })
-    ).status,
-    404,
-  );
-  checks++;
-  assert.equal(
-    (await fetch(`http://127.0.0.1:${gateway.port}/api/workflow/tools/context`))
-      .status,
-    401,
-  );
-  checks++;
-  // Force a multi-byte Chinese character across HTTP chunks. The gateway must
-  // decode the complete UTF-8 stream before parsing JSON, even on a rejected save.
-  const probe = Buffer.from(JSON.stringify({ probe: "藥物" }));
-  const split = probe.indexOf(Buffer.from("藥")) + 1;
-  const probeStatus = await new Promise((resolve, reject) => {
-    const req = httpRequest(
-      `http://127.0.0.1:${gateway.port}/api/workflow/tools/save`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: authorization,
-          "Content-Type": "application/json",
-        },
-      },
-      (res) => {
-        res.resume();
-        res.on("end", () => resolve(res.statusCode));
-      },
-    );
-    req.on("error", reject);
-    req.write(probe.subarray(0, split));
-    setTimeout(() => req.end(probe.subarray(split)), 30);
-  });
-  assert.equal(probeStatus, 200);
-  assert.equal(gateway.requests.at(-1).body.probe, "藥物");
-  checks += 2;
-  await gateway.close();
-  gateway = null;
   // Persisted D1 is reopened in a fresh Worker, proving process-restart durability.
   const databaseId = h.databaseId;
   await h.close();
@@ -432,7 +386,6 @@ try {
     }),
   );
 } finally {
-  if (gateway) await gateway.close();
   if (h) await h.close();
   await rm(directory, { recursive: true, force: true });
 }

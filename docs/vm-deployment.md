@@ -73,6 +73,9 @@ Run `nginx -t` before reloading Nginx. HTTPS certificates live in `/etc/legalmat
 
 ## Local integration testing
 
-The notes, voice, safety and live text HTTP scripts load a real session from `LEGALMATE_TEST_COOKIE_FILE`, a private local file containing one browser Cookie header line. They validate `/api/onboarding` before creating records. Complete worker onboarding first; safety tests also need a manager grant for that worker's selected provider. See [Authentication test setup](authentication.md#http-test-sessions) for commands. The removed `/signin-with-chatgpt` route cannot create a session.
+```sh
+npm run build
+npm run test:api
+```
 
-The isolated `tests/api/onboarding-api.mjs` harness instead runs the built Worker in Miniflare with a new in-memory D1 database. It applies all migrations and seeds real signed-session rows from the captured-email auth fixture using a test-only origin and secret. It checks actual HTTP authorisation, provider affiliation, manager/audit access and logout without using the app's existing server or state. Outbound requests are denied. This fixture is never imported by application code.
+The four `tests/api/` suites run the built Worker in Miniflare with isolated D1 databases and synthetic signed sessions. They apply all migrations and check authorization, provider affiliation, audit access, recorder persistence, assessment confirmation and six Workflow forms. Provider responses are mocked; no existing application database, user cookie or live AI service is used. Fixtures in `tests/support/` are never imported by application code.

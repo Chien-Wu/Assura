@@ -60,7 +60,7 @@ function setting(key: string) {
 export function workflowEnabled() {
   return setting("LEGALMATE_WORKFLOW_ENABLED") === "true";
 }
-export function requireWorkflowEnabled() {
+function requireWorkflowEnabled() {
   if (!workflowEnabled())
     throw new RequestError("Workflow testing is not enabled.", 404);
 }

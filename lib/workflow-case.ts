@@ -28,13 +28,13 @@ export type WorkflowSource = {
   /** A structured form edit supports only this field, e.g. medication.scheduled_time. */
   field_path?: string;
 };
-export type WorkflowRiskForm = {
+type WorkflowRiskForm = {
   risk_type: WorkflowRiskType;
   fields: Record<string, WorkflowField>;
   followup_status: "pending" | "handled" | "deferred";
   handled_revision: number | null;
 };
-export type WorkflowEvent = {
+type WorkflowEvent = {
   id: string;
   shared_fields: Record<string, WorkflowField>;
   risk_forms: Partial<Record<WorkflowRiskType, WorkflowRiskForm>>;
@@ -204,7 +204,7 @@ export const workflowFormDefinitions: Record<
   },
 };
 
-export const workflowCaseLimits = {
+const workflowCaseLimits = {
   events: 20,
   sources: 256,
   source_text: 12_000,

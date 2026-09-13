@@ -1,3 +1,4 @@
+import { validLocalTime } from "./shifts.ts";
 import { emptySafety, type Safety, type RiskFlag } from "./safety.ts";
 import type { Participant } from "./participants";
 import {
@@ -6,6 +7,16 @@ import {
   riskTypeLabels,
   type RiskResult,
 } from "./risk-assessment.ts";
+export const recorderFields = [
+  "participant",
+  "shiftStart",
+  "shiftEnd",
+  "activities",
+  "supportProvided",
+  "participantResponse",
+  "goalProgress",
+] as const;
+
 export const FORM_VERSION = "shift-note-demo-v2";
 export const definitions = [
   {
@@ -104,7 +115,7 @@ export type ShiftNote = {
   retentionUntil?: string | null;
   assessment?: RiskResult | null;
 };
-export type FormIssue = { field: FieldKey; message: string };
+type FormIssue = { field: FieldKey; message: string };
 export const incidentOptions = {
   unanswered: "Not yet reviewed",
   no: "Explicitly stated: no incidents or concerns",
@@ -146,13 +157,6 @@ export function applicable(key: FieldKey, fields: ShiftFields) {
     )
   );
 }
-function validDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return false;
-  const date = new Date(value + ":00Z");
-  return (
-    !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 16) === value
-  );
-}
 export function checkForm(fields: ShiftFields) {
   const issues: FormIssue[] = [];
   for (const { key, label } of definitions) {
@@ -165,14 +169,14 @@ export function checkForm(fields: ShiftFields) {
       });
   }
   for (const field of ["shiftStart", "shiftEnd"] as const)
-    if (fields[field] && !validDate(fields[field]))
+    if (fields[field] && !validLocalTime(fields[field]))
       issues.push({
         field,
         message: `Enter a valid ${labelFor(field).toLowerCase()}.`,
       });
   if (
-    validDate(fields.shiftStart) &&
-    validDate(fields.shiftEnd) &&
+    validLocalTime(fields.shiftStart) &&
+    validLocalTime(fields.shiftEnd) &&
     fields.shiftEnd <= fields.shiftStart
   )
     issues.push({

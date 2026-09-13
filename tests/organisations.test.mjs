@@ -7,11 +7,9 @@ import {
   appendManagerActionQuery,
   claimManagerGrantsQuery,
   cleanWorkerProfile,
-  createWorkerNoteQuery,
   managedProvidersQuery,
   providerActionsQuery,
   providerRisksQuery,
-  providerUsesQuery,
   readableNoteAccess,
 } from "../lib/organisation-access.ts";
 import {
@@ -73,23 +71,25 @@ function claim(db, user, provider) {
   );
 }
 function note(db, id, user, provider) {
-  return db.prepare(createWorkerNoteQuery).run(
-    id,
-    user,
-    `Test ${user}`,
-    JSON.stringify({
-      participant: "Fictional participant",
-      shiftStart: "2026-09-13T08:00",
-    }),
-    "demo",
-    "Australia/Melbourne",
-    now,
-    now,
-    "2033-09-13",
-    provider,
-    user,
-    provider,
-  );
+  return db
+    .prepare(
+      `INSERT INTO shift_notes (id,owner_id,worker_name,fields_json,form_version,timezone,created_at,updated_at,retention_until,provider_id) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    )
+    .run(
+      id,
+      user,
+      `Test ${user}`,
+      JSON.stringify({
+        participant: "Fictional participant",
+        shiftStart: "2026-09-13T08:00",
+      }),
+      "demo",
+      "Australia/Melbourne",
+      now,
+      now,
+      "2033-09-13",
+      provider,
+    );
 }
 function readable(db, user, id) {
   return db
@@ -160,38 +160,6 @@ test("manager reads only their provider, grants cannot be claimed by another ema
   }
 });
 
-test("profile and active affiliation are required at note insertion, including an affiliation race", () => {
-  const db = fixture();
-  try {
-    assert.equal(
-      Number(note(db, "blocked", "no-profile", "provider-a").changes),
-      0,
-    );
-    worker(db, "worker-a", "provider-a");
-    assert.equal(
-      Number(note(db, "wrong-provider", "worker-a", "provider-b").changes),
-      0,
-    );
-    db.prepare("UPDATE provider_memberships SET active=0 WHERE user_id=?").run(
-      "worker-a",
-    );
-    assert.equal(
-      Number(note(db, "inactive", "worker-a", "provider-a").changes),
-      0,
-    );
-    db.prepare("UPDATE provider_memberships SET active=1 WHERE user_id=?").run(
-      "worker-a",
-    );
-    db.prepare("UPDATE providers SET active=0 WHERE id=?").run("provider-a");
-    assert.equal(
-      Number(note(db, "inactive-provider", "worker-a", "provider-a").changes),
-      0,
-    );
-  } finally {
-    db.close();
-  }
-});
-
 test("provider changes preserve historical note association and legacy records remain unassigned", () => {
   const db = fixture();
   try {
@@ -209,10 +177,6 @@ test("provider changes preserve historical note association and legacy records r
       "worker-a",
       now,
       now,
-    );
-    assert.equal(
-      Number(note(db, "raced-note", "worker-a", "provider-a").changes),
-      0,
     );
     note(db, "new-note", "worker-a", "provider-b");
     assert.equal(
@@ -254,7 +218,7 @@ test("provider changes preserve historical note association and legacy records r
   }
 });
 
-test("board risk timelines and monthly counts cannot mix providers even with the same participant", () => {
+test("board risk timelines cannot mix providers even with the same participant", () => {
   const db = fixture();
   try {
     for (const suffix of ["a", "b"]) {
@@ -299,10 +263,6 @@ test("board risk timelines and monthly counts cannot mix providers even with the
         .all("provider-a")
         .map((r) => r.id),
       ["action-a"],
-    );
-    assert.equal(
-      db.prepare(providerUsesQuery).all("provider-a", "2026-09")[0].count,
-      1,
     );
     claim(db, "manager-a", "provider-a");
     const writeReview = (id, risk, provider, manager) =>

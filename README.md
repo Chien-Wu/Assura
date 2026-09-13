@@ -11,7 +11,7 @@ Support workers record a shift, review the saved account and AI risk check, then
 | `/manager`                    | Participants, shift scheduling, notes, risk findings and append-only manager decisions within the provider.                                                                                              |
 | `/onboarding`                 | Workers select an existing provider and confirm their profile. Managers are provisioned by the operator.                                                                                                 |
 
-The normal recorder's two tools are `get_form_context` and `update_and_check_form`. The separate Workflow uses `get_case_context` and `save_risk_form`. Workflow forms and the silent AI2 classification schema are distinct contracts. See the [documentation index](docs/README.md) before changing either flow.
+The normal recorder's two tools are `get_form_context` and `update_and_check_form`. The separate Workflow uses `get_case_context` and `save_risk_form`. Workflow forms and the silent AI2 classification schema are distinct contracts. See [architecture and technology decisions](docs/architecture.md) and the [documentation index](docs/README.md) before changing either flow.
 
 ## Local setup
 
@@ -50,26 +50,25 @@ npm run test:api
 
 `npm run test:workflow:live` is an optional **paid** synthetic client-tool smoke against the configured Workflow agent and isolated D1. It requires the private manifest created by `scripts/configure-workflow-test.mjs`. It does not cover browser microphone timing or end-to-end speech quality.
 
-Historical protocol tests live in [tests/legacy](tests/legacy/README.md); they do not validate the current recorder. Earlier webhook and transfer experiments live in [scripts/experiments](scripts/experiments/README.md). Neither runs during normal checks. `npm run format` formats maintained code and documentation; generated migrations, platform support and retained vendor source stay intact.
+`npm run format` formats maintained code, UI primitives and documentation. Generated migrations, platform support and licensed vendor CSS remain unchanged. Retired protocols and experiments are available in Git history at `c5c5021`; they are not shipped in the current tree.
 
 ## Source layout
 
-| Path                                     | Responsibility                                                                                                  |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `app/`                                   | Route entrypoints, authenticated API handlers and global styles.                                                |
-| `components/worker/`                     | Recorder, note workspace, risk review and separate Workflow UI.                                                 |
-| `components/manager/`                    | Scheduling, provider roster and finding review.                                                                 |
-| `components/auth/`, `components/layout/` | Entry, account controls and theme provider.                                                                     |
-| `components/ui/`                         | The ten UI primitives actually used by the app.                                                                 |
-| `lib/`                                   | Domain rules and server services, grouped by filename prefix; [architecture guide](docs/architecture.md).       |
-| `config/agents/`                         | Reviewable recorder prompt/tools and silent AI2 prompt artifact.                                                |
-| `scripts/workflow/`                      | Native Workflow configuration and current client-tool smoke.                                                    |
-| `scripts/`                               | Account provisioning, fixture import, agent sync and local runtime tooling.                                     |
-| `tests/`                                 | Unit tests; `api/` for built-Worker suites, `support/` for fixtures/harnesses, `legacy/` for retired protocols. |
-| `db/`, `drizzle/`                        | Schemas and immutable migration history.                                                                        |
-| `deploy/vm/`, `build/`, `vendor/`        | VM operations, Sites build integration and licensed CSS support.                                                |
-| `docs/`                                  | Current guides; `archive/` for historical decisions/results, `sources/` for supplied originals.                 |
-| `.claude/`                               | Existing local design/development skills; not part of the runtime.                                              |
+| Path                                     | Responsibility                                                                                            |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `app/`                                   | Route entrypoints, authenticated API handlers and global styles.                                          |
+| `components/worker/`                     | Recorder, note workspace, risk review and separate Workflow UI.                                           |
+| `components/manager/`                    | Scheduling, provider roster and finding review.                                                           |
+| `components/auth/`, `components/layout/` | Entry, account controls and theme provider.                                                               |
+| `components/ui/`                         | The ten UI primitives actually used by the app.                                                           |
+| `lib/`                                   | Domain rules and server services, grouped by filename prefix; [architecture guide](docs/architecture.md). |
+| `config/agents/`                         | Recorder prompt/tools, silent AI2 artifact and native Workflow configuration.                             |
+| `scripts/workflow/`                      | Native Workflow configuration and current client-tool smoke.                                              |
+| `scripts/`                               | Account provisioning, fixture import, agent sync and local runtime tooling.                               |
+| `tests/`                                 | Unit tests; `api/` for built-Worker suites and `support/` for shared fixtures/harnesses.                  |
+| `db/`, `drizzle/`                        | Schemas and immutable migration history.                                                                  |
+| `deploy/vm/`, `build/`, `vendor/`        | VM operations, Sites build integration and licensed CSS support.                                          |
+| `docs/`                                  | Current guides and `sources/` for supplied originals.                                                     |
 
 ## Evidence and deployment
 

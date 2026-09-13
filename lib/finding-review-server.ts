@@ -6,7 +6,7 @@ import {
   type RiskType,
 } from "@/lib/risk-assessment";
 
-export type FindingReviewStatus = "open" | "reviewing" | "closed";
+type FindingReviewStatus = "open" | "reviewing" | "closed";
 type FindingRow = {
   id: string;
   assessment_id: string;

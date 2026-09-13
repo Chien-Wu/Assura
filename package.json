@@ -15,15 +15,14 @@
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:api": "npm run test:onboarding && npm run test:knowledge && npm run test:assessment && npm run test:workflow",
-    "format": "prettier --write app components/auth components/layout components/manager components/worker lib db tests scripts config docs README.md package.json tsconfig.json eslint.config.mjs",
-    "format:check": "prettier --check app components/auth components/layout components/manager components/worker lib db tests scripts config docs README.md package.json tsconfig.json eslint.config.mjs",
+    "format": "prettier --write app components lib db tests scripts config docs README.md package.json tsconfig.json eslint.config.mjs",
+    "format:check": "prettier --check app components lib db tests scripts config docs README.md package.json tsconfig.json eslint.config.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "test:onboarding": "node --import ./scripts/sites-env.mjs --experimental-strip-types tests/api/onboarding-api.mjs",
     "test:knowledge": "node --import ./scripts/sites-env.mjs --experimental-strip-types tests/api/knowledge-api.mjs",
     "test:assessment": "node --import ./scripts/sites-env.mjs --experimental-strip-types tests/api/assessment-api.mjs",
     "test:workflow": "node --import ./scripts/sites-env.mjs --experimental-strip-types tests/api/workflow-api.mjs",
-    "test:workflow:live": "node --import ./scripts/sites-env.mjs --experimental-strip-types scripts/workflow/workflow-app-smoke.mjs",
-    "test:workflow:webhook:live": "node --import ./scripts/sites-env.mjs --experimental-strip-types scripts/experiments/workflow-backend-live.mjs"
+    "test:workflow:live": "node --import ./scripts/sites-env.mjs --experimental-strip-types scripts/workflow/smoke.mjs"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.4",

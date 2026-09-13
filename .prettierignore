@@ -4,7 +4,6 @@ dist/
 .wrangler/
 .sites-runtime/
 drizzle/
-components/ui/
 vendor/
 build/
 .env*

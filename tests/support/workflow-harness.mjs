@@ -1,10 +1,7 @@
 // Real built application + isolated D1 + the normal signed application session.
-// The public gateway forwards ONLY workflow tools; never the application's UI,
-// login, note APIs, source-edit APIs, cookies or existing local database.
 import { readdir, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
-import { createServer } from "node:http";
 import { Miniflare, Log, LogLevel } from "miniflare";
 import { applyMigrations } from "./migration-fixture.mjs";
 import {
@@ -173,73 +170,6 @@ export async function startHarness({
     async close() {
       await mf.dispose();
       for (const fixture of fixtures) fixture.sqlite.close();
-    },
-  };
-}
-
-export async function startGateway(resolveHarness, { port = 0 } = {}) {
-  const requests = [];
-  const server = createServer(async (req, res) => {
-    const started = Date.now();
-    const pathname = (req.url ?? "").split("?")[0];
-    const allowed =
-      (req.method === "GET" && pathname === "/api/workflow/tools/context") ||
-      (req.method === "POST" && pathname === "/api/workflow/tools/save");
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Content-Type", "application/json");
-    if (!allowed) {
-      res.writeHead(404);
-      res.end('{"ok":false}');
-      return;
-    }
-    try {
-      let raw = "";
-      req.setEncoding("utf8");
-      for await (const chunk of req) {
-        raw += chunk;
-        if (raw.length > 80000) {
-          res.writeHead(413);
-          res.end('{"ok":false}');
-          return;
-        }
-      }
-      const harness = resolveHarness();
-      if (!harness) {
-        res.writeHead(503);
-        res.end('{"ok":false}');
-        return;
-      }
-      const value = await harness.request(pathname, {
-        method: req.method,
-        authorization: req.headers.authorization,
-        body: raw ? JSON.parse(raw) : undefined,
-      });
-      // Safe audit excludes headers and credentials. Body contains synthetic
-      // form values only; stored outside the public gateway's reachable paths.
-      requests.push({
-        path: pathname,
-        status: value.status,
-        ms: Date.now() - started,
-        body: raw ? JSON.parse(raw) : null,
-        result: value.data,
-      });
-      res.writeHead(value.status);
-      res.end(JSON.stringify(value.data));
-    } catch {
-      res.writeHead(503);
-      res.end('{"ok":false,"error":"Workflow request unavailable."}');
-    }
-  });
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(port, "127.0.0.1", resolve);
-  });
-  return {
-    port: server.address().port,
-    requests,
-    async close() {
-      server.closeAllConnections();
-      await new Promise((resolve) => server.close(resolve));
     },
   };
 }

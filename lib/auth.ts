@@ -17,7 +17,7 @@ import {
   testAccountScopeQuery,
 } from "./test-accounts";
 
-export type AppUser = {
+type AppUser = {
   userId: string;
   email: string;
   fullName: string | null;

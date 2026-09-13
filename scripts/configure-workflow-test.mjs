@@ -1,11 +1,10 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { configureWorkflowBackend } from "./workflow/workflow-backend-setup.mjs";
+import { configureWorkflowAgent } from "./workflow/configure.mjs";
 
 const origin = process.argv[2];
 if (!origin) throw Error("Supply the HTTPS application origin");
-const { manifest } = await configureWorkflowBackend(origin, {
+const { manifest } = await configureWorkflowAgent(origin, {
   model: "gemini-2.5-flash",
-  transport: "client",
 });
 const file = new URL("../.env.local", import.meta.url);
 let contents = await readFile(file, "utf8");

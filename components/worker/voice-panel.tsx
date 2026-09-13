@@ -25,7 +25,7 @@ import { type VoiceEvent, type ConversationMode } from "@/lib/voice-state";
 import {
   recorderFormResult,
   parseRecorderUpdate,
-  knowledgeFailure,
+  recorderToolFailure,
 } from "@/lib/agent-tools";
 
 export type RecorderReviewControl = {
@@ -370,7 +370,7 @@ function VoiceControls({
     const session = active.current;
     if (!session || closing.current)
       return JSON.stringify(
-        knowledgeFailure(new Error("This conversation has ended."), "stale"),
+        recorderToolFailure(new Error("This conversation has ended."), "stale"),
       );
     const isCurrent = () =>
       active.current === session &&
@@ -378,7 +378,7 @@ function VoiceControls({
       session.generation === generation.current;
     const stale = () =>
       JSON.stringify(
-        knowledgeFailure(
+        recorderToolFailure(
           new Error(
             "The conversation or saved note changed. Refresh context before using historical evidence.",
           ),
@@ -415,7 +415,7 @@ function VoiceControls({
           }),
         });
       } catch (e) {
-        return isCurrent() ? JSON.stringify(knowledgeFailure(e)) : stale();
+        return isCurrent() ? JSON.stringify(recorderToolFailure(e)) : stale();
       }
     }
     if (
@@ -488,7 +488,7 @@ function VoiceControls({
         });
       }
     }).catch((e: unknown) =>
-      isCurrent() ? JSON.stringify(knowledgeFailure(e)) : stale(),
+      isCurrent() ? JSON.stringify(recorderToolFailure(e)) : stale(),
     );
     return isCurrent() ? result : stale();
   }
