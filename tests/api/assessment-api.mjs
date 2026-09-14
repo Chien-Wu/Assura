@@ -77,9 +77,24 @@ const mf = new Miniflare({
     assert.equal(body.text.format.strict, true);
     calls++;
     const input = JSON.parse(body.input[0].content[0].text);
-    assert.deepEqual(Object.keys(input).sort(), ["note", "sources"]);
+    assert.deepEqual(Object.keys(input).sort(), [
+      "note",
+      "participantBackground",
+      "sources",
+    ]);
     for (const forbidden of ["profile", "history", "messages", "previous"])
       assert.equal(Object.hasOwn(input, forbidden), false);
+    if (input.participantBackground !== null) {
+      assert.deepEqual(Object.keys(input.participantBackground).sort(), [
+        "fields",
+        "source",
+      ]);
+      assert.deepEqual(
+        Object.keys(input.participantBackground.fields).sort(),
+        ["communication", "conditions", "risks", "setting"],
+        "Background excludes medication, plans, goals and extra identifiers",
+      );
+    }
     inputs.push(input);
     const result = await modelHandler(input);
     if (result instanceof Response) return result;
@@ -517,6 +532,28 @@ try {
       event: { sequence: 1, kind: "user", text: "We walked to the park." },
     },
   });
+  const originalProfile = await db
+    .prepare(
+      "SELECT profile_json,updated_at FROM provider_participants WHERE id=?",
+    )
+    .bind(history.participant.id)
+    .first();
+  await db
+    .prepare(
+      "UPDATE provider_participants SET profile_json=?,updated_at=? WHERE id=?",
+    )
+    .bind(
+      JSON.stringify({
+        ...JSON.parse(originalProfile.profile_json),
+        conditions: ["Later profile change: must not enter the saved shift"],
+        risks: ["Later profile risk"],
+        communication: "Later profile communication",
+        setting: "Later profile setting",
+      }),
+      "2026-09-14T12:00:00.000Z",
+      history.participant.id,
+    )
+    .run();
   const gate = blockedModel(routine);
   const pending = start(plain);
   await gate.started;
@@ -566,6 +603,55 @@ try {
       (source) => source.text === "We walked to the park.",
     ),
   );
+  const expectedBackground = {
+    source: {
+      kind: "saved_note_participant_snapshot",
+      noteId: plain.id,
+      participantId: history.participant.id,
+      capturedAt: plain.createdAt,
+      profileUpdatedAt: null,
+    },
+    fields: {
+      conditions: history.participant.conditions,
+      risks: history.participant.risks,
+      communication: history.participant.communication,
+      setting: history.participant.setting,
+    },
+  };
+  assert.deepEqual(
+    inputs[0].participantBackground,
+    expectedBackground,
+    "The saved note snapshot is used even after the live participant profile changes",
+  );
+  for (const text of [
+    ...expectedBackground.fields.conditions,
+    ...expectedBackground.fields.risks,
+    expectedBackground.fields.communication,
+    expectedBackground.fields.setting,
+  ])
+    assert.equal(
+      inputs[0].sources.some((source) => source.text === text),
+      false,
+      "Participant background never becomes current-shift evidence",
+    );
+  const savedInput = await db
+    .prepare(
+      "SELECT a.source_json,r.input_json FROM shift_assessments a JOIN assessment_runs r ON r.assessment_id=a.id WHERE a.id=?",
+    )
+    .bind(ready.id)
+    .first();
+  assert.deepEqual(JSON.parse(savedInput.source_json), inputs[0]);
+  assert.deepEqual(JSON.parse(savedInput.input_json), inputs[0]);
+  await db
+    .prepare(
+      "UPDATE provider_participants SET profile_json=?,updated_at=? WHERE id=?",
+    )
+    .bind(
+      originalProfile.profile_json,
+      originalProfile.updated_at,
+      history.participant.id,
+    )
+    .run();
   assert.equal(
     await findingCount(ready.id),
     0,
@@ -919,6 +1005,27 @@ try {
   failed = (await retry(failedNote, failed)).assessment;
   assert.equal(failed.status, "failed");
   assert.equal(await findingCount(failed.id), 0);
+  modelHandler = (input) => ({
+    ...concern(input),
+    risks: [
+      {
+        ...concern(input).risks[0],
+        evidence: [
+          {
+            sourceId: input.participantBackground.source.kind,
+            quote: input.participantBackground.fields.conditions[0],
+          },
+        ],
+      },
+    ],
+  });
+  failed = (await retry(failedNote, failed)).assessment;
+  assert.equal(
+    failed.status,
+    "failed",
+    "Background alone cannot support a finding",
+  );
+  assert.equal(await findingCount(failed.id), 0);
   const retryGate = blockedModel((input) => concern(input, "P4"));
   const retryPending = retry(failedNote, failed);
   await retryGate.started;
@@ -942,8 +1049,18 @@ try {
     .all();
   assert.deepEqual(
     runAudit.results.map((run) => run.status),
-    ["failed", "failed", "failed", "published"],
+    ["failed", "failed", "failed", "failed", "published"],
   );
+  const retryInputs = await db
+    .prepare("SELECT input_json FROM assessment_runs WHERE assessment_id=?")
+    .bind(urgent.id)
+    .all();
+  for (const run of retryInputs.results)
+    assert.deepEqual(
+      JSON.parse(run.input_json).participantBackground,
+      JSON.parse(retryInputs.results[0].input_json).participantBackground,
+      "Retries preserve the original admitted background",
+    );
 
   // Concurrent manual edits supersede model output without publishing any findings.
   let changed = await newNote({ response: "A medication dose was missed." });
@@ -968,7 +1085,26 @@ try {
   );
 
   // Version-one source and messages remain immutable; only a new schema-two check can confirm a draft.
-  const oldNote = await newNote({ response: "A medication dose was missed." });
+  const scheduledOldNote = await newNote({
+    response: "A medication dose was missed.",
+  });
+  const oldNoteRow = await db
+    .prepare("SELECT * FROM shift_notes WHERE id=?")
+    .bind(scheduledOldNote.id)
+    .first();
+  const oldNoteId = randomUUID();
+  await insert("shift_notes", {
+    ...oldNoteRow,
+    id: oldNoteId,
+    shift_id: null,
+    participant_id: null,
+    participant_snapshot_json: null,
+    expected_start: null,
+    expected_end: null,
+  });
+  const oldNote = (
+    await request(`/api/notes/${oldNoteId}`, { session: worker })
+  ).note;
   const oldId = randomUUID();
   const legacyJson = JSON.stringify(legacyResult());
   await insert("shift_assessments", {
@@ -1007,6 +1143,11 @@ try {
   assert.equal((await read(oldNote)).status, "stale");
   await review(oldNote, { id: oldId, revision: 3 }, 409);
   modelHandler = (input) => {
+    assert.equal(
+      input.participantBackground,
+      null,
+      "Legacy notes without a saved snapshot receive no inferred participant background",
+    );
     assert.ok(
       input.sources.some(
         (source) =>
@@ -1158,7 +1299,7 @@ try {
     1,
   );
 
-  // Every stored new run is confined to this shift's saved form and recorder evidence.
+  // Every stored new run retains only the shift input and minimized saved background.
   const allRuns = await db
     .prepare(
       "SELECT input_json FROM assessment_runs r JOIN shift_assessments a ON a.id=r.assessment_id WHERE a.schema_version=2",
@@ -1167,6 +1308,7 @@ try {
   for (const row of allRuns.results)
     assert.deepEqual(Object.keys(JSON.parse(row.input_json)).sort(), [
       "note",
+      "participantBackground",
       "sources",
     ]);
   console.log(

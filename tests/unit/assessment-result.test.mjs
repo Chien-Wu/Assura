@@ -314,7 +314,7 @@ test("malformed, failed or unfinished historical data never normalizes to routin
   );
 });
 
-test("the adapter sends only note and sources with strict short output and no history or tools", async (t) => {
+test("the adapter sends the shift and explicit absent background with no history or tools", async (t) => {
   let calls = 0;
   t.mock.method(globalThis, "fetch", async (url, init) => {
     calls++;
@@ -331,7 +331,7 @@ test("the adapter sends only note and sources with strict short output and no hi
     assert.equal(body.input.length, 1);
     assert.equal(body.previous_response_id, undefined);
     const sent = JSON.parse(body.input[0].content[0].text);
-    assert.deepEqual(sent, input());
+    assert.deepEqual(sent, input({ participantBackground: null }));
     return Response.json(envelope(concerned()));
   });
   assert.deepEqual(
@@ -348,6 +348,51 @@ test("the adapter sends only note and sources with strict short output and no hi
     concerned(),
   );
   assert.equal(calls, 1);
+});
+
+test("the adapter projects only approved background fields into the provider request", async (t) => {
+  const participantBackground = {
+    source: {
+      kind: "saved_note_participant_snapshot",
+      noteId: "note-1",
+      participantId: "participant-1",
+      capturedAt: "2026-09-14T00:00:00.000Z",
+      profileUpdatedAt: null,
+    },
+    fields: {
+      conditions: ["Recorded condition"],
+      risks: ["Recorded risk"],
+      communication: "Short sentences",
+      setting: "Supported home",
+    },
+  };
+  t.mock.method(globalThis, "fetch", async (_url, init) => {
+    const body = JSON.parse(init.body);
+    const sent = JSON.parse(body.input[0].content[0].text);
+    assert.deepEqual(sent, input({ participantBackground }));
+    assert.doesNotMatch(JSON.stringify(sent), /excluded/);
+    return Response.json(envelope(concerned()));
+  });
+  assert.deepEqual(
+    await runRiskAssessmentModel(
+      input({
+        participantBackground: {
+          ...participantBackground,
+          fullProfile: "excluded",
+          source: { ...participantBackground.source, dateOfBirth: "excluded" },
+          fields: {
+            ...participantBackground.fields,
+            medications: ["excluded"],
+            plan: ["excluded"],
+            ndis: "excluded",
+            goals: ["excluded"],
+          },
+        },
+      }),
+      options,
+    ),
+    concerned(),
+  );
 });
 
 test("missing configuration, invalid sources, oversized input and pre-cancellation never call the provider", async (t) => {
@@ -384,6 +429,31 @@ test("missing configuration, invalid sources, oversized input and pre-cancellati
   await assert.rejects(
     runRiskAssessmentModel(input({ note: cyclic }), options),
     modelError("invalid_input"),
+  );
+  await assert.rejects(
+    runRiskAssessmentModel(
+      input({ participantBackground: { profile: {} } }),
+      options,
+    ),
+    modelError("invalid_input"),
+  );
+  await assert.rejects(
+    runRiskAssessmentModel(
+      input({
+        participantBackground: {
+          source: {
+            kind: "saved_note_participant_snapshot",
+            noteId: "note-1",
+            participantId: "participant-1",
+            capturedAt: "2026-09-14T00:00:00.000Z",
+            profileUpdatedAt: null,
+          },
+          fields: { communication: "x".repeat(riskAssessmentInputByteLimit) },
+        },
+      }),
+      options,
+    ),
+    modelError("input_too_large"),
   );
   const controller = new AbortController();
   controller.abort();
@@ -529,6 +599,10 @@ test("the runtime prompt preserves silent review and ascending user priorities",
     /untrusted data/,
     /1–3 short declarative sentences/,
     /at most one entry per type/,
+    /Never create a risk or raise its priority from background alone/,
+    /Background is not in sources and cannot be cited as event evidence/,
+    /profileUpdatedAt is unknown/,
+    /blank fields or empty lists mean information was not supplied/,
   ])
     assert.match(riskAssessmentSystemPrompt, expression);
 });

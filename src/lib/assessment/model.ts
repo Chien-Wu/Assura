@@ -1,4 +1,5 @@
 import { riskAssessmentSystemPrompt } from "./prompt.ts";
+import { riskParticipantBackgroundSchema } from "./participant-background.ts";
 import {
   riskResultJsonSchema,
   RiskValidationError,
@@ -79,10 +80,15 @@ function serialiseInput(input: RiskModelInput): string {
   }
   let encoded: string;
   try {
-    // Explicit projection: legacy profile/history/messages cannot reach this check.
+    // Only the four approved background fields may accompany the shift account.
+    // Legacy full profiles, history and messages are not forwarded.
     encoded = JSON.stringify({
       note: input.note,
       sources: input.sources.map(({ id, text }) => ({ id, text })),
+      participantBackground:
+        input.participantBackground == null
+          ? null
+          : riskParticipantBackgroundSchema.parse(input.participantBackground),
     });
   } catch {
     throw new RiskAssessmentModelError("invalid_input");
@@ -167,7 +173,7 @@ function readOutput(response: unknown): unknown {
 /** Official API shape checked 2026-09-13:
  * https://developers.openai.com/api/docs/guides/structured-outputs
  * https://developers.openai.com/api/docs/models/gpt-5.6-terra
- * No interview, profile/history, stored provider conversation, tools or raw logs. */
+ * No interview, full profile/history, stored provider conversation, tools or raw logs. */
 export async function runRiskAssessmentModel(
   input: RiskModelInput,
   options: RiskAssessmentModelOptions,

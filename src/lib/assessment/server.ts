@@ -2,6 +2,7 @@ import { database, RequestError } from "@/lib/shared/server";
 import { env } from "cloudflare:workers";
 import { checkForm, recorderFields } from "../notes/form";
 import { getRow, toNote, type Row } from "../notes/server";
+import { createRiskParticipantBackground } from "./participant-background";
 import {
   defaultRiskAssessmentModel,
   RiskAssessmentModelError,
@@ -219,6 +220,12 @@ async function sourceSnapshot(row: Row) {
       question_id: string | null;
     }>();
   const input: RiskModelInput = {
+    participantBackground: createRiskParticipantBackground({
+      snapshot: note.participantSnapshot,
+      noteId: row.id,
+      participantId: row.participant_id ?? null,
+      capturedAt: row.created_at,
+    }),
     note: {
       revision: row.revision,
       timezone: note.timezone,

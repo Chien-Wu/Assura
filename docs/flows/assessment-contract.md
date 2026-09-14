@@ -1,6 +1,6 @@
 # Silent AI2 implementation contract
 
-User-authorized replacement of the interview: AI2 never asks questions or speaks. It checks the saved final form and recorder transcript only, once per saved note revision when Review & confirm is pressed. Prior saved AI2 answers may be retained as legacy current-shift evidence, but no new answers are requested. No profile/history retrieval for the new check.
+User-authorized replacement of the interview: AI2 never asks questions or speaks. It checks the saved final form and recorder transcript, once per saved note revision when Review & confirm is pressed. Prior saved AI2 answers may be retained as legacy current-shift evidence, but no new answers are requested. A limited participant background comes from this note's saved profile snapshot; the check does not retrieve a live profile or historical notes.
 
 ## Shared pure types — src/lib/assessment/result.ts
 
@@ -9,9 +9,13 @@ User-authorized replacement of the interview: AI2 never asks questions or speaks
 `RiskResult = { risks: Array<{type: RiskType; level: RiskLevel; evidence: Array<{sourceId: string;quote: string}>}>; summary: string }`.
 One result entry per type; P1–P4 only in risks; empty risks implies P0. Evidence is internal provenance, displayed to managers as supporting quotes. Summary concise and never contains a follow-up question or instruction to interview the worker. Unknowns are stated, never invented negative answers.
 `RiskAssessment = { id:string; noteId:string; sourceRevision:number; revision:number; schemaVersion:number; status:'running'|'ready'|'failed'|'stale'; result:RiskResult|null; error:string|null; createdAt:string; updatedAt:string }`.
-`RiskModelInput = { note:unknown; sources:Array<{id:string;text:string}> }`.
+`RiskModelInput = { note:unknown; sources:Array<{id:string;text:string}>; participantBackground?:RiskParticipantBackground|null }`.
 `runRiskAssessmentModel(input,{apiKey,model?,signal?}): Promise<RiskResult>` in src/lib/assessment/model.ts.
 Export `riskTypes`, `riskLevelLabels`, `riskTypeLabels`, `overallRiskLevel(result)`, and `normalizeRiskResult(unknown):RiskResult|null` for historical result display. Keep legacy src/lib/assessment/legacy-types.ts definitions for old audit/history readers; new code uses RiskResult. Normalization must not modify stored legacy JSON or treat malformed data as a successful P0 result.
+
+`participantBackground` contains only the saved snapshot's `conditions`, `risks`, `communication` and `setting`, with provenance: source kind `saved_note_participant_snapshot`, `noteId`, `participantId`, `capturedAt` from note creation and `profileUpdatedAt:null`. The capture date is not a profile update or effective date; those dates are unknown. A missing, unusable or mismatched snapshot supplies no background, without a live-profile or demo-profile fallback. Medication, care-plan, goal, NDIS and date-of-birth fields are excluded.
+
+Background is untrusted context, not instructions or evidence that a risk occurred in this shift. It is excluded from the citeable `sources`; every finding still requires a supporting current-shift quote. Quote matching validates provenance, not clinical or semantic correctness. This input change applies to new checks and does not rewrite completed assessments or force a new check for an already assessed revision.
 
 ## Worker API / UI
 

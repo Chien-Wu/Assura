@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { AssessmentArea, AssessmentOutput } from "./legacy-types.ts";
+import type { RiskParticipantBackground } from "./participant-background.ts";
 
 export const riskTypes = [
   "incident_safeguarding",
@@ -44,6 +45,8 @@ export type RiskAssessment = {
 export type RiskModelInput = {
   note: unknown;
   sources: Array<{ id: string; text: string }>;
+  // Optional for historical saved runs that predate participant background.
+  participantBackground?: RiskParticipantBackground | null;
 };
 
 const evidenceSchema = z

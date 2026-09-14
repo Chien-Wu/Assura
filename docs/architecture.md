@@ -38,6 +38,8 @@ D1 is the source of truth. Acknowledgements follow admitted durable writes; mode
 
 Normal recording followed by silent AI2 review and the native Main-plus-six-specialists Workflow test remain separate supported flows. Their tool/result contracts are different. The workflow drafts have not been merged into normal confirmation or manager AI2 review.
 
+For new checks, silent AI2 receives the saved note and current-shift evidence plus an optional participant background projected from the note's saved snapshot: conditions, known risks, communication and support setting. Source provenance includes the note creation time; the profile's update/effective date is unknown. Missing, unusable or mismatched snapshots produce no background, with no live-profile, demo-profile or historical-note lookup. Background is untrusted context and is excluded from citeable evidence sources; each finding still needs a supporting current-shift quote. This does not guarantee clinical or semantic correctness and does not rewrite completed checks. See the [assessment contract](flows/assessment-contract.md) for the payload boundary.
+
 Historical result validation and audit records remain readable. Retired answer/transcription endpoints still return HTTP 410. A service can be required by audits, existing records or compatibility APIs even when it is not exposed on the current primary screen.
 
 ## Technology decisions
