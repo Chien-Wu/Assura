@@ -21,14 +21,14 @@ Start in `src/` to change the product. See the [architecture map](docs/architect
 
 ## Current flows
 
-| Entry                         | Behaviour                                                                                                                                                                                                |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/worker`                     | Assigned shifts, manual entry or ElevenLabs text/voice recording. The recorder saves facts through two client tools. **Review & confirm** runs a silent AI2 check against the saved note and transcript. |
-| `/worker/notes/[id]/workflow` | Separate, optional native Workflow test: Main routes to six risk specialists sharing one case and six draft forms. It is not yet part of ordinary note confirmation or manager AI2 review.               |
-| `/manager`                    | Participants, shift scheduling, notes, risk findings and append-only manager decisions within the provider.                                                                                              |
-| `/onboarding`                 | Workers select an existing provider and confirm their profile. Managers are provisioned by the operator.                                                                                                 |
+| Entry                         | Behaviour                                                                                                                                                                                                                                                   |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/worker`                     | Assigned shifts, manual entry or ElevenLabs text/voice recording. Three recorder client tools read the draft, read participant background/history and save the account. **Review & confirm** runs a silent AI2 check against the saved note and transcript. |
+| `/worker/notes/[id]/workflow` | Separate, optional native Workflow test: Main routes to six risk specialists sharing one case and six draft forms. It is not yet part of ordinary note confirmation or manager AI2 review.                                                                  |
+| `/manager`                    | Participants, shift scheduling, notes, risk findings and append-only manager decisions within the provider.                                                                                                                                                 |
+| `/onboarding`                 | Workers select an existing provider and confirm their profile. Managers are provisioned by the operator.                                                                                                                                                    |
 
-The normal recorder's two tools are `get_form_context` and `update_and_check_form`. The separate Workflow uses `get_case_context` and `save_risk_form`. Workflow forms and the silent AI2 classification schema are distinct contracts. See [architecture and technology decisions](docs/architecture.md) and the [documentation index](docs/README.md) before changing either flow.
+The normal recorder's three tools are `get_form_context`, `get_participant_context` and `update_and_check_form`. Participant context provides a profile snapshot and up to two recent confirmed records for the same worker, provider and participant. The separate Workflow uses `get_case_context` and `save_risk_form`. Workflow forms and the silent AI2 classification schema are distinct contracts. See [architecture and technology decisions](docs/architecture.md) and the [documentation index](docs/README.md) before changing either flow.
 
 ## Local setup
 

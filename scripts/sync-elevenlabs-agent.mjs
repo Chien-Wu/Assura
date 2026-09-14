@@ -33,15 +33,22 @@ const desiredTools = JSON.parse(
     "utf8",
   ),
 );
+const recorderToolNames = [
+  "get_form_context",
+  "get_participant_context",
+  "update_and_check_form",
+];
 if (
-  desiredTools.length !== 2 ||
-  new Set(desiredTools.map((tool) => tool.name)).size !== 2 ||
+  desiredTools.length !== recorderToolNames.length ||
+  recorderToolNames.some(
+    (name) => desiredTools.filter((tool) => tool.name === name).length !== 1,
+  ) ||
   desiredTools.some(
     (tool) => tool.type !== "client" || tool.expects_response !== true,
   )
 )
   throw new Error(
-    "Expected two uniquely named recorder client tools that wait for responses.",
+    "Expected the three recorder client tools, each waiting for its response.",
   );
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const backupDirectory = new URL(

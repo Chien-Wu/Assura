@@ -13,6 +13,18 @@
   },
   {
     "type": "client",
+    "name": "get_participant_context",
+    "description": "Read the current participant's saved profile background and up to two recent confirmed shift records, with dated sources and confirmed follow-up. Call after get_form_context at session start, and again after saving the actual shift start or correcting it. Use history only to understand the worker's account and ask relevant current updates; never copy it into this shift as new facts. The app selects the participant and checks access. No parameters are needed.",
+    "expects_response": true,
+    "response_timeout_secs": 45,
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    }
+  },
+  {
+    "type": "client",
     "name": "update_and_check_form",
     "description": "Save supported changes to the basic shift account and wait for validation. Preserve factual observations, uncertainty, exact quotes and reference codes. This does not complete the note.",
     "expects_response": true,

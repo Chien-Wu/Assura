@@ -25,7 +25,7 @@ export function recorderFormResult(result: ToolRecord & { note: ShiftNote }) {
   return {
     stage: "record",
     instruction:
-      "Record this shift only. Preserve observations, quotes and uncertainty in the worker's account. Ask only for missing basic shift details. A silent risk check and final confirmation happen after the worker ends this conversation and selects Review & confirm.",
+      "Record this shift only. Preserve observations, quotes and uncertainty in the worker's account. Use get_participant_context for dated background and ask only relevant missing shift details or current updates. History is not evidence of this shift. A silent risk check and final confirmation happen after the worker ends this conversation and selects Review & confirm.",
     note: {
       ...pick(result.note, [
         "revision",
@@ -118,6 +118,6 @@ export function recorderToolFailure(error: unknown, status = "unavailable") {
         : "Participant history is unavailable.",
     sources: [],
     action:
-      "Continue recording this shift from the worker's account. Do not infer history, ask an unregistered history-based question, or claim that no historical concern exists. Refresh context before retrying a stale request.",
+      "Continue recording this shift from the worker's account. Do not infer history or claim that no historical concern exists. Refresh context before relying on history after a failed or stale request.",
   };
 }

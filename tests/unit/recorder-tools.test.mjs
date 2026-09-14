@@ -123,7 +123,7 @@ test("Agent tool artifact uses vendor response waiting and excludes model-select
       "utf8",
     ),
   );
-  assert.equal(new Set(tools.map((tool) => tool.name)).size, 2);
+  assert.equal(new Set(tools.map((tool) => tool.name)).size, 3);
   for (const tool of tools) {
     assert.equal(tool.type, "client");
     assert.equal(tool.expects_response, true);
@@ -141,7 +141,15 @@ test("Agent tool artifact uses vendor response waiting and excludes model-select
   }
   assert.deepEqual(
     tools.map((tool) => tool.name),
-    ["get_form_context", "update_and_check_form"],
+    ["get_form_context", "get_participant_context", "update_and_check_form"],
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.name === "get_participant_context").parameters,
+    {
+      type: "object",
+      properties: {},
+      required: [],
+    },
   );
 });
 

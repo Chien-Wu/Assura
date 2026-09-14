@@ -1,6 +1,7 @@
 "use client";
 import { definitions, type ShiftNote } from "@/lib/notes/form";
 import { createRecorderHandoff } from "@/lib/recorder/handoff";
+import { readRecorderParticipantContext } from "@/lib/recorder/context";
 import { type ConversationMode, type VoiceEvent } from "@/lib/recorder/state";
 import {
   parseRecorderUpdate,
@@ -350,6 +351,25 @@ export function useVoiceRecorder({
         ),
       );
 
+    if (name === "get_participant_context") {
+      const result = await readRecorderParticipantContext({
+        capture: () =>
+          isCurrent()
+            ? {
+                sessionId: session.id,
+                noteId: session.note.id,
+                revision: session.note.revision,
+                workerSequence: session.workerSequence,
+                interruptionGeneration: session.interruptionGeneration,
+                formSaveFailed: Boolean(formSaveError.current),
+              }
+            : null,
+        enqueue: (job) => enqueue(session, job),
+        read: (noteId) =>
+          request(`/api/notes/${encodeURIComponent(noteId)}/knowledge/context`),
+      });
+      return isCurrent() ? JSON.stringify(result) : stale();
+    }
     if (name === "get_form_context") {
       try {
         const result = await enqueue(session, async () => {
@@ -460,6 +480,8 @@ export function useVoiceRecorder({
   const conversation = useConversation({
     clientTools: {
       get_form_context: (params) => tool("get_form_context", params),
+      get_participant_context: (params) =>
+        tool("get_participant_context", params),
       search_participant_records: (params) =>
         tool("search_participant_records", params),
       register_followup: (params) => tool("register_followup", params),

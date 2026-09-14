@@ -325,11 +325,46 @@ try {
     "",
     "Loading history must not fill the current shift with past observations",
   );
+  const assignment = await db
+    .prepare("SELECT participant_id FROM shift_notes WHERE id=?")
+    .bind(note.id)
+    .first();
+  await db
+    .prepare("UPDATE provider_participants SET active=0 WHERE id=?")
+    .bind(assignment.participant_id)
+    .run();
+  const revokedContext = await request(contextPath, {
+    session: worker,
+    expected: 403,
+  });
+  assert.equal("profile" in revokedContext, false);
+  assert.equal("sources" in revokedContext, false);
+  await db
+    .prepare("UPDATE provider_participants SET active=1 WHERE id=?")
+    .bind(assignment.participant_id)
+    .run();
 
   const live = await conversation(note);
   const quote = "Sarah ate lunch and said she felt tired today.";
   await search(note, live, quote, "lunch appetite tired", {}, 409);
   await live.event("user", quote);
+  const updatedContext = await request(contextPath, { session: worker });
+  const latestTurn = await db
+    .prepare(
+      "SELECT rowid AS cursor FROM transcript_events WHERE note_id=? AND role='user' ORDER BY rowid DESC LIMIT 1",
+    )
+    .bind(note.id)
+    .first();
+  const retrieval = await db
+    .prepare(
+      "SELECT note_revision,transcript_cursor FROM retrieval_runs WHERE id=?",
+    )
+    .bind(updatedContext.retrievalId)
+    .first();
+  assert.equal(updatedContext.transcriptCursor, latestTurn.cursor);
+  assert.equal(retrieval.transcript_cursor, latestTurn.cursor);
+  assert.equal(retrieval.note_revision, updatedContext.noteRevision);
+  assertHistoryOnly(updatedContext);
   await search(note, live, "A fabricated current statement", "lunch", {}, 409);
   await search(
     note,

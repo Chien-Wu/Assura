@@ -45,7 +45,7 @@ node --experimental-strip-types scripts/seed-patient-history.mjs --local
 
 匯入工具僅支援專案的本機 D1 與現有 TestProvider 測試帳號，寫入 1 位個案、10 個班次、10 份 note。固定 ID 可防止重複匯入；已有內容不一致時會停止，不覆寫舊資料。
 
-Notes 使用 `complete` 狀態供歷史資料測試，但 `confirmation_evidence.method` 明確記為 `synthetic_fixture`，保留實際匯入時間與模擬確認時間；不代表真實工作人員完成確認。歷史 knowledge context／search API 已存在；目前一般 recorder 與 native Workflow 不呼叫 RAG。此 fixture 不代表已驗證端到端檢索品質。
+Notes 使用 `complete` 狀態供歷史資料測試，但 `confirmation_evidence.method` 明確記為 `synthetic_fixture`，保留實際匯入時間與模擬確認時間；不代表真實工作人員完成確認。一般 Recorder 已接上 `get_participant_context`，讀取最多兩份近期紀錄；需部署相應前端並同步 ElevenLabs 三個工具後才會啟用。關鍵字 search 工具與 native Workflow 的 RAG 仍停用。此 fixture 不代表已驗證端到端檢索品質。
 
 ## 虛構病人基本資料
 
