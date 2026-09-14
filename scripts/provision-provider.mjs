@@ -87,7 +87,7 @@ function main() {
       "--local requires --config pointing to the project's generated Wrangler config.",
     );
   const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-  const temporary = mkdtempSync(join(tmpdir(), "legalmate-provider-"));
+  const temporary = mkdtempSync(join(tmpdir(), "assura-provider-"));
   try {
     const sqlFile = join(temporary, "provision.sql");
     writeFileSync(sqlFile, statements.map(boundSql).join("\n"), {

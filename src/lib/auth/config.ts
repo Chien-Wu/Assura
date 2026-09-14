@@ -6,21 +6,22 @@ import {
   type CheckTestAccountScope,
 } from "./test-account-plugin.ts";
 import { isReservedTestEmail } from "./test-accounts.ts";
+import {
+  readAssuraSetting,
+  type AssuraEnvironment,
+} from "../shared/environment.ts";
 
-export type AuthEnvironment = {
+export type AuthEnvironment = AssuraEnvironment & {
   BETTER_AUTH_SECRET?: string;
-  LEGALMATE_PUBLIC_ORIGIN?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   RESEND_API_KEY?: string;
-  LEGALMATE_EMAIL_FROM?: string;
-  LEGALMATE_TEST_PASSWORD?: string;
 };
 
 export function readAuthConfiguration(input: AuthEnvironment) {
   let origin: string | null = null;
   try {
-    const url = new URL(input.LEGALMATE_PUBLIC_ORIGIN ?? "");
+    const url = new URL(readAssuraSetting("PUBLIC_ORIGIN", input) ?? "");
     const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
     if (
       (url.protocol === "https:" || (local && url.protocol === "http:")) &&
@@ -39,7 +40,8 @@ export function readAuthConfiguration(input: AuthEnvironment) {
   return {
     origin,
     secret: configured ? secret! : null,
-    testAccounts: configured && Boolean(input.LEGALMATE_TEST_PASSWORD),
+    testAccounts:
+      configured && Boolean(readAssuraSetting("TEST_PASSWORD", input)),
     google:
       configured &&
       Boolean(
@@ -48,7 +50,8 @@ export function readAuthConfiguration(input: AuthEnvironment) {
     email:
       configured &&
       Boolean(
-        input.RESEND_API_KEY?.trim() && input.LEGALMATE_EMAIL_FROM?.trim(),
+        input.RESEND_API_KEY?.trim() &&
+          readAssuraSetting("EMAIL_FROM", input)?.trim(),
       ),
   };
 }
@@ -66,7 +69,7 @@ export function createAppAuth(
   if (!config.origin || !config.secret) return null;
   const failedEmailRequests = new WeakSet<Request>();
   return betterAuth({
-    appName: "LegalMate",
+    appName: "Assura",
     baseURL: config.origin,
     basePath: "/api/auth",
     secret: config.secret,
@@ -163,6 +166,7 @@ export function createAppAuth(
     advanced: {
       disableOriginCheck: false,
       disableCSRFCheck: false,
+      // Preserve existing signed sessions across the Assura rebrand.
       cookiePrefix: "legalmate",
       useSecureCookies: config.origin.startsWith("https:"),
       ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
@@ -172,7 +176,7 @@ export function createAppAuth(
     logger: { disabled: true },
     plugins: [
       testAccountPlugin(
-        input.LEGALMATE_TEST_PASSWORD,
+        readAssuraSetting("TEST_PASSWORD", input),
         checkTestAccountScope,
         initializeDemo,
       ),

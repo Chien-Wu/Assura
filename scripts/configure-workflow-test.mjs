@@ -9,7 +9,7 @@ const { manifest } = await configureWorkflowAgent(origin, {
 const file = new URL("../.env.local", import.meta.url);
 let contents = await readFile(file, "utf8");
 for (const [key, value] of Object.entries({
-  LEGALMATE_WORKFLOW_ENABLED: "true",
+  ASSURA_WORKFLOW_ENABLED: "true",
   ELEVENLABS_WORKFLOW_AGENT_ID: manifest.agentId,
   ELEVENLABS_WORKFLOW_VERSION_ID: manifest.versionId,
 })) {

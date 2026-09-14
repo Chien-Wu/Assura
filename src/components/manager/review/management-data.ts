@@ -1,6 +1,7 @@
 "use client";
 import type { AssessmentOutput } from "@/lib/assessment/legacy-types";
 import { type RiskAssessment } from "@/lib/assessment/result";
+import { type ShiftRiskSummary } from "@/lib/assessment/shift-risk";
 import { type ShiftNote } from "@/lib/notes/form";
 import { type RiskFinding } from "./finding-review";
 export type Incident = {
@@ -27,6 +28,7 @@ export type Incident = {
 };
 export type Board = {
   notes: ShiftNote[];
+  shiftRisks: ShiftRiskSummary[];
   findings: RiskFinding[];
   assessments?: {
     id: string;

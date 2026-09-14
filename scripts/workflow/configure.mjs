@@ -10,7 +10,9 @@ import {
 const root = new URL("../../", import.meta.url);
 export async function configureWorkflowAgent(baseUrl, { model } = {}) {
   const directory = new URL(".secrets/workflow-app/", root);
-  const tag = "legalmate-workflow-app-test";
+  const tag = "assura-workflow-app-test";
+  // Recognize the existing isolated agent before updating its branding.
+  const legacyTag = "legalmate-workflow-app-test";
   if (
     model &&
     !["gpt-4.1-mini", "gemini-2.5-flash", "qwen35-397b-a17b"].includes(model)
@@ -69,7 +71,7 @@ export async function configureWorkflowAgent(baseUrl, { model } = {}) {
   const source = await api("GET", `/convai/agents/${env.ELEVENLABS_AGENT_ID}`);
   if (manifest.agentId) {
     const existing = await api("GET", `/convai/agents/${manifest.agentId}`);
-    if (!existing.tags?.includes(tag))
+    if (!existing.tags?.includes(tag) && !existing.tags?.includes(legacyTag))
       throw Error("Refusing to update an agent not owned by workflow setup");
   }
   const definitions = buildClientToolDefinitions();
@@ -150,7 +152,7 @@ export async function configureWorkflowAgent(baseUrl, { model } = {}) {
       contextToolId: manifest.tools.context,
       saveToolId: manifest.tools.save,
     }),
-    name: "LegalMate — Risk conversation test",
+    name: "Assura — Risk conversation test",
     tags: [tag, "synthetic-only"],
     platform_settings: {
       auth: { enable_auth: true },

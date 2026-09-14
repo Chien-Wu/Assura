@@ -1,4 +1,6 @@
 // Public login labels never become Google identities or real email grant claims.
+// Internal legacy email identities are persisted in existing databases; retaining
+// them keeps provisioned accounts and provider grants valid after the rebrand.
 export const TEST_PROVIDER_ID = "testprovider";
 export const TEST_PROVIDER_NAME = "TestProvider";
 

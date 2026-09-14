@@ -2,7 +2,7 @@ server {
     listen 80;
     server_name __HOST__;
     location /.well-known/acme-challenge/ {
-        root /var/www/legalmate-acme;
+        root /var/www/assura-acme;
     }
     location / { return 301 https://__HOST__$request_uri; }
 }
@@ -10,15 +10,15 @@ server {
 server {
     listen 443 ssl;
     server_name __HOST__;
-    ssl_certificate /etc/legalmate/letsencrypt/live/__HOST__/fullchain.pem;
-    ssl_certificate_key /etc/legalmate/letsencrypt/live/__HOST__/privkey.pem;
+    ssl_certificate /etc/assura/letsencrypt/live/__HOST__/fullchain.pem;
+    ssl_certificate_key /etc/assura/letsencrypt/live/__HOST__/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     client_max_body_size 128k;
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy same-origin always;
 
     location / {
-        if (-f /var/lib/legalmate/maintenance) { return 503; }
+        if (-f /var/lib/assura/maintenance) { return 503; }
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;
         proxy_set_header Host __HOST__;

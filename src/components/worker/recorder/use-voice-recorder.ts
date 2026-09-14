@@ -439,7 +439,7 @@ export function useVoiceRecorder({
             ...recorderFormResult(result),
           });
         }
-        throw new Error("Unknown LegalMate tool.");
+        throw new Error("Unknown Assura tool.");
       } catch (e) {
         // Recovery reads can overlap Review. Keep a failed form write pending
         // until a later successful write, even if closing has not started yet.

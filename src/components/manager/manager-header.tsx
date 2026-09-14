@@ -1,4 +1,5 @@
 "use client";
+import BrandLogo from "@/components/layout/brand-logo";
 
 import {
   Sheet,
@@ -8,13 +9,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  AudioLines,
-  CalendarDays,
-  ClipboardCheck,
-  Menu,
-  Users,
-} from "lucide-react";
+import { CalendarDays, ClipboardCheck, Menu, Users } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import AccountMenu from "../layout/account-menu";
@@ -84,10 +79,8 @@ export default function ManagerHeader({
           </SheetContent>
         </Sheet>
         <Link className="brand" href="/">
-          <span className="brand-icon">
-            <AudioLines size={24} aria-hidden="true" />
-          </span>
-          <span>LegalMate</span>
+          <BrandLogo />
+          <span>Assura</span>
           <span className="edition">MANAGER</span>
         </Link>
       </div>

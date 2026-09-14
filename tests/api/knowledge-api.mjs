@@ -24,7 +24,7 @@ import {
 import { applyMigrations } from "../support/migration-fixture.mjs";
 
 const root = fileURLToPath(new URL("../../dist/server/", import.meta.url));
-const origin = testAuthEnvironment.LEGALMATE_PUBLIC_ORIGIN;
+const origin = testAuthEnvironment.ASSURA_PUBLIC_ORIGIN;
 const files = await readdir(root, { recursive: true });
 const modules = [
   "index.js",
@@ -41,7 +41,7 @@ const mf = new Miniflare({
     ...testAuthEnvironment,
     GOOGLE_CLIENT_ID: "test-only-google-client",
     GOOGLE_CLIENT_SECRET: "test-only-google-secret",
-    LEGALMATE_TEST_PASSWORD: testPassword,
+    ASSURA_TEST_PASSWORD: testPassword,
   },
   d1Databases: { DB: randomUUID() },
   d1Persist: false,

@@ -1,11 +1,11 @@
 [Unit]
-Description=Check LegalMate main every hour
+Description=Check Assura main every hour
 
 [Timer]
 OnCalendar=hourly
 Persistent=true
 RandomizedDelaySec=30
-Unit=legalmate-deploy.service
+Unit=assura-deploy.service
 
 [Install]
 WantedBy=timers.target

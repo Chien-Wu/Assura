@@ -18,7 +18,7 @@ import {
 } from "../support/auth-fixture.mjs";
 
 const root = fileURLToPath(new URL("../../dist/server/", import.meta.url));
-const origin = testAuthEnvironment.LEGALMATE_PUBLIC_ORIGIN;
+const origin = testAuthEnvironment.ASSURA_PUBLIC_ORIGIN;
 const files = await readdir(root, { recursive: true });
 const modules = [
   "index.js",
@@ -35,7 +35,7 @@ const runtimeOptions = {
     ...testAuthEnvironment,
     GOOGLE_CLIENT_ID: "test-only-google-client",
     GOOGLE_CLIENT_SECRET: "test-only-google-secret",
-    LEGALMATE_TEST_PASSWORD: testPassword,
+    ASSURA_TEST_PASSWORD: testPassword,
   },
   d1Databases: { DB: randomUUID() },
   d1Persist: false,
@@ -130,9 +130,7 @@ try {
         GOOGLE_CLIENT_ID: google ? "test-only-google-client" : "",
         GOOGLE_CLIENT_SECRET: google ? "test-only-google-secret" : "",
         RESEND_API_KEY: email ? testAuthEnvironment.RESEND_API_KEY : "",
-        LEGALMATE_EMAIL_FROM: email
-          ? testAuthEnvironment.LEGALMATE_EMAIL_FROM
-          : "",
+        ASSURA_EMAIL_FROM: email ? testAuthEnvironment.ASSURA_EMAIL_FROM : "",
       },
     });
     const health = await request("/api/health", {
@@ -878,13 +876,31 @@ try {
     personalPassword.results.map((account) => account.password),
     [null],
   );
+  // Existing secrets and signed sessions remain usable during a rolling rebrand.
+  const legacyBindings = Object.fromEntries(
+    Object.entries(runtimeOptions.bindings).map(([key, value]) => [
+      key.replace(/^ASSURA_/, "LEGALMATE_"),
+      value,
+    ]),
+  );
+  await mf.setOptions({ ...runtimeOptions, bindings: legacyBindings });
+  assert.deepEqual(await request("/api/auth/status"), {
+    google: true,
+    email: true,
+    testAccounts: true,
+  });
+  assert.equal(
+    (await request("/api/onboarding", { session: testWorker })).user.userId,
+    "auth_test_worker",
+  );
+  await testLogin("workertest@gmail.com", testPassword);
   for (const session of [testWorker, testManager]) {
     await request("/api/auth/sign-out", { session, body: {} });
     await request("/api/onboarding", { session, expected: 401 });
   }
   await mf.setOptions({
     ...runtimeOptions,
-    bindings: { ...runtimeOptions.bindings, LEGALMATE_TEST_PASSWORD: "" },
+    bindings: { ...legacyBindings, ASSURA_TEST_PASSWORD: "" },
   });
   assert.equal((await request("/api/auth/status")).testAccounts, false);
   await testLogin("workertest@gmail.com", testPassword, 503);

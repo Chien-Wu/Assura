@@ -1,7 +1,7 @@
 /* next-themes drives the theme with a class on <html> */
 @custom-variant dark (&:is(.dark *), &.dark);
 /* ============================================================
-   LegalMate design tokens
+   Assura design tokens
    Style: Minimalism & Swiss  ·  Trust blue  ·  Light + dark
    Every text token below clears WCAG AA 4.5:1 on its surface.
    ============================================================ */

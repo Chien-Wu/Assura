@@ -1,5 +1,5 @@
 [Unit]
-Description=Check LegalMate HTTPS certificate twice daily
+Description=Check Assura HTTPS certificate twice daily
 
 [Timer]
 OnCalendar=*-*-* 00,12:00:00

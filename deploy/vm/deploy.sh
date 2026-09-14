@@ -2,27 +2,46 @@
 # Installed root-owned outside the checkout. Builds and migrations run unprivileged.
 set -Eeuo pipefail
 umask 027
-ROOT=/opt/legalmate
-STATE=/var/lib/legalmate/state
-BACKUPS=/var/lib/legalmate/backups
-MAINTENANCE=/var/lib/legalmate/maintenance
+# New installations use Assura paths. An existing installation keeps its storage,
+# service account and lock until an operator coordinates a migration.
+DEPLOYMENT_NAME=assura
+if [[ -z ${ASSURA_DEPLOY_ROOT:-} && ! -d /opt/assura && -d /opt/legalmate ]]; then
+  DEPLOYMENT_NAME=legalmate
+fi
+ROOT=${ASSURA_DEPLOY_ROOT:-/opt/$DEPLOYMENT_NAME}
+DATA_ROOT=${ASSURA_DATA_ROOT:-/var/lib/$DEPLOYMENT_NAME}
+STATE=$DATA_ROOT/state
+BACKUPS=$DATA_ROOT/backups
+MAINTENANCE=$DATA_ROOT/maintenance
+APP_USER=${ASSURA_SERVICE_USER:-$DEPLOYMENT_NAME}
+APP_GROUP=${ASSURA_SERVICE_GROUP:-$APP_USER}
+APP_SERVICE=${ASSURA_SERVICE:-$DEPLOYMENT_NAME.service}
+DEPLOY_SERVICE=${ASSURA_DEPLOY_SERVICE:-$DEPLOYMENT_NAME-deploy.service}
+HELPERS=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 REPO=$ROOT/repository
 NODE=$ROOT/runtime/node/bin
 export PATH="$NODE:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-exec 9>/run/lock/legalmate-deploy.lock
+exec 9>"${ASSURA_DEPLOY_LOCK:-/run/lock/$DEPLOYMENT_NAME-deploy.lock}"
 flock -n 9 || exit 0
 
 as_app() {
-  runuser -u legalmate -- env PATH="$PATH" CI=1 npm_config_cache="$ROOT/cache/npm" \
-    XDG_CONFIG_HOME=/var/lib/legalmate/config \
+  runuser -u "$APP_USER" -- env PATH="$PATH" CI=1 npm_config_cache="$ROOT/cache/npm" \
+    XDG_CONFIG_HOME="$DATA_ROOT/config" \
     CLOUDFLARE_CF_FETCH_ENABLED=false WRANGLER_SEND_METRICS=false \
     GIT_SSH_COMMAND="ssh -i $ROOT/ssh/github_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$ROOT/ssh/known_hosts -o BatchMode=yes" "$@"
 }
 
+REPOSITORY_URL=${ASSURA_REPOSITORY_URL:-git@github.com:Chien-Wu/assura.git}
+if [[ -z ${ASSURA_REPOSITORY_URL:-} ]] && ! as_app git ls-remote "$REPOSITORY_URL" HEAD >/dev/null 2>&1; then
+  # Keep deployments working while the owner completes the GitHub rename.
+  REPOSITORY_URL=git@github.com:Chien-Wu/legalMate.git
+fi
 if [[ ! -d "$REPO/.git" ]]; then
   as_app git init "$REPO"
-  as_app git -C "$REPO" remote add origin git@github.com:Chien-Wu/legalMate.git
+  as_app git -C "$REPO" remote add origin "$REPOSITORY_URL"
 fi
+# Refresh existing checkouts after the Assura repository becomes available.
+as_app git -C "$REPO" remote set-url origin "$REPOSITORY_URL"
 
 if [[ ${1:-} == --initial ]]; then
   REVISION=${2:-}
@@ -39,13 +58,13 @@ if [[ -L "$ROOT/current" ]]; then
   [[ "$PREVIOUS" == "$ROOT/releases/"* && -d "$PREVIOUS" ]] || { echo 'Invalid active release symlink.' >&2; exit 1; }
 fi
 RELEASE=$ROOT/releases/$REVISION
-if [[ "$PREVIOUS" == "$RELEASE" ]] && systemctl is-active --quiet legalmate.service; then
+if [[ "$PREVIOUS" == "$RELEASE" ]] && systemctl is-active --quiet "$APP_SERVICE"; then
   echo "Already serving main at $REVISION"
   exit 0
 fi
 
 if [[ ! -f "$RELEASE/package.json" ]]; then
-  install -d -o legalmate -g legalmate -m 0750 "$RELEASE"
+  install -d -o "$APP_USER" -g "$APP_GROUP" -m 0750 "$RELEASE"
   as_app git -C "$REPO" archive "$REVISION" | as_app tar -x -C "$RELEASE"
 fi
 
@@ -92,8 +111,8 @@ rollback() {
   local status=${1:-1}
   trap - ERR TERM INT
   if [[ "$STOPPED" == 1 ]]; then
-    if ! systemctl stop legalmate.service; then
-      echo 'Could not stop LegalMate; maintenance remains enabled and database has not been restored.' >&2
+    if ! systemctl stop "$APP_SERVICE"; then
+      echo 'Could not stop Assura; maintenance remains enabled and database has not been restored.' >&2
       exit "$status"
     fi
     if [[ "$BACKED_UP" == 1 ]]; then
@@ -102,13 +121,13 @@ rollback() {
     fi
     if [[ -n "$PREVIOUS" && -d "$PREVIOUS" ]]; then
       activate "$PREVIOUS"
-      systemctl start legalmate.service
+      systemctl start "$APP_SERVICE"
       if health 1; then rm -f "$MAINTENANCE"; fi
     elif [[ -L "$ROOT/current" ]]; then
       rm "$ROOT/current"
     fi
   fi
-  echo "Deployment failed for $REVISION; previous release retained. See journalctl -u legalmate-deploy." >&2
+  echo "Deployment failed for $REVISION; previous release retained. See journalctl -u $DEPLOY_SERVICE." >&2
   exit "$status"
 }
 trap 'rollback $?' ERR
@@ -117,8 +136,8 @@ trap 'rollback 130' INT
 
 touch "$MAINTENANCE"
 STOPPED=1
-systemctl stop legalmate.service
-if systemctl is-active --quiet legalmate.service; then
+systemctl stop "$APP_SERVICE"
+if systemctl is-active --quiet "$APP_SERVICE"; then
   echo 'Application still running; refusing to migrate its database.' >&2
   false
 fi
@@ -128,7 +147,7 @@ printf '%s\n' "$PREVIOUS" > "$BACKUP/previous-release"
 as_app node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js \
   d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to "$STATE"
 activate "$RELEASE"
-systemctl start legalmate.service
+systemctl start "$APP_SERVICE"
 health
 rm -f "$MAINTENANCE"
 STOPPED=0
@@ -136,4 +155,4 @@ trap - ERR TERM INT
 echo "Deployed main at $REVISION"
 
 # Keep the active and previous release plus three recent candidates; retain seven DB backups.
-python3 /usr/local/lib/legalmate/prune.py
+ASSURA_DEPLOY_ROOT="$ROOT" ASSURA_DATA_ROOT="$DATA_ROOT" python3 "$HELPERS/prune.py"

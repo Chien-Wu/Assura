@@ -10,6 +10,7 @@ import {
   type AuthEnvironment,
 } from "./config";
 import { initializeWorkflowDemoAccounts } from "./test-account-seed";
+import { readAssuraSetting } from "../shared/environment";
 import {
   getTestAccountByIdentity,
   isReservedTestEmail,
@@ -29,16 +30,26 @@ function authEnvironment(): AuthEnvironment {
   const bindings = env as typeof env & AuthEnvironment;
   const names = [
     "BETTER_AUTH_SECRET",
-    "LEGALMATE_PUBLIC_ORIGIN",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "RESEND_API_KEY",
-    "LEGALMATE_EMAIL_FROM",
-    "LEGALMATE_TEST_PASSWORD",
   ] as const;
-  return Object.fromEntries(
-    names.map((name) => [name, bindings[name] || process.env[name]]),
-  );
+  return {
+    ...Object.fromEntries(
+      names.map((name) => [name, bindings[name] || process.env[name]]),
+    ),
+    ASSURA_PUBLIC_ORIGIN: readAssuraSetting(
+      "PUBLIC_ORIGIN",
+      bindings,
+      process.env,
+    ),
+    ASSURA_EMAIL_FROM: readAssuraSetting("EMAIL_FROM", bindings, process.env),
+    ASSURA_TEST_PASSWORD: readAssuraSetting(
+      "TEST_PASSWORD",
+      bindings,
+      process.env,
+    ),
+  };
 }
 
 export function getAuthStatus(): {
@@ -59,7 +70,7 @@ export function getTestAccountPrefillPassword(): string {
   if (!env.DB || !readAuthConfiguration(configuration).testAccounts) return "";
   // Shared demo credentials are intentionally prefilled for all visitors.
   // Only the fixed test-account password is sent to the entry form.
-  return configuration.LEGALMATE_TEST_PASSWORD ?? "";
+  return configuration.ASSURA_TEST_PASSWORD ?? "";
 }
 
 function getAuth() {
@@ -80,10 +91,10 @@ function getAuth() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: configuration.LEGALMATE_EMAIL_FROM,
+          from: configuration.ASSURA_EMAIL_FROM,
           to: [email],
-          subject: "Your LegalMate sign-in code",
-          text: `Your LegalMate sign-in code is ${otp}. It expires in 5 minutes. If you did not request this code, you can ignore this email.`,
+          subject: "Your Assura sign-in code",
+          text: `Your Assura sign-in code is ${otp}. It expires in 5 minutes. If you did not request this code, you can ignore this email.`,
         }),
         signal: AbortSignal.timeout(10_000),
       });
@@ -96,8 +107,7 @@ function getAuth() {
           .bind(...testAccountScopeParams(account))
           .first(),
       ),
-    (env.LEGALMATE_WORKFLOW_ENABLED ??
-      process.env.LEGALMATE_WORKFLOW_ENABLED) === "true"
+    readAssuraSetting("WORKFLOW_ENABLED", env, process.env) === "true"
       ? () => initializeWorkflowDemoAccounts(env.DB!)
       : undefined,
   );
@@ -119,7 +129,7 @@ export async function getAppUser(
   if (isReservedTestEmail(session.user.email) && !testAccount) return null;
   if (
     testAccount &&
-    (!authEnvironment().LEGALMATE_TEST_PASSWORD ||
+    (!authEnvironment().ASSURA_TEST_PASSWORD ||
       !(await env
         .DB!.prepare(testAccountScopeQuery)
         .bind(...testAccountScopeParams(testAccount))

@@ -1,0 +1,28 @@
+[Unit]
+Description=Assura web application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=assura
+Group=assura
+WorkingDirectory=/opt/assura/current
+Environment=PATH=/opt/assura/runtime/node/bin:/usr/local/bin:/usr/bin:/bin
+Environment=SITES_RUNTIME_ROOT=/var/lib/assura/runtime
+Environment=XDG_CONFIG_HOME=/var/lib/assura/config
+Environment=WRANGLER_SEND_METRICS=false
+Environment=CLOUDFLARE_CF_FETCH_ENABLED=false
+ExecStart=/opt/assura/runtime/node/bin/node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to /var/lib/assura/state --env-file /etc/assura/runtime.env --ip 127.0.0.1 --port 8787 --inspector-port 0
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=control-group
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -14,7 +14,7 @@ D1 stores case revisions, shared event facts, six form schemas and supporting wo
 
 ## Runtime setup
 
-Required: `DB`, `BETTER_AUTH_SECRET`, `LEGALMATE_PUBLIC_ORIGIN`, `LEGALMATE_TEST_PASSWORD`, `ELEVENLABS_API_KEY`, `LEGALMATE_WORKFLOW_ENABLED=true`, and the two workflow agent/version IDs. Existing agent settings remain separate. Workflow-enabled environments can initialize the missing fixed TestProvider accounts only after a valid test password; existing providers, identities and memberships are never reactivated or overwritten by this initializer. Normal environments retain operator provisioning.
+Required: `DB`, `BETTER_AUTH_SECRET`, `ASSURA_PUBLIC_ORIGIN`, `ASSURA_TEST_PASSWORD`, `ELEVENLABS_API_KEY`, `ASSURA_WORKFLOW_ENABLED=true`, and the two workflow agent/version IDs. Existing agent settings remain separate. Workflow-enabled environments can initialize the missing fixed TestProvider accounts only after a valid test password; existing providers, identities and memberships are never reactivated or overwritten by this initializer. Normal environments retain operator provisioning.
 
 The site deliberately uses test-account login. Google OAuth and email are separate existing features and are not needed for this test. `/api/auth/status` verifies test-login availability; the existing `/api/health` also requires Google and is not a suitable test-only readiness probe.
 

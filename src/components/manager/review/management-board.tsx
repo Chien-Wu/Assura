@@ -6,7 +6,6 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -14,11 +13,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertCircle, Clock, FileText, RefreshCw } from "lucide-react";
+import { riskTypeLabels } from "@/lib/assessment/result";
+import {
+  matchesShiftRisk,
+  type RiskTypeFilter,
+  type SeriousnessFilter,
+} from "@/lib/assessment/shift-risk";
+import { displayShiftTime } from "@/lib/roster/shifts";
+import { matchesShiftDate } from "@/lib/roster/shift-date-filter";
+import { ArrowUpRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AuditDialog from "./audit-dialog";
 import FindingReview from "./finding-review";
 import ReviewForm from "./incident-review";
+import ShiftRiskFilters, { ShiftRiskStatus } from "./shift-risk-filters";
 import {
   api,
   interval,
@@ -36,10 +44,13 @@ export default function ManagementBoard({
   onOpenNote?: (id: string) => void;
   providerId?: string;
 }) {
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [board, setBoard] = useState<Board | null>(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("open");
+  const [riskType, setRiskType] = useState<RiskTypeFilter>("all");
+  const [seriousness, setSeriousness] = useState<SeriousnessFilter>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [selected, setSelected] = useState<Incident | null>(null);
   const [audit, setAudit] = useState<Audit | null>(null);
   const [busy, setBusy] = useState(false);
@@ -50,7 +61,7 @@ export default function ManagementBoard({
     try {
       setBoard(
         await api<Board>(
-          `/api/management?month=${month}${providerId ? `&providerId=${encodeURIComponent(providerId)}` : ""}`,
+          `/api/management${providerId ? `?providerId=${encodeURIComponent(providerId)}` : ""}`,
         ),
       );
       setError("");
@@ -59,7 +70,7 @@ export default function ManagementBoard({
     } finally {
       inflight.current = false;
     }
-  }, [signedIn, month, providerId]);
+  }, [signedIn, providerId]);
   useEffect(() => {
     const initial = setTimeout(() => void load(), 0);
     const timer = setInterval(() => void load(), 5000);
@@ -82,18 +93,46 @@ export default function ManagementBoard({
     return (
       <div className="info-banner">Sign in to view the management board.</div>
     );
-  const open =
-    board?.incidents.filter((item) => item.assessment === "Needs review") ?? [];
+  const shiftRisks = board?.shiftRisks ?? [];
+  const riskByNote = new Map(shiftRisks.map((risk) => [risk.noteId, risk]));
+  const datedNotes =
+    board?.notes.filter((note) =>
+      matchesShiftDate(
+        note.fields.shiftStart || note.expectedStart,
+        fromDate,
+        toDate,
+      ),
+    ) ?? [];
+  const datedNoteIds = new Set(datedNotes.map((note) => note.id));
+  const visibleNotes = datedNotes.filter((note) =>
+    matchesShiftRisk(riskByNote.get(note.id), riskType, seriousness),
+  );
+  const visibleNoteIds = new Set(visibleNotes.map((note) => note.id));
+  const legacyAssessments =
+    board?.assessments?.filter(
+      (item) =>
+        visibleNoteIds.has(item.noteId) &&
+        item.schemaVersion === 1 &&
+        item.result?.concerns?.length,
+    ) ?? [];
+  const resetFilters = () => {
+    setRiskType("all");
+    setSeriousness("all");
+    setFromDate("");
+    setToDate("");
+  };
   const filtered =
     board?.incidents.filter(
       (item) =>
-        filter === "all" ||
-        (filter === "open"
-          ? item.assessment === "Needs review"
-          : filter === "urgent"
-            ? item.severity === "urgent"
-            : item.code === "RISK_CONTENT_REMOVED" ||
-              item.code === "CONTRADICTORY_NEGATIVE"),
+        (!(fromDate || toDate) || datedNoteIds.has(item.noteId)) &&
+        matchesShiftRisk(riskByNote.get(item.noteId), riskType, seriousness) &&
+        (filter === "all" ||
+          (filter === "open"
+            ? item.assessment === "Needs review"
+            : filter === "urgent"
+              ? item.severity === "urgent"
+              : item.code === "RISK_CONTENT_REMOVED" ||
+                item.code === "CONTRADICTORY_NEGATIVE")),
     ) ?? [];
   return (
     <section className="management-board">
@@ -107,38 +146,53 @@ export default function ManagementBoard({
           Refresh
         </Button>
       </div>
-      <div className="board-metrics">
-        <div>
-          <AlertCircle size={20} />
-          <strong>
-            {open.filter((i) => i.severity === "urgent").length +
-              (board?.findings?.filter(
-                (item) =>
-                  item.reviewStatus !== "closed" &&
-                  (item.managerLevel ?? item.aiLevel) >= "P3",
-              ).length ?? 0)}
-          </strong>
-          <span>Urgent items awaiting review</span>
-        </div>
-        <div>
-          <Clock size={20} />
-          <strong>
-            {board?.notes.filter((n) => n.status === "draft").length ?? 0}
-          </strong>
-          <span>Draft notes · latest 100</span>
-        </div>
-        <div>
-          <FileText size={20} />
-          <strong>
-            {board?.incidents.filter(
-              (i) =>
-                i.code === "RISK_CONTENT_REMOVED" ||
-                i.code === "CONTRADICTORY_NEGATIVE",
-            ).length ?? 0}
-          </strong>
-          <span>Edits needing evidence review</span>
-        </div>
+      <div className="board-metrics" aria-label="Shifts by seriousness">
+        {(
+          [
+            { value: "P4", label: "P4", description: "Critical" },
+            {
+              value: "P2-3",
+              label: "P2–3",
+              description: "Internal review / urgent",
+            },
+            { value: "P0-1", label: "P0–1", description: "Routine / monitor" },
+          ] as const
+        ).map((group) => (
+          <button
+            key={group.value}
+            type="button"
+            data-priority={group.value}
+            aria-pressed={seriousness === group.value}
+            disabled={!board}
+            onClick={() => {
+              setSeriousness(seriousness === group.value ? "all" : group.value);
+            }}
+          >
+            <span className="board-metric-label">{group.label}</span>
+            <ArrowUpRight size={20} aria-hidden="true" />
+            <strong>
+              {board
+                ? shiftRisks.filter(
+                    (risk) =>
+                      datedNoteIds.has(risk.noteId) &&
+                      matchesShiftRisk(risk, riskType, group.value),
+                  ).length
+                : "—"}
+            </strong>
+            <span>{group.description}</span>
+          </button>
+        ))}
       </div>
+      <p className="section-help">
+        Shifts grouped by their current overall seriousness
+        {fromDate || toDate || riskType !== "all"
+          ? " for the selected risk and dates"
+          : ""}
+        .{" "}
+        {board
+          ? `${shiftRisks.filter((risk) => datedNoteIds.has(risk.noteId) && matchesShiftRisk(risk, riskType, "unassessed")).length} not assessed.`
+          : "Loading risk checks…"}
+      </p>
       <div className="info-banner">
         <p>
           {board?.delivery ?? "In-app demo inbox only."} Captured time, inbox
@@ -151,50 +205,127 @@ export default function ManagementBoard({
           {error}
         </p>
       )}
+      <section className="board-shifts" aria-labelledby="board-shifts-heading">
+        <div className="board-toolbar">
+          <h3 id="board-shifts-heading">All shifts</h3>
+          <ShiftRiskFilters
+            riskType={riskType}
+            seriousness={seriousness}
+            onRiskTypeChange={setRiskType}
+            onSeriousnessChange={setSeriousness}
+            onReset={resetFilters}
+            fromDate={fromDate}
+            toDate={toDate}
+            onFromDateChange={setFromDate}
+            onToDateChange={setToDate}
+            disabled={!board}
+          />
+        </div>
+        <p className="section-help" role="status">
+          {board
+            ? `${visibleNotes.length} of ${board.notes.length} shifts shown`
+            : "Loading shifts…"}
+          . Dates use the shift start, or scheduled start when not recorded.
+        </p>
+        {board && !visibleNotes.length && (
+          <p className="board-empty">
+            {board.notes.length
+              ? "No shifts match these filters. Change or clear the filters to see more shifts."
+              : "No shift notes have been started yet."}
+          </p>
+        )}
+        {!!visibleNotes.length && (
+          <div className="board-shift-list">
+            {visibleNotes.map((note) => {
+              const risk = riskByNote.get(note.id);
+              return (
+                <button
+                  type="button"
+                  className="board-shift-row"
+                  key={note.id}
+                  disabled={busy}
+                  onClick={() => void showAudit(note.id)}
+                >
+                  <div className="board-shift-priority">
+                    <ShiftRiskStatus risk={risk} />
+                    <small>
+                      {note.status === "complete"
+                        ? "Worker confirmed"
+                        : "Worker draft"}
+                    </small>
+                  </div>
+                  <div className="board-shift-subject">
+                    <strong>
+                      {note.fields.participant || "Unnamed participant"}
+                    </strong>
+                    <span>
+                      {risk?.riskTypes.length
+                        ? risk.riskTypes
+                            .map((type) => riskTypeLabels[type])
+                            .join(" · ")
+                        : risk?.level === "P0"
+                          ? "No risk detected"
+                          : "Risk check unfinished"}
+                    </span>
+                    {risk?.summary && <p>{risk.summary}</p>}
+                  </div>
+                  <div className="board-shift-context">
+                    <span>{note.workerName || "Shift worker"}</span>
+                    <small>
+                      {note.fields.shiftStart
+                        ? displayShiftTime(note.fields.shiftStart)
+                        : note.expectedStart
+                          ? `Scheduled ${displayShiftTime(note.expectedStart)}`
+                          : "Shift time not recorded"}
+                    </small>
+                    <small>View note & evidence</small>
+                  </div>
+                  <ArrowUpRight size={18} aria-hidden="true" />
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
       <FindingReview
         findings={board?.findings ?? []}
+        riskType={riskType}
+        noteIds={visibleNoteIds}
         loading={!board}
         onRefresh={load}
         onAudit={(id) => void showAudit(id)}
         providerId={providerId}
       />
-      {!!board?.assessments?.some(
-        (item) => item.schemaVersion === 1 && item.result?.concerns?.length,
-      ) && (
+      {!!legacyAssessments.length && (
         <details className="reporting-guidance">
           <summary>Earlier AI assessments · retained evidence</summary>
           <p>
             These findings came from the earlier assessment workflow. Their
             original results and conversation remain in the audit.
           </p>
-          {board.assessments
-            .filter(
-              (item) =>
-                item.schemaVersion === 1 && item.result?.concerns?.length,
-            )
-            .map((item) => (
-              <article className="incident-card" key={item.id}>
-                <h4>
-                  {item.participant} · note version {item.sourceRevision}
-                </h4>
-                <p>{item.result?.summary}</p>
-                {item.result?.concerns.map((concern) => (
-                  <p key={concern.id}>
-                    <strong>
-                      {concern.priority} · {concern.title}
-                    </strong>
-                    <br />
-                    {concern.whatHappened}
-                  </p>
-                ))}
-                <Button
-                  variant="outline"
-                  onClick={() => void showAudit(item.noteId)}
-                >
-                  Original assessment & evidence
-                </Button>
-              </article>
-            ))}
+          {legacyAssessments.map((item) => (
+            <article className="incident-card" key={item.id}>
+              <h4>
+                {item.participant} · note version {item.sourceRevision}
+              </h4>
+              <p>{item.result?.summary}</p>
+              {item.result?.concerns.map((concern) => (
+                <p key={concern.id}>
+                  <strong>
+                    {concern.priority} · {concern.title}
+                  </strong>
+                  <br />
+                  {concern.whatHappened}
+                </p>
+              ))}
+              <Button
+                variant="outline"
+                onClick={() => void showAudit(item.noteId)}
+              >
+                Original assessment & evidence
+              </Button>
+            </article>
+          ))}
         </details>
       )}
       <div className="board-toolbar">
@@ -289,73 +420,6 @@ export default function ManagementBoard({
             </article>
           );
         })}
-      </div>
-      <details className="reporting-guidance">
-        <summary>Reporting guidance and unresolved facts</summary>
-        <p>{board?.reportingGuidance}</p>
-        <p>
-          Plan inclusion, limits and state authorisation are separate checks. A
-          monthly return does not replace incident reporting. No Commission
-          report is submitted by this demo.
-        </p>
-        <a
-          href="https://www.ndiscommission.gov.au/rules-and-standards/reportable-incidents-and-incident-management/reportable-incidents"
-          target="_blank"
-          rel="noreferrer"
-        >
-          NDIS Commission reporting guidance
-        </a>
-      </details>
-      <div className="board-toolbar">
-        <h3>Monthly restrictive-practice returns</h3>
-        <label>
-          Reporting month
-          <Input
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-          />
-        </label>
-      </div>
-      <p className="section-help">
-        Prepare monthly reports within five business days after month end;
-        short-term approvals may require fortnightly reporting. No use recorded
-        here is a prompt to verify a nil return, not proof that no use occurred.
-      </p>
-      <div className="monthly-grid">
-        {board?.monthly.map((item) => (
-          <article key={item.participantId + item.item}>
-            <h4>
-              {item.participant} · {item.item}
-            </h4>
-            <p>{item.description}</p>
-            <strong>
-              {item.recordedUses} recorded shift{" "}
-              {item.recordedUses === 1 ? "entry" : "entries"}
-            </strong>
-            <p>
-              {item.recordedUses
-                ? "Include actual uses in the monthly return; check any separate incident obligations."
-                : "No use recorded here — verify whether a nil return is appropriate."}
-            </p>
-          </article>
-        ))}
-      </div>
-      <div className="board-toolbar">
-        <h3>Record evidence</h3>
-        <Select value="" onValueChange={(id) => void showAudit(id)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Choose a note to inspect" />
-          </SelectTrigger>
-          <SelectContent>
-            {board?.notes.map((note) => (
-              <SelectItem key={note.id} value={note.id}>
-                {note.fields.participant || "Unnamed draft"} ·{" "}
-                {note.fields.shiftStart || "Time not added"} · {note.status}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
       <Dialog
         open={Boolean(selected)}

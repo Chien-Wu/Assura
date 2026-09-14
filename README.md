@@ -1,4 +1,6 @@
-# LegalMate
+# Assura
+
+Assura uses the supplied shield-and-profile logo across the app and browser icon. The package name is `assura`; the hosted site is [Assura](https://assura.tw-chien572.chatgpt.site). Existing runtime identifiers remain compatible as described in [authentication setup](docs/guides/authentication.md#assura-naming-compatibility) and [VM deployment](docs/guides/deployment.md#runtime-and-access).
 
 Support workers record a shift, review the saved account and AI risk check, then explicitly confirm it. Managers schedule shifts and review their provider's notes and findings.
 

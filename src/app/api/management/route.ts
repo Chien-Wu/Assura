@@ -21,6 +21,7 @@ import type {
 import { readManagerFindings } from "@/lib/assessment/finding-review-server";
 import { managerNoteAccess } from "@/lib/roster/access";
 import { providerRisksQuery, providerActionsQuery } from "@/lib/roster/access";
+import { summarizeShiftRisk } from "@/lib/assessment/shift-risk";
 export async function GET(request: Request) {
   try {
     const user = await identity(request);
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
     if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month))
       throw new RequestError("Choose a valid reporting month.");
     const [notes, risks, actions, uses, participants] = await Promise.all([
-      listProviderNotes(manager.providerId),
+      listProviderNotes(manager.providerId, { all: true }),
       database().prepare(providerRisksQuery).bind(manager.providerId).all<{
         id: string;
         note_id: string;
@@ -117,29 +118,33 @@ export async function GET(request: Request) {
         source_revision: number;
         lease_until: string | null;
       }>();
+    const findings = await readManagerFindings(manager.providerId, user.userId);
+    const assessmentRecords = assessments.results.map((row) => ({
+      id: row.id,
+      noteId: row.note_id,
+      schemaVersion: row.schema_version,
+      sourceRevision: row.source_revision,
+      participant: row.participant,
+      status:
+        row.revision !== row.source_revision
+          ? "stale"
+          : row.status === "running" &&
+              (!row.lease_until || row.lease_until <= new Date().toISOString())
+            ? "failed"
+            : row.status,
+      updatedAt: row.updated_at,
+      result: row.result_json
+        ? (JSON.parse(row.result_json) as AssessmentOutput)
+        : null,
+    }));
     return json({
       notes,
       incidents,
-      findings: await readManagerFindings(manager.providerId, user.userId),
-      assessments: assessments.results.map((row) => ({
-        id: row.id,
-        noteId: row.note_id,
-        schemaVersion: row.schema_version,
-        sourceRevision: row.source_revision,
-        participant: row.participant,
-        status:
-          row.revision !== row.source_revision
-            ? "stale"
-            : row.status === "running" &&
-                (!row.lease_until ||
-                  row.lease_until <= new Date().toISOString())
-              ? "failed"
-              : row.status,
-        updatedAt: row.updated_at,
-        result: row.result_json
-          ? (JSON.parse(row.result_json) as AssessmentOutput)
-          : null,
-      })),
+      findings,
+      assessments: assessmentRecords,
+      shiftRisks: notes.map((note) =>
+        summarizeShiftRisk(note, assessmentRecords, findings),
+      ),
       monthly,
       month,
       provider: { id: manager.providerId, name: manager.providerName },

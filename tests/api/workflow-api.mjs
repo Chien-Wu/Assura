@@ -8,7 +8,7 @@ import {
   workflowFormDefinitions,
 } from "../../src/lib/workflow/case.ts";
 
-const directory = await mkdtemp(join(tmpdir(), "legalmate-workflow-test-"));
+const directory = await mkdtemp(join(tmpdir(), "assura-workflow-test-"));
 let h,
   checks = 0;
 const expect = async (promise, status = 200) => {

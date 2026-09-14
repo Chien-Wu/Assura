@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
+import { readAssuraSetting } from "./environment";
 
 export function contactUrl(): string | null {
-  const value = env.LEGALMATE_CONTACT_URL ?? process.env.LEGALMATE_CONTACT_URL;
+  const value = readAssuraSetting("CONTACT_URL", env, process.env);
   if (!value) return null;
   try {
     const url = new URL(value);

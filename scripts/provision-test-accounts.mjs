@@ -8,7 +8,7 @@ import {
 } from "../src/lib/auth/test-accounts.ts";
 
 // No password is read, printed, hashed or stored by this operator-only script.
-// The login password belongs solely in LEGALMATE_TEST_PASSWORD server secrets.
+// The login password belongs solely in ASSURA_TEST_PASSWORD server secrets.
 export function testAccountStatements(now = new Date().toISOString()) {
   const timestamp = Date.parse(now);
   if (!Number.isFinite(timestamp))
@@ -93,7 +93,7 @@ if (
   }
   if (args[0] === "--help") {
     console.log(
-      "Usage: node --experimental-strip-types scripts/provision-test-accounts.mjs [--sql]\nPrints test-only provisioning statements. Apply them to the intended database after migrations. Set LEGALMATE_TEST_PASSWORD separately in server secrets. Never use real participant data in TestProvider.",
+      "Usage: node --experimental-strip-types scripts/provision-test-accounts.mjs [--sql]\nPrints test-only provisioning statements. Apply them to the intended database after migrations. Set ASSURA_TEST_PASSWORD separately in server secrets. Never use real participant data in TestProvider.",
     );
   } else if (args[0] === "--sql") {
     console.log(testAccountStatements().map(boundSql).join("\n"));

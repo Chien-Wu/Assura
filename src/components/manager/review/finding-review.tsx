@@ -15,6 +15,7 @@ import {
   type RiskLevel,
   type RiskType,
 } from "@/lib/assessment/result";
+import type { RiskTypeFilter } from "@/lib/assessment/shift-risk";
 import { ArrowUpRight, CheckCheck, ShieldCheck } from "lucide-react";
 import { useRef, useState } from "react";
 import styles from "./finding-review.module.css";
@@ -73,18 +74,27 @@ export default function FindingReview({
   onRefresh,
   onAudit,
   providerId,
+  riskType = "all",
+  noteIds,
 }: {
   findings: RiskFinding[];
   loading: boolean;
   onRefresh: () => Promise<void>;
   onAudit: (id: string) => void;
   providerId?: string;
+  riskType?: RiskTypeFilter;
+  noteIds?: Set<string>;
 }) {
   const [filter, setFilter] = useState("pending");
   const [selected, setSelected] = useState<RiskFinding | null>(null);
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
-  const visible = findings.filter(
+  const matching = findings.filter(
+    (finding) =>
+      (!noteIds || noteIds.has(finding.noteId)) &&
+      (riskType === "all" || finding.type === riskType),
+  );
+  const visible = matching.filter(
     (finding) =>
       filter === "all" ||
       (filter === "closed"
@@ -93,7 +103,7 @@ export default function FindingReview({
           (filter !== "urgent" ||
             (finding.managerLevel ?? finding.aiLevel) >= "P3")),
   );
-  const pending = findings.filter(
+  const pending = matching.filter(
     (finding) => finding.reviewStatus !== "closed",
   ).length;
   return (
@@ -105,8 +115,8 @@ export default function FindingReview({
             Needs your attention <span>{pending}</span>
           </h3>
           <p>
-            Read the evidence, record your decision, and keep the team’s review
-            history together.
+            Findings from the shifts shown above. Read the evidence and record
+            your decision.
           </p>
         </div>
         <label className={styles.filter}>

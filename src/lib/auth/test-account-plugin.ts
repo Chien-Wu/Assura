@@ -21,7 +21,7 @@ export function testAccountPlugin(
   initializeDemo?: () => Promise<void>,
 ): BetterAuthPlugin {
   return {
-    id: "legalmate-test-accounts",
+    id: "assura-test-accounts",
     endpoints: {
       signInTestAccount: createAuthEndpoint(
         "/sign-in/test-account",
@@ -57,7 +57,7 @@ export function testAccountPlugin(
           ) {
             throw new APIError("SERVICE_UNAVAILABLE", {
               message:
-                "Test accounts are not ready. Please contact the LegalMate team.",
+                "Test accounts are not ready. Please contact the Assura team.",
             });
           }
           const session = await ctx.context.internalAdapter.createSession(

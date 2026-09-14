@@ -17,14 +17,13 @@ test("auth configuration fails closed without a strong secret and an explicit sa
     false,
   );
   for (const origin of [
-    "http://legalmate.example",
-    "https://user:pass@legalmate.test",
-    "https://legalmate.test/path",
-    "https://legalmate.test?x=1",
+    "http://assura.example",
+    "https://user:pass@assura.test",
+    "https://assura.test/path",
+    "https://assura.test?x=1",
   ]) {
     assert.equal(
-      readAuthConfiguration({ ...input, LEGALMATE_PUBLIC_ORIGIN: origin })
-        .email,
+      readAuthConfiguration({ ...input, ASSURA_PUBLIC_ORIGIN: origin }).email,
       false,
     );
   }
@@ -32,7 +31,7 @@ test("auth configuration fails closed without a strong secret and an explicit sa
   assert.equal(
     readAuthConfiguration({
       ...input,
-      LEGALMATE_PUBLIC_ORIGIN: "http://localhost:5173",
+      ASSURA_PUBLIC_ORIGIN: "http://localhost:5173",
     }).email,
     true,
   );
@@ -44,6 +43,42 @@ test("unused authentication methods are not exposed", () => {
   assert.equal(allowedAuthRoutes.has("POST /sign-up/email"), false);
   assert.equal(allowedAuthRoutes.has("POST /email-otp/reset-password"), false);
   assert.equal(allowedAuthRoutes.has("POST /link-social"), false);
+});
+
+test("legacy auth settings remain valid and explicit Assura settings take precedence", () => {
+  const legacy = {
+    BETTER_AUTH_SECRET: input.BETTER_AUTH_SECRET,
+    RESEND_API_KEY: input.RESEND_API_KEY,
+    LEGALMATE_PUBLIC_ORIGIN: input.ASSURA_PUBLIC_ORIGIN,
+    LEGALMATE_EMAIL_FROM: input.ASSURA_EMAIL_FROM,
+    LEGALMATE_TEST_PASSWORD: "synthetic-existing-password",
+  };
+  assert.deepEqual(
+    readAuthConfiguration(legacy),
+    readAuthConfiguration({
+      ...input,
+      ASSURA_TEST_PASSWORD: legacy.LEGALMATE_TEST_PASSWORD,
+    }),
+  );
+  assert.equal(
+    readAuthConfiguration({ ...legacy, ASSURA_TEST_PASSWORD: "" }).testAccounts,
+    false,
+  );
+  assert.equal(
+    readAuthConfiguration({ ...legacy, ASSURA_EMAIL_FROM: "" }).email,
+    false,
+  );
+  assert.equal(
+    readAuthConfiguration({ ...legacy, ASSURA_PUBLIC_ORIGIN: "" }).origin,
+    null,
+  );
+  assert.equal(
+    readAuthConfiguration({
+      ...legacy,
+      ASSURA_PUBLIC_ORIGIN: "https://assura.example",
+    }).origin,
+    "https://assura.example",
+  );
 });
 
 test("email OTP creates a verified identity, stores a hash, rejects replay and revokes session at sign-out", async () => {
@@ -68,6 +103,9 @@ test("email OTP creates a verified identity, stores a hash, rejects replay and r
     assert.equal(payload.user.emailVerified, true);
     assert.match(payload.user.id, /^auth_/);
     const cookie = sessionCookie(signedIn);
+    // Existing signed cookie names continue working after the display rebrand.
+    assert.match(cookie, /(?:^|; )__Secure-legalmate\.session_token=/);
+    assert.equal(f.auth.options.appName, "Assura");
     assert.match(signedIn.headers.get("set-cookie"), /HttpOnly/i);
     assert.match(signedIn.headers.get("set-cookie"), /Secure/i);
     assert.match(signedIn.headers.get("set-cookie"), /SameSite=Lax/i);
@@ -169,7 +207,7 @@ test("send-code rate limits persist in the database and reject cross-origin requ
     );
     const response = await f.auth.handler(
       new Request(
-        `${input.LEGALMATE_PUBLIC_ORIGIN}/api/auth/email-otp/send-verification-otp`,
+        `${input.ASSURA_PUBLIC_ORIGIN}/api/auth/email-otp/send-verification-otp`,
         {
           method: "POST",
           headers: {
@@ -479,7 +517,7 @@ test("test sign-in requires an active TestProvider scope and enforces rate limit
     );
     const crossOrigin = await f.auth.handler(
       new Request(
-        `${input.LEGALMATE_PUBLIC_ORIGIN}/api/auth/sign-in/test-account`,
+        `${input.ASSURA_PUBLIC_ORIGIN}/api/auth/sign-in/test-account`,
         {
           method: "POST",
           headers: {

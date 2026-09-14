@@ -19,15 +19,15 @@ const body = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "LegalMate — better note, less burden",
+  title: "Assura — better note, less burden",
   description:
     "Complete your shift note, review the details, and keep your handover in one place.",
   other: {
     "codex-preview": "development",
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/assura-logo.svg",
+    shortcut: "/assura-logo.svg",
   },
 };
 

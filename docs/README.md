@@ -18,4 +18,4 @@ Start with the [architecture](architecture.md). Current setup instructions are i
 
 ## Supplied material and history
 
-The supplied form reference remains in `sources/`. Superseded product briefs, implementation diaries and the original form submission are available in [Git history](https://github.com/Chien-Wu/legalMate/tree/4af05a27f4d9e3100f037470f02cef3060e47ec6/docs/sources). Earlier RAG, interview, webhook and transfer studies remain available at `c5c5021`. Use the current guides above for setup.
+The supplied form reference remains in `sources/`. Superseded product briefs, implementation diaries and the original form submission are available in [Git history](https://github.com/Chien-Wu/assura/tree/4af05a27f4d9e3100f037470f02cef3060e47ec6/docs/sources). Earlier RAG, interview, webhook and transfer studies remain available at `c5c5021`. Use the current guides above for setup.

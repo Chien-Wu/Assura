@@ -35,8 +35,8 @@ export async function startHarness({
     compatibilityFlags: ["nodejs_compat"],
     bindings: {
       ...testAuthEnvironment,
-      ...(testPassword ? { LEGALMATE_TEST_PASSWORD: testPassword } : {}),
-      LEGALMATE_WORKFLOW_ENABLED: String(enabled),
+      ...(testPassword ? { ASSURA_TEST_PASSWORD: testPassword } : {}),
+      ASSURA_WORKFLOW_ENABLED: String(enabled),
       ELEVENLABS_API_KEY: provider?.key ?? "synthetic-key",
       ELEVENLABS_WORKFLOW_AGENT_ID: provider?.agentId ?? "synthetic-workflow",
       ELEVENLABS_WORKFLOW_VERSION_ID:
@@ -87,7 +87,7 @@ export async function startHarness({
   const db = await mf.getD1Database("DB");
   if (initialize) await applyMigrations(db);
   const fixtures = [];
-  const origin = testAuthEnvironment.LEGALMATE_PUBLIC_ORIGIN;
+  const origin = testAuthEnvironment.ASSURA_PUBLIC_ORIGIN;
   async function insert(table, row) {
     const keys = Object.keys(row);
     await db

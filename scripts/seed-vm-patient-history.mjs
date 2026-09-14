@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { importHistory, readHistory } from "./seed-patient-history.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const persistence = "/var/lib/legalmate/state/v3/d1";
 const args = process.argv.slice(2);
 assert.ok(
   args.length <= 1 &&
@@ -18,7 +17,7 @@ const mode = args[0] ?? "--check";
 const dataset = await readHistory();
 if (mode === "--help") {
   console.log(
-    "Usage: node --experimental-strip-types scripts/seed-vm-patient-history.mjs [--check|--import|--verify]\n--check (default): validate the fixed synthetic fixture only; no database access.\n--import: insert or verify exactly this fixture in the existing VM D1 database.\n--verify: verify the exact existing fixture without allowing inserts.\nVM operations require Linux, an unprivileged user, stopped legalmate.service, existing persistence, active-release DB identity, migrations 0006/0007 and existing verified TestProvider worker/manager accounts. Use the deployment maintenance window and an existing stopped-service backup. No auth, schema, unrelated records or runtime environment are modified.",
+    "Usage: node --experimental-strip-types scripts/seed-vm-patient-history.mjs [--check|--import|--verify]\n--check (default): validate the fixed synthetic fixture only; no database access.\n--import: insert or verify exactly this fixture in the existing VM D1 database.\n--verify: verify the exact existing fixture without allowing inserts.\nVM operations require Linux, an unprivileged user, a stopped Assura application service, existing persistence, active-release DB identity, migrations 0006/0007 and existing verified TestProvider worker/manager accounts. Use the deployment maintenance window and an existing stopped-service backup. No auth, schema, unrelated records or runtime environment are modified.",
   );
 } else if (mode === "--check") {
   console.log(
@@ -44,35 +43,74 @@ if (mode === "--help") {
   );
   assert.ok(
     process.getuid() > 0,
-    "Run as the unprivileged legalmate service account, not root.",
+    "Run as the unprivileged application service account, not root.",
   );
+  // The fixed deployment layouts preserve existing persistence after rebranding;
+  // callers cannot redirect this operator tool to an arbitrary database.
+  const releaseRoot = await realpath(root);
+  const deployment = ["assura", "legalmate"].find((name) =>
+    releaseRoot.startsWith(`/opt/${name}/releases/`),
+  );
+  assert.ok(deployment, "Run this script from a deployed Assura release.");
+  const deploymentRoot = `/opt/${deployment}`;
+  const persistence = `/var/lib/${deployment}/state/v3/d1`;
   const username = execFileSync("/usr/bin/id", ["-un"], {
     encoding: "utf8",
     timeout: 5000,
   }).trim();
-  assert.equal(
-    username,
-    "legalmate",
-    "Only the legalmate service account may open VM persistence.",
+  assert.ok(
+    ["assura", "legalmate"].includes(username),
+    "Only an Assura application service account may open VM persistence.",
   );
-  const serviceState = execFileSync(
-    "/usr/bin/systemctl",
-    ["show", "legalmate.service", "--property=ActiveState", "--value"],
-    { encoding: "utf8", timeout: 5000 },
-  ).trim();
-  assert.equal(
-    serviceState,
-    "inactive",
-    "Stop legalmate.service inside the maintenance window before opening persistent D1.",
+  let matchingServices = 0;
+  for (const service of ["assura.service", "legalmate.service"]) {
+    const serviceQuery = spawnSync(
+      "/usr/bin/systemctl",
+      [
+        "show",
+        service,
+        "--property=LoadState,ActiveState,User,WorkingDirectory",
+      ],
+      { encoding: "utf8", timeout: 5000 },
+    );
+    assert.ifError(serviceQuery.error);
+    const properties = Object.fromEntries(
+      serviceQuery.stdout
+        .trim()
+        .split("\n")
+        .map((line) => {
+          const separator = line.indexOf("=");
+          return [line.slice(0, separator), line.slice(separator + 1)];
+        }),
+    );
+    if (properties.LoadState === "not-found") continue;
+    assert.equal(serviceQuery.status, 0, `Could not inspect ${service}.`);
+    if (
+      properties.LoadState !== "loaded" ||
+      properties.WorkingDirectory !== `${deploymentRoot}/current`
+    ) {
+      continue;
+    }
+    matchingServices += 1;
+    assert.equal(
+      properties.User,
+      username,
+      `Run as the service account configured for ${service}.`,
+    );
+    assert.equal(
+      properties.ActiveState,
+      "inactive",
+      `Stop ${service} inside the maintenance window before opening persistent D1.`,
+    );
+  }
+  assert.ok(
+    matchingServices > 0,
+    "No application service matches this deployment; no database was opened.",
   );
   assert.equal(
     (await stat(persistence)).isDirectory(),
     true,
     "Existing VM D1 persistence is required; no directory is provisioned.",
-  );
-  assert.ok(
-    (await realpath(root)).startsWith("/opt/legalmate/releases/"),
-    "Run this script from a deployed LegalMate release.",
   );
   async function databaseIdentity(release) {
     const config = JSON.parse(
@@ -96,7 +134,7 @@ if (mode === "--help") {
   const databaseId = await databaseIdentity(root);
   assert.equal(
     databaseId,
-    await databaseIdentity("/opt/legalmate/current"),
+    await databaseIdentity(`${deploymentRoot}/current`),
     "Candidate DB identity differs from the active release; no database was opened.",
   );
   const { Miniflare } = await import("miniflare");

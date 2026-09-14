@@ -1,8 +1,12 @@
 # VM deployment
 
-The VM runs a separate LegalMate instance from the Sites deployment. It uses the built Worker through Wrangler/Miniflare, local persistent D1, and an HTTPS Nginx proxy. Google sign-in and the limited Email/password test-account flow are handled by the application. Email-code sign-in is deferred in the current release. The VM is still an MVP deployment with a single local database.
+The VM runs a separate Assura instance from the Sites deployment. It uses the built Worker through Wrangler/Miniflare, local persistent D1, and an HTTPS Nginx proxy. Google sign-in and the limited Email/password test-account flow are handled by the application. Email-code sign-in is deferred in the current release. The VM is still an MVP deployment with a single local database.
 
 ## Runtime and access
+
+Fresh installations use the `assura` Linux account, `assura.service`, `assura-deploy.timer`, and `assura-cert-renew.timer`, with `/opt/assura`, `/etc/assura`, `/var/lib/assura`, and `/usr/local/lib/assura` paths. Install the Assura-named units from `deploy/vm` only after preparing that account and those directories. The existing VM continues using the legacy paths and services listed below; a source rebrand does not move its database or replace installed services.
+
+The deployment helper detects the existing layout when `/opt/assura` is absent and `/opt/legalmate` exists. `deploy/vm/deployment.env.example` documents explicit overrides for a staged transition; use the existing deployment lock so old and new timers cannot deploy concurrently. The helper uses `Chien-Wu/assura` when that repository is available and retains the old URL until the owner completes the rename. Stop the old deployment timer before installing or enabling its replacement.
 
 - `/opt/legalmate/runtime/node`: app-specific Node 22; the VM's system Node is unchanged.
 - `/opt/legalmate/releases/<commit>`: source, dependencies and built assets for each release.
@@ -14,16 +18,16 @@ The VM runs a separate LegalMate instance from the Sites deployment. It uses the
 
 The service runs as the unprivileged `legalmate` account on `127.0.0.1:8787`. Only Nginx is exposed externally. Nginx forwards application cookies, supplies the public HTTPS host and protocol, strips the old identity headers, and does not use Basic authentication. The app ignores `oai-authenticated-user-*` headers in every environment. The old development cookie, ChatGPT sign-in endpoints, and VM test passwords do not establish an application session.
 
-Set the shared origin, authentication secret and Google credentials in `/etc/legalmate/runtime.env` before activating this release. Add `LEGALMATE_TEST_PASSWORD` to the same private environment only when enabling the operator-provisioned shared test accounts. No Resend configuration is required:
+Set the shared origin, authentication secret and Google credentials in `/etc/legalmate/runtime.env` before activating this release. Add `ASSURA_TEST_PASSWORD` to the same private environment only when enabling the operator-provisioned shared test accounts. No Resend configuration is required:
 
-| Variable                                       | Purpose                                                                                                                                 |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `LEGALMATE_PUBLIC_ORIGIN`                      | Exact public HTTPS origin, without a path; also used for request-origin validation.                                                     |
-| `BETTER_AUTH_SECRET`                           | Stable random secret with at least 32 characters. Keep the same value across releases.                                                  |
-| `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`  | Google OAuth web application credentials. Register `<LEGALMATE_PUBLIC_ORIGIN>/api/auth/callback/google` as its authorised redirect URI. |
-| `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` | Existing server-side Agent connection configuration.                                                                                    |
-| `OPENAI_API_KEY`                               | Required server-only credential for the silent AI2 risk assessment.                                                                     |
-| `LEGALMATE_AI2_MODEL`                          | Optional model override; defaults to `gpt-5.6-terra`. The selected model must support the Responses API and strict JSON output.         |
+| Variable                                       | Purpose                                                                                                                              |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `ASSURA_PUBLIC_ORIGIN`                         | Exact public HTTPS origin, without a path; also used for request-origin validation.                                                  |
+| `BETTER_AUTH_SECRET`                           | Stable random secret with at least 32 characters. Keep the same value across releases.                                               |
+| `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`  | Google OAuth web application credentials. Register `<ASSURA_PUBLIC_ORIGIN>/api/auth/callback/google` as its authorised redirect URI. |
+| `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` | Existing server-side Agent connection configuration.                                                                                 |
+| `OPENAI_API_KEY`                               | Required server-only credential for the silent AI2 risk assessment.                                                                  |
+| `ASSURA_AI2_MODEL`                             | Optional model override; defaults to `gpt-5.6-terra`. The selected model must support the Responses API and strict JSON output.      |
 
 Use separate localhost Google redirect configuration for local testing. The app reads runtime Worker bindings with a server-side process environment fallback; none of these credentials belong in a browser bundle. Keep secrets out of Git and deployment logs. Do not print the runtime environment file during validation.
 

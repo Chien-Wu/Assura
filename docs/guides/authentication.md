@@ -1,19 +1,19 @@
 # Google and limited test-account sign-in
 
-LegalMate uses Better Auth 1.7.4 with the Drizzle D1 adapter. Personal accounts use Google sign-in. A separate Email/password form accepts only two provisioned shared test accounts for TestProvider; it is not general email/password registration. Email-code sign-in and other social providers remain unavailable in the entry UI. Manager access is assigned through provisioned provider grants, not through a public sign-up field. See [Provider setup](providers.md).
+Assura uses Better Auth 1.7.4 with the Drizzle D1 adapter. Personal accounts use Google sign-in. A separate Email/password form accepts only two provisioned shared test accounts for TestProvider; it is not general email/password registration. Email-code sign-in and other social providers remain unavailable in the entry UI. Manager access is assigned through provisioned provider grants, not through a public sign-up field. See [Provider setup](providers.md).
 
 ## Required server configuration
 
 Set these values in the ignored `web/.env.local` for development and in the hosting environment's secrets for deployment. Keep the same authentication secret across instances serving one environment.
 
-| Variable                  | Purpose                                                                                                                               |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `LEGALMATE_PUBLIC_ORIGIN` | Exact app origin, e.g. `http://localhost:5173` locally or the production HTTPS origin. No path, query, credentials or trailing route. |
-| `BETTER_AUTH_SECRET`      | A cryptographically random secret of at least 32 characters; generate a separate value for each environment.                          |
-| `GOOGLE_CLIENT_ID`        | Google OAuth client ID for a Web application.                                                                                         |
-| `GOOGLE_CLIENT_SECRET`    | Secret belonging to that Google client.                                                                                               |
+| Variable               | Purpose                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `ASSURA_PUBLIC_ORIGIN` | Exact app origin, e.g. `http://localhost:5173` locally or the production HTTPS origin. No path, query, credentials or trailing route. |
+| `BETTER_AUTH_SECRET`   | A cryptographically random secret of at least 32 characters; generate a separate value for each environment.                          |
+| `GOOGLE_CLIENT_ID`     | Google OAuth client ID for a Web application.                                                                                         |
+| `GOOGLE_CLIENT_SECRET` | Secret belonging to that Google client.                                                                                               |
 
-The optional test-account form additionally requires `LEGALMATE_TEST_PASSWORD` in the server environment and the operator-provisioned test identities described below. The shared demo password is intentionally delivered to signed-out visitors to prefill the form. Keep its actual value out of source, documentation and logs.
+The optional test-account form additionally requires `ASSURA_TEST_PASSWORD` in the server environment and the operator-provisioned test identities described below. The shared demo password is intentionally delivered to signed-out visitors to prefill the form. Keep its actual value out of source, documentation and logs.
 
 Authentication also requires the D1 `DB` binding and migrations `0003_auth.sql` and `0004_organisations.sql`, following the existing migrations. These create new tables and preserve existing shift-note evidence. Do not reset the database to add sign-in.
 
@@ -30,7 +30,7 @@ Deployment readiness requires the complete application schema and Google sign-in
 
 Use the real public origin seen by the browser; proxy hosts and a different localhost port are not interchangeable with a registered redirect URI. Restart the development server after changing environment values.
 
-Only Google's fresh verified-email identity is accepted, including on returning sign-ins. Google can link to an existing LegalMate email-code account only when both identities have verified ownership of the same email. Unverified-provider claims are never trusted, and different-email linking is disabled.
+Only Google's fresh verified-email identity is accepted, including on returning sign-ins. Google can link to an existing Assura email-code account only when both identities have verified ownership of the same email. Unverified-provider claims are never trusted, and different-email linking is disabled.
 
 References: [Better Auth Google configuration](https://better-auth.com/docs/authentication/google), [Google web-server OAuth setup](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred).
 
@@ -43,7 +43,7 @@ When test-account sign-in is enabled, choosing a role opens the test-account for
 | `managertest@gmail.com` | `auth_test_manager` / `manager@test.legalmate.invalid` | TestProvider manager; redirects to `/manager`. |
 | `workertest@gmail.com`  | `auth_test_worker` / `worker@test.legalmate.invalid`   | TestProvider worker; redirects to `/worker`.   |
 
-The aliases are labels for shared test accounts, not proof of ownership of those Gmail addresses. The server checks the fixed alias and `LEGALMATE_TEST_PASSWORD`, then issues a signed, database-backed session for the distinct internal identity. A personal Google account using the same Gmail address remains a separate account and does not acquire a password or roles through test login. Any separately provisioned manager grant for that Google identity remains independent.
+The aliases are labels for shared test accounts, not proof of ownership of those Gmail addresses. The server checks the fixed alias and `ASSURA_TEST_PASSWORD`, then issues a signed, database-backed session for the distinct internal identity. A personal Google account using the same Gmail address remains a separate account and does not acquire a password or roles through test login. Any separately provisioned manager grant for that Google identity remains independent.
 
 An operator provisions TestProvider and its two internal identities before enabling access. `node --experimental-strip-types scripts/provision-test-accounts.mjs --sql` prints the idempotent provisioning statements for review; apply them to the intended database after migrations. The script neither reads nor stores the password and does not execute SQL itself. The login form cannot create arbitrary accounts, providers, or manager grants. The test worker and manager share TestProvider records for testing, while the normal worker and provider access checks still apply. Use fictional records only: people using the same shared test account share its identity and saved records.
 
@@ -51,7 +51,7 @@ The server reads the configured password at runtime and sends it to the signed-o
 
 ## Deferred email sign-in
 
-Email-code sign-in remains deferred. The retained OTP backend and captured-email test fixtures are separate from the fixed Email/password test accounts; this release does not configure Resend or offer email-code sign-in. Restoring OTP would require both a UI change and the `RESEND_API_KEY` / `LEGALMATE_EMAIL_FROM` server configuration.
+Email-code sign-in remains deferred. The retained OTP backend and captured-email test fixtures are separate from the fixed Email/password test accounts; this release does not configure Resend or offer email-code sign-in. Restoring OTP would require both a UI change and the `RESEND_API_KEY` / `ASSURA_EMAIL_FROM` server configuration.
 
 The retained backend hashes codes and verification identifiers, expires codes after five minutes, limits incorrect attempts, rejects replay, and rate-limits requests. Isolated tests capture messages in memory and never send real email. See [Better Auth email OTP](https://better-auth.com/docs/plugins/email-otp) for the underlying implementation.
 
@@ -73,3 +73,9 @@ npm run test:api
 ```
 
 These start temporary Workers with isolated D1 databases and signed synthetic sessions from `tests/support/auth-fixture.mjs`. They test the built route handlers, block external provider calls and dispose each runtime afterwards. They do not read `.env.local`, a live cookie file or the development database. Run `npm run test:onboarding` for the authentication and provider HTTP suite alone.
+
+## Assura naming compatibility
+
+New configuration uses `ASSURA_*` setting names. Existing `LEGALMATE_*` values remain supported so deployed environments keep working. A canonical setting takes precedence across Worker bindings and process environment; an explicitly empty canonical value disables that setting instead of falling back to an older secret. Rename keys without changing their values, and keep `BETTER_AUTH_SECRET` stable.
+
+The existing `legalmate` cookie prefix and `@test.legalmate.invalid` internal identities remain stable compatibility identifiers. They are not display branding. Changing them would sign users out or disconnect provisioned test identities from their records. The recorder and workflow source prompts now use Assura; existing recorded transcripts remain original evidence.

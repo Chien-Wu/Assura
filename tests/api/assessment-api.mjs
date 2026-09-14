@@ -27,7 +27,7 @@ const modules = [
   "index.js",
   ...files.filter((name) => name.endsWith(".js") && name !== "index.js"),
 ].map((name) => ({ type: "ESModule", path: `${root}${name}` }));
-const origin = testAuthEnvironment.LEGALMATE_PUBLIC_ORIGIN;
+const origin = testAuthEnvironment.ASSURA_PUBLIC_ORIGIN;
 const password = randomUUID() + randomUUID();
 let calls = 0;
 let checks = 0;
@@ -41,7 +41,7 @@ const mf = new Miniflare({
   compatibilityFlags: ["nodejs_compat"],
   bindings: {
     ...testAuthEnvironment,
-    LEGALMATE_TEST_PASSWORD: password,
+    ASSURA_TEST_PASSWORD: password,
     OPENAI_API_KEY: "synthetic-never-sent",
     ELEVENLABS_API_KEY: "synthetic-never-sent",
     ELEVENLABS_AGENT_ID: "synthetic-recorder",
@@ -657,7 +657,24 @@ try {
     0,
     "P0 does not clutter the review queue",
   );
-  assert.equal((await inbox()).findings.length, 0);
+  const routineBoard = await inbox();
+  assert.equal(routineBoard.findings.length, 0);
+  assert.deepEqual(
+    routineBoard.shiftRisks.find((item) => item.noteId === plain.id),
+    {
+      noteId: plain.id,
+      level: "P0",
+      riskTypes: [],
+      status: "ready",
+      summary: ready.result.summary,
+    },
+    "A routine shift remains filterable even when there are no findings",
+  );
+  assert.deepEqual(
+    routineBoard.shiftRisks.map((item) => item.noteId).sort(),
+    routineBoard.notes.map((item) => item.id).sort(),
+    "Every returned provider note has a shift risk summary",
+  );
   assert.equal(
     (
       await db
@@ -731,7 +748,18 @@ try {
     0,
     "No competing recorder keyword classifications",
   );
-  let finding = (await inbox()).findings.find(
+  const medicationBoard = await inbox();
+  assert.deepEqual(
+    medicationBoard.shiftRisks.find((item) => item.noteId === medication.id),
+    {
+      noteId: medication.id,
+      level: "P2",
+      riskTypes: ["health_medication"],
+      status: "ready",
+      summary: assessed.result.summary,
+    },
+  );
+  let finding = medicationBoard.findings.find(
     (item) => item.assessmentId === assessed.id,
   );
   assert.ok(finding);
@@ -790,7 +818,10 @@ try {
   await manage(managerBody(), 403, colleague);
   await manage(managerBody(), 403, otherManager, otherProvider);
   await manage(managerBody(), 403, manager, otherProvider);
-  assert.deepEqual((await inbox(otherManager, otherProvider)).findings, []);
+  const otherBoard = await inbox(otherManager, otherProvider);
+  assert.deepEqual(otherBoard.findings, []);
+  assert.deepEqual(otherBoard.notes, []);
+  assert.deepEqual(otherBoard.shiftRisks, []);
   await manage(managerBody({ status: "closed" }), 400);
   await manage(managerBody({ managerLevel: "P1" }), 400);
   await manage(
@@ -825,6 +856,12 @@ try {
   ).finding;
   assert.equal(finding.managerLevel, "P1");
   assert.equal(finding.aiLevel, "P2");
+  assert.equal(
+    (await inbox()).shiftRisks.find((item) => item.noteId === medication.id)
+      .level,
+    "P1",
+    "Shift seriousness follows the current manager priority",
+  );
   await manage(managerBody({ status: "closed" }), 400);
   finding = (
     await manage(
@@ -957,9 +994,16 @@ try {
   const rechecked = (await start(medication)).assessment;
   assert.equal(rechecked.status, "ready");
   assert.deepEqual(rechecked.result.risks, []);
-  finding = (await inbox()).findings.find((item) => item.id === finding.id);
+  const recheckedBoard = await inbox();
+  finding = recheckedBoard.findings.find((item) => item.id === finding.id);
   assert.equal(finding.isCurrent, false);
   assert.equal(finding.reviewStatus, "open");
+  assert.equal(
+    recheckedBoard.shiftRisks.find((item) => item.noteId === medication.id)
+      .level,
+    "P0",
+    "Retained older findings do not classify the current routine assessment",
+  );
   assert.equal(await findingCount(rechecked.id), 0);
   const obsoleteReview = await review(medication, rechecked);
   medication = await edit(medication, {
@@ -988,6 +1032,19 @@ try {
   assert.equal(failed.result, null);
   assert.ok(failed.error && !failed.error.includes("sensitive"));
   assert.equal(await findingCount(failed.id), 0);
+  const unfinishedBoard = await inbox();
+  for (const [note, status] of [
+    [failedNote, "failed"],
+    [medication, "stale"],
+    [incomplete, "unassessed"],
+  ]) {
+    const shiftRisk = unfinishedBoard.shiftRisks.find(
+      (item) => item.noteId === note.id,
+    );
+    assert.equal(shiftRisk.status, status);
+    assert.equal(shiftRisk.level, null, `${status} is never counted as P0`);
+    assert.deepEqual(shiftRisk.riskTypes, []);
+  }
   await review(failedNote, failed, 409);
   modelHandler = () => ({ ...routine(), nextQuestion: "What happened?" });
   failed = (await retry(failedNote, failed)).assessment;

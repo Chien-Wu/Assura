@@ -12,10 +12,10 @@ import {
 
 // This isolated test helper has no network sender and is never imported by the app.
 export const testAuthEnvironment = {
-  LEGALMATE_PUBLIC_ORIGIN: "https://legalmate.test",
+  ASSURA_PUBLIC_ORIGIN: "https://assura.test",
   BETTER_AUTH_SECRET: "a-test-only-auth-secret-with-at-least-32-characters",
   RESEND_API_KEY: "test-only-email-key",
-  LEGALMATE_EMAIL_FROM: "LegalMate <signin@example.test>",
+  ASSURA_EMAIL_FROM: "Assura <signin@example.test>",
 };
 export function createAuthFixture({
   senderFails = false,
@@ -25,9 +25,9 @@ export function createAuthFixture({
 } = {}) {
   const input = {
     ...testAuthEnvironment,
-    ...(origin ? { LEGALMATE_PUBLIC_ORIGIN: origin } : {}),
+    ...(origin ? { ASSURA_PUBLIC_ORIGIN: origin } : {}),
     ...(secret ? { BETTER_AUTH_SECRET: secret } : {}),
-    ...(testPassword ? { LEGALMATE_TEST_PASSWORD: testPassword } : {}),
+    ...(testPassword ? { ASSURA_TEST_PASSWORD: testPassword } : {}),
   };
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(
@@ -66,11 +66,11 @@ export function createAuthFixture({
   );
   async function request(path, body, { cookie, ip = "203.0.113.1" } = {}) {
     return auth.handler(
-      new Request(`${input.LEGALMATE_PUBLIC_ORIGIN}/api/auth${path}`, {
+      new Request(`${input.ASSURA_PUBLIC_ORIGIN}/api/auth${path}`, {
         method: body ? "POST" : "GET",
         headers: {
           "Content-Type": "application/json",
-          Origin: input.LEGALMATE_PUBLIC_ORIGIN,
+          Origin: input.ASSURA_PUBLIC_ORIGIN,
           "cf-connecting-ip": ip,
           ...(cookie ? { Cookie: cookie } : {}),
         },

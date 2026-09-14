@@ -1,6 +1,7 @@
 import { getAppUser } from "@/lib/auth/server";
 import { env } from "cloudflare:workers";
 import { isAllowedRequestOrigin } from "../auth/request-origin";
+import { readAssuraSetting } from "./environment";
 export class RequestError extends Error {
   status: number;
   constructor(message: string, status = 400) {
@@ -26,7 +27,7 @@ export async function identity(request: Request) {
       allowedOrigin = isAllowedRequestOrigin(
         request.url,
         request.headers.get("origin"),
-        env.LEGALMATE_PUBLIC_ORIGIN ?? process.env.LEGALMATE_PUBLIC_ORIGIN,
+        readAssuraSetting("PUBLIC_ORIGIN", env, process.env),
       );
     } catch {
       throw new RequestError(

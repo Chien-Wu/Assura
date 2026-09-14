@@ -1,5 +1,6 @@
 import { database, RequestError } from "@/lib/shared/server";
 import { env } from "cloudflare:workers";
+import { readAssuraSetting } from "../shared/environment";
 import { checkForm, recorderFields } from "../notes/form";
 import { getRow, toNote, type Row } from "../notes/server";
 import { createRiskParticipantBackground } from "./participant-background";
@@ -40,8 +41,7 @@ function assessmentConfig() {
   return {
     apiKey: env.OPENAI_API_KEY || process.env.OPENAI_API_KEY,
     model:
-      env.LEGALMATE_AI2_MODEL ||
-      process.env.LEGALMATE_AI2_MODEL ||
+      readAssuraSetting("AI2_MODEL", env, process.env) ||
       defaultRiskAssessmentModel,
   };
 }

@@ -9,7 +9,7 @@ export function isAllowedRequestOrigin(
     try {
       configured = new URL(publicOrigin);
     } catch {
-      throw new Error("LEGALMATE_PUBLIC_ORIGIN must be an HTTP(S) origin.");
+      throw new Error("ASSURA_PUBLIC_ORIGIN must be an HTTP(S) origin.");
     }
     if (
       publicOrigin !== publicOrigin.trim() ||
@@ -21,7 +21,7 @@ export function isAllowedRequestOrigin(
       configured.search ||
       configured.hash
     ) {
-      throw new Error("LEGALMATE_PUBLIC_ORIGIN must be an HTTP(S) origin.");
+      throw new Error("ASSURA_PUBLIC_ORIGIN must be an HTTP(S) origin.");
     }
     expectedOrigin = configured.origin;
   }

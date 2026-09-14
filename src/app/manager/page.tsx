@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AudioLines } from "lucide-react";
+import BrandLogo from "@/components/layout/brand-logo";
 import { getAppUser } from "@/lib/auth/server";
 import { managedProviders } from "@/lib/roster/organisations-server";
 import { contactUrl } from "@/lib/shared/contact-server";
@@ -35,10 +35,8 @@ async function ManagerContent({
     return (
       <main className="entry-shell">
         <Link className="entry-brand" href="/">
-          <span className="brand-icon">
-            <AudioLines size={23} />
-          </span>
-          LegalMate
+          <BrandLogo />
+          Assura
         </Link>
         <div className="onboarding-heading">
           <h1>Manager access</h1>
@@ -49,8 +47,8 @@ async function ManagerContent({
         </div>
         <div className="onboarding-panel entry-form">
           <p className="entry-caption">
-            Provider access is arranged with the LegalMate team. We’ll set up
-            your organisation and its first manager account.
+            Provider access is arranged with the Assura team. We’ll set up your
+            organisation and its first manager account.
           </p>
           {contact && (
             <a className="entry-primary-link" href={contact}>

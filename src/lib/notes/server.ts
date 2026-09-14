@@ -128,10 +128,15 @@ export async function listNotes(ownerId: string) {
     .all<Row>();
   return result.results.map(toNote);
 }
-export async function listProviderNotes(providerId: string) {
+export async function listProviderNotes(
+  providerId: string,
+  options: { all?: boolean } = {},
+) {
   const result = await database()
     .prepare(
-      noteSelect + " WHERE provider_id=? ORDER BY updated_at DESC LIMIT 100",
+      noteSelect +
+        " WHERE provider_id=? ORDER BY updated_at DESC" +
+        (options.all ? "" : " LIMIT 100"),
     )
     .bind(providerId)
     .all<Row>();

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AudioLines } from "lucide-react";
+import BrandLogo from "@/components/layout/brand-logo";
 import { getAppUser } from "@/lib/auth/server";
 import { getOnboarding } from "@/lib/roster/organisations-server";
 import OnboardingForm from "./profile-form";
@@ -33,10 +33,8 @@ async function OnboardingContent({
   return (
     <main className="entry-shell">
       <Link className="entry-brand" href="/">
-        <span className="brand-icon">
-          <AudioLines size={23} aria-hidden="true" />
-        </span>
-        LegalMate
+        <BrandLogo />
+        Assura
       </Link>
       <div className="onboarding-heading">
         <h1>

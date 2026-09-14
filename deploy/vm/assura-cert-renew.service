@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew Assura HTTPS certificate
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/certbot renew --quiet --config-dir /etc/assura/letsencrypt --work-dir /var/lib/assura/certbot --logs-dir /var/log/assura-certbot --deploy-hook /usr/local/lib/assura/reload-nginx.sh

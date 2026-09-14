@@ -1,4 +1,5 @@
 "use client";
+import BrandLogo from "@/components/layout/brand-logo";
 import {
   workflowFormDefinitions,
   workflowRiskTypes,
@@ -171,7 +172,7 @@ function RiskConversation(props: Parameters<typeof useRiskConversation>[0]) {
           <ArrowLeft size={17} /> Back to shift notes
         </Link>
         <span>
-          <AudioLines size={19} /> LegalMate
+          <BrandLogo /> Assura
         </span>
       </header>
       <main className={styles.main}>
@@ -249,9 +250,7 @@ function RiskConversation(props: Parameters<typeof useRiskConversation>[0]) {
                       : styles.agentMessage
                   }
                 >
-                  <strong>
-                    {message.role === "user" ? "You" : "LegalMate"}
-                  </strong>
+                  <strong>{message.role === "user" ? "You" : "Assura"}</strong>
                   <p>{message.text}</p>
                 </div>
               ))}
@@ -287,7 +286,7 @@ function RiskConversation(props: Parameters<typeof useRiskConversation>[0]) {
                   id="workflow-message"
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
-                  placeholder="Tell LegalMate what happened…"
+                  placeholder="Tell Assura what happened…"
                   disabled={phase !== "connected"}
                   maxLength={12000}
                 />

@@ -27,19 +27,13 @@
   color: var(--foreground);
 }
 .brand-icon {
-  background: linear-gradient(
-    148deg,
-    color-mix(in oklab, var(--primary) 78%, white),
-    var(--primary) 52%,
-    color-mix(in oklab, var(--primary) 72%, black)
-  );
-  color: var(--primary-foreground);
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 4px 12px color-mix(in oklab, var(--primary) 32%, transparent);
+  display: block;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
 }
 .edition {
   border-left: 1px solid var(--border);

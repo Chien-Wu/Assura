@@ -1,4 +1,5 @@
 "use client";
+import BrandLogo from "@/components/layout/brand-logo";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -94,10 +95,8 @@ export default function Workspace(props: Parameters<typeof useWorkspace>[0]) {
     >
       <header className="topbar">
         <div className="brand">
-          <span className="brand-icon">
-            <AudioLines size={24} />
-          </span>
-          LegalMate<span className="edition">WORKER</span>
+          <BrandLogo />
+          Assura<span className="edition">WORKER</span>
         </div>
         <TabsList className="main-tabs">
           <TabsTrigger value="worker">
@@ -351,7 +350,7 @@ export default function Workspace(props: Parameters<typeof useWorkspace>[0]) {
         />
       </main>
       <footer className="site-footer">
-        <span>LegalMate</span>
+        <span>Assura</span>
         <span>Demo workspace · Use fictional participant details</span>
       </footer>
       {reviewNote && (

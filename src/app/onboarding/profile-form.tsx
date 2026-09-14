@@ -82,8 +82,8 @@ export default function OnboardingForm({
           </select>
           {!providers.length && (
             <p className="entry-caption">
-              No providers are available yet. Contact the LegalMate team to
-              arrange access for your organisation.
+              No providers are available yet. Contact the Assura team to arrange
+              access for your organisation.
             </p>
           )}
         </div>

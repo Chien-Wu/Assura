@@ -6,6 +6,7 @@ import {
   RequestError,
 } from "@/lib/shared/server";
 import { env } from "cloudflare:workers";
+import { readAssuraSetting } from "../shared/environment";
 import {
   noCurrentAssessmentSql,
   rejectRecorderDuringAssessment,
@@ -57,7 +58,7 @@ function setting(key: string) {
   );
 }
 export function workflowEnabled() {
-  return setting("LEGALMATE_WORKFLOW_ENABLED") === "true";
+  return readAssuraSetting("WORKFLOW_ENABLED", env, process.env) === "true";
 }
 function requireWorkflowEnabled() {
   if (!workflowEnabled())

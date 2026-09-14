@@ -1,10 +1,16 @@
-"""Bound disk growth within LegalMate-owned deployment directories only."""
+"""Bound disk growth within Assura-owned deployment directories only."""
 from pathlib import Path
+import os
 import shutil
 
-root = Path('/opt/legalmate')
+# Keep the existing deployment layout until its state is migrated explicitly.
+name = 'assura'
+if not os.environ.get('ASSURA_DEPLOY_ROOT') and not Path('/opt/assura').exists() and Path('/opt/legalmate').exists():
+    name = 'legalmate'
+root = Path(os.environ.get('ASSURA_DEPLOY_ROOT', f'/opt/{name}'))
+data_root = Path(os.environ.get('ASSURA_DATA_ROOT', f'/var/lib/{name}'))
 active = (root / 'current').resolve()
-backups = sorted(Path('/var/lib/legalmate/backups').iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+backups = sorted((data_root / 'backups').iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
 protected = {active}
 for backup in backups[:1]:
     previous = backup / 'previous-release'

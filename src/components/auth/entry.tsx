@@ -1,11 +1,11 @@
 "use client";
+import BrandLogo from "@/components/layout/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth/client";
 import { TEST_ACCOUNTS } from "@/lib/auth/test-accounts";
 import {
   ArrowRight,
-  AudioLines,
   Building2,
   ChevronDown,
   Mail,
@@ -57,11 +57,9 @@ export default function Entry({
   }, [retry]);
   return (
     <main className="entry-shell">
-      <Link className="entry-brand" href="/" aria-label="LegalMate home">
-        <span className="brand-icon">
-          <AudioLines size={23} aria-hidden="true" />
-        </span>
-        LegalMate
+      <Link className="entry-brand" href="/" aria-label="Assura home">
+        <BrandLogo />
+        Assura
       </Link>
       <div className="entry-intro">
         <h1>
@@ -160,9 +158,8 @@ export default function Entry({
                         )}
                         {providers?.length === 0 && (
                           <p className="entry-caption">
-                            No service providers are available yet. The
-                            LegalMate team needs to onboard your organisation
-                            first.
+                            No service providers are available yet. The Assura
+                            team needs to onboard your organisation first.
                           </p>
                         )}
                         {providerId && (
@@ -196,14 +193,14 @@ export default function Entry({
                   )}
                   {item === "manager" && (
                     <p className="entry-contact">
-                      New to LegalMate?{" "}
+                      New to Assura?{" "}
                       {contact ? (
                         <a href={contact}>
                           Contact us to arrange provider access.
                         </a>
                       ) : (
                         <span>
-                          Contact the LegalMate team to arrange provider access.
+                          Contact the Assura team to arrange provider access.
                         </span>
                       )}
                     </p>
